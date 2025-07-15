@@ -1,3 +1,4 @@
+<?php include __DIR__ . '/../components/header.php'; ?>
 <div class="auth-container">
     <div class="auth-card">
         <div class="text-center mb-4">
@@ -31,4 +32,5 @@
             </div>
         </form>
     </div>
-</div> 
+</div>
+<?php include __DIR__ . '/../components/footer.php'; ?> 

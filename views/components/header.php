@@ -12,13 +12,13 @@
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
-    <link rel="stylesheet" href="/autocrm/public/css/styles.css">
+    <link rel="stylesheet" href="/css/styles.css">
 </head>
 <body>
 <!-- Navigation -->
 <nav class="navbar navbar-expand-lg landing-nav">
     <div class="container">
-        <a class="navbar-brand fw-bold" href="/landing">
+        <a class="navbar-brand fw-bold" href="/">
             <i class="bi bi-telephone-fill text-primary"></i> AutoDial Pro
         </a>
         <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbarNav" aria-label="Toggle navigation">
@@ -27,16 +27,16 @@
         <div class="collapse navbar-collapse" id="navbarNav">
             <ul class="navbar-nav ms-auto">
                 <li class="nav-item">
-                    <a class="nav-link" href="/landing#features">Features</a>
+                    <a class="nav-link" href="/#features">Features</a>
                 </li>
                 <li class="nav-item">
-                    <a class="nav-link" href="/landing#pricing">Pricing</a>
+                    <a class="nav-link" href="/#pricing">Pricing</a>
                 </li>
                 <li class="nav-item">
-                    <a class="nav-link" href="/landing#testimonials">Testimonials</a>
+                    <a class="nav-link" href="/#testimonials">Testimonials</a>
                 </li>
                 <li class="nav-item">
-                    <a class="nav-link" href="/landing#contact">Contact</a>
+                    <a class="nav-link" href="/#contact">Contact</a>
                 </li>
             </ul>
             <div class="ms-3">
