@@ -1,4 +1,4 @@
-// config/config.php
+
 <?php
 // Application Configuration
 define('DB_HOST', 'localhost');
