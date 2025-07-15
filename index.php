@@ -41,6 +41,12 @@ $router = new Router();
 $database = new Database();
 $db = $database->getConnection();
 
+// Check if database connection failed
+if (!$db) {
+    // Log the error but continue with the application
+    error_log("Warning: Database connection failed, application running in limited mode");
+}
+
 // Middleware for authentication
 $authMiddleware = function($request, $next) {
     // Check if route requires authentication

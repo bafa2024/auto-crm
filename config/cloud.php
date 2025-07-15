@@ -102,11 +102,11 @@ class CloudConfig {
         
         // Default configuration from environment variables
         return [
-            'host' => $_ENV['DB_HOST'] ?? 'localhost',
-            'port' => $_ENV['DB_PORT'] ?? '3306',
-            'database' => $_ENV['DB_NAME'] ?? 'autocrm',
-            'username' => $_ENV['DB_USER'] ?? 'root',
-            'password' => $_ENV['DB_PASS'] ?? ''
+            'host' => $_ENV['DB_HOST'] ?? $_SERVER['DB_HOST'] ?? 'localhost',
+            'port' => $_ENV['DB_PORT'] ?? $_SERVER['DB_PORT'] ?? '3306',
+            'database' => $_ENV['DB_NAME'] ?? $_SERVER['DB_NAME'] ?? 'autocrm',
+            'username' => $_ENV['DB_USER'] ?? $_SERVER['DB_USER'] ?? 'root',
+            'password' => $_ENV['DB_PASS'] ?? $_SERVER['DB_PASS'] ?? ''
         ];
     }
     
