@@ -34,6 +34,13 @@ if (!file_exists($pageFile)) {
     }
 }
 
+// If accessed directly as /public/index.php, always render landing.php
+if (basename($_SERVER['SCRIPT_NAME']) === 'index.php' && $requestUri === '/autocrm/public/index.php') {
+    include __DIR__ . '/pages/landing.php';
+    include __DIR__ . '/components/footer.php';
+    exit;
+}
+
 // For dashboard pages, always include the sidebar and main content
 if (strpos($pagePath, 'dashboard') === 0 && is_file($pageFile)) {
     include $pageFile;
