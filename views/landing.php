@@ -1,3 +1,4 @@
+<?php include __DIR__ . '/components/header.php'; ?>
 <!-- Hero Section -->
 <section class="hero-section">
     <div class="container">
@@ -6,10 +7,10 @@
                 <h1 class="display-4 fw-bold mb-4">Supercharge Your Sales with Intelligent Auto Dialing</h1>
                 <p class="lead mb-4">Increase your team's productivity by 300% with our AI-powered auto dialer. Connect with more prospects, close more deals, and grow your business faster.</p>
                 <div class="d-flex gap-3">
-                    <a class="btn btn-light btn-lg" href="/autocrm/login">
+                    <a class="btn btn-light btn-lg" href="/login">
                         <i class="bi bi-box-arrow-in-right me-2"></i>Login
                     </a>
-                    <a class="btn btn-primary btn-lg" href="/autocrm/signup">
+                    <a class="btn btn-primary btn-lg" href="/signup">
                         <i class="bi bi-rocket-takeoff me-2"></i>Sign Up
                     </a>
                 </div>
@@ -56,3 +57,4 @@
         </div>
     </div>
 </section> 
+<?php include __DIR__ . '/components/footer.php'; ?> 
