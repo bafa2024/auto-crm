@@ -6,12 +6,12 @@
                 <h1 class="display-4 fw-bold mb-4">Supercharge Your Sales with Intelligent Auto Dialing</h1>
                 <p class="lead mb-4">Increase your team's productivity by 300% with our AI-powered auto dialer. Connect with more prospects, close more deals, and grow your business faster.</p>
                 <div class="d-flex gap-3">
-                    <a class="btn btn-light btn-lg" href="/signup">
-                        <i class="bi bi-rocket-takeoff me-2"></i>Start Free Trial
+                    <a class="btn btn-light btn-lg" href="/autocrm/login">
+                        <i class="bi bi-box-arrow-in-right me-2"></i>Login
                     </a>
-                    <button class="btn btn-outline-light btn-lg">
-                        <i class="bi bi-play-circle me-2"></i>Watch Demo
-                    </button>
+                    <a class="btn btn-primary btn-lg" href="/autocrm/signup">
+                        <i class="bi bi-rocket-takeoff me-2"></i>Sign Up
+                    </a>
                 </div>
                 <div class="mt-4">
                     <small class="opacity-75">No credit card required • 14-day free trial • Cancel anytime</small>
