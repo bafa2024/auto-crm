@@ -8,7 +8,7 @@ define('DB_PASS', 'CDExzsawq123@#$');
 
 // Application settings
 define('APP_NAME', 'AutoDial Pro CRM');
-define('APP_URL', 'http://localhost/crm');
+define('APP_URL', 'https://autocrm.regrowup.ca/');
 define('APP_VERSION', '1.0.0');
 
 // Email settings (these should come from database settings)
