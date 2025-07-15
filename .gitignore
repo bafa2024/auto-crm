@@ -31,9 +31,6 @@ backups/
 .DS_Store
 Thumbs.db
 
-# Composer
-composer.lock
-
 # Session files
 sessions/
 
