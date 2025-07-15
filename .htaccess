@@ -1,0 +1,8 @@
+RewriteEngine On
+
+# If the requested file or directory exists in /public, serve it directly
+RewriteCond %{REQUEST_FILENAME} !-f
+RewriteCond %{REQUEST_FILENAME} !-d
+
+# Redirect all other requests to /public/index.php, preserving the path as a query parameter
+RewriteRule ^(.*)$ /public/index.php?path=$1 [L,QSA]
