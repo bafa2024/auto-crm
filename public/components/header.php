@@ -40,8 +40,8 @@
                 </li>
             </ul>
             <div class="ms-3">
-                <a class="btn btn-outline-primary me-2" href="/autocrm/public/login">Login</a>
-                <a class="btn btn-primary" href="/autocrm/public/signup">Start Free Trial</a>
+                <a class="btn btn-outline-primary me-2" href="/autocrm/login">Login</a>
+                <a class="btn btn-primary" href="/autocrm/signup">Start Free Trial</a>
             </div>
         </div>
     </div>
