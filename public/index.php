@@ -21,6 +21,18 @@ if (!preg_match('/^[a-zA-Z0-9\\/_-]*$/', $pagePath)) {
     $pagePath = '404';
 }
 
+// Fast routing for login and signup pages
+if ($pagePath === 'login') {
+    include __DIR__ . '/pages/login.php';
+    include __DIR__ . '/components/footer.php';
+    exit;
+}
+if ($pagePath === 'signup') {
+    include __DIR__ . '/pages/signup.php';
+    include __DIR__ . '/components/footer.php';
+    exit;
+}
+
 // Build the file path (support nested pages)
 $pageFile = __DIR__ . '/pages/' . $pagePath . '.php';
 
