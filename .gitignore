@@ -1,0 +1,45 @@
+# Dependencies
+vendor/
+node_modules/
+
+# Environment files
+.env
+.env.local
+.env.production
+
+# Logs
+logs/
+*.log
+
+# Cache
+cache/
+temp/
+
+# Uploads
+uploads/
+
+# Backups
+backups/
+
+# IDE files
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# Composer
+composer.lock
+
+# Session files
+sessions/
+
+# Database
+*.sql
+*.sqlite
+
+# Configuration files with sensitive data
+config/database.php 
