@@ -45,7 +45,13 @@ switch ($path) {
             
             try {
                 $controller = new AuthController($db);
-                $controller->register(null); // Pass null since we don't have Request object
+                
+                // Create a simple request object
+                $request = new stdClass();
+                $request->body = $input;
+                
+                // Call the register method
+                $controller->register($request);
             } catch (Exception $e) {
                 http_response_code(500);
                 echo json_encode(['error' => $e->getMessage()]);
@@ -68,7 +74,13 @@ switch ($path) {
             
             try {
                 $controller = new AuthController($db);
-                $controller->login(null); // Pass null since we don't have Request object
+                
+                // Create a simple request object
+                $request = new stdClass();
+                $request->body = $input;
+                
+                // Call the login method
+                $controller->login($request);
             } catch (Exception $e) {
                 http_response_code(500);
                 echo json_encode(['error' => $e->getMessage()]);
