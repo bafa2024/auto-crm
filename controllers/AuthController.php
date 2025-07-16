@@ -48,12 +48,17 @@ class AuthController extends BaseController {
         $this->sendSuccess([], 'Logout successful');
     }
     
-    public function register() {
+    public function register($request = null) {
         if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
             $this->sendError('Method not allowed', 405);
         }
         
-        $input = json_decode(file_get_contents('php://input'), true);
+        // Get input data - handle both direct calls and API calls
+        if ($request && isset($request->body)) {
+            $input = $request->body;
+        } else {
+            $input = json_decode(file_get_contents('php://input'), true);
+        }
         
         if (!$input) {
             $this->sendError('Invalid JSON data', 400);
