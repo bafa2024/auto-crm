@@ -155,23 +155,8 @@
 
         // Enhanced form submissions and event handlers
         document.addEventListener('DOMContentLoaded', function() {
-            // Login form
-            const loginForm = document.getElementById('loginForm');
-            if (loginForm) {
-                loginForm.addEventListener('submit', function(e) {
-                    e.preventDefault();
-                    showPage('dashboard-page');
-                });
-            }
-
-            // Signup form
-            const signupForm = document.getElementById('signupForm');
-            if (signupForm) {
-                signupForm.addEventListener('submit', function(e) {
-                    e.preventDefault();
-                    showPage('dashboard-page');
-                });
-            }
+            // Form handling is now done in individual view files
+            // Login and signup forms have their own event handlers
 
             // Prevent all anchor tags from reloading the page
             document.addEventListener('click', function(e) {

@@ -54,8 +54,14 @@ class AuthController extends BaseController {
         }
         
         $input = json_decode(file_get_contents('php://input'), true);
+        
+        if (!$input) {
+            $this->sendError('Invalid JSON data', 400);
+        }
+        
         $data = $this->sanitizeInput($input);
         
+        // Validate required fields
         $required = ['email', 'password', 'first_name', 'last_name'];
         $errors = $this->validateRequired($data, $required);
         
@@ -63,21 +69,40 @@ class AuthController extends BaseController {
             $this->sendError('Validation failed', 400, $errors);
         }
         
-        // Check if email already exists
-        if ($this->userModel->findBy('email', $data['email'])) {
-            $this->sendError('Email already exists');
+        // Validate email format
+        if (!filter_var($data['email'], FILTER_VALIDATE_EMAIL)) {
+            $this->sendError('Invalid email format', 400);
         }
         
-        // Set default role
+        // Validate password length
+        if (strlen($data['password']) < 8) {
+            $this->sendError('Password must be at least 8 characters long', 400);
+        }
+        
+        // Check if email already exists
+        if ($this->userModel->findBy('email', $data['email'])) {
+            $this->sendError('Email already exists. Please use a different email or try logging in.', 409);
+        }
+        
+        // Set default values
         $data['role'] = $data['role'] ?? 'agent';
         $data['status'] = 'active';
         
-        $user = $this->userModel->create($data);
+        // Remove any extra fields that shouldn't be saved
+        $allowedFields = ['email', 'password', 'first_name', 'last_name', 'company_name', 'role', 'status'];
+        $data = array_intersect_key($data, array_flip($allowedFields));
         
-        if ($user) {
-            $this->sendSuccess($user, 'User created successfully');
-        } else {
-            $this->sendError('Failed to create user', 500);
+        try {
+            $user = $this->userModel->create($data);
+            
+            if ($user) {
+                $this->sendSuccess($user, 'Account created successfully');
+            } else {
+                $this->sendError('Failed to create account. Please try again.', 500);
+            }
+        } catch (Exception $e) {
+            error_log('User registration error: ' . $e->getMessage());
+            $this->sendError('An error occurred while creating your account. Please try again.', 500);
         }
     }
     
