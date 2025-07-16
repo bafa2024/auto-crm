@@ -1,5 +1,5 @@
 <?php include __DIR__ . '/../components/header.php'; ?>
-<div class="auth-container">
+<div class="auth-container" style="margin-top: 80px; padding-top: 20px;">
     <div class="auth-card">
         <div class="text-center mb-4">
             <h3 class="fw-bold">

@@ -85,6 +85,8 @@ body {
     justify-content: center;
     background: linear-gradient(135deg, #f5f7fa 0%, #e3e6f3 100%);
     padding: 40px 10px;
+    margin-top: 80px;
+    padding-top: 20px;
 }
 
 .auth-card {
