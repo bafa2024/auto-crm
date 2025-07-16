@@ -74,13 +74,25 @@ document.addEventListener('DOMContentLoaded', function() {
         const data = Object.fromEntries(formData.entries());
         
         try {
-            const response = await fetch('/api/auth/register', {
+            // Try the main API endpoint first
+            let response = await fetch('/api/auth/register', {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json',
                 },
                 body: JSON.stringify(data)
             });
+            
+            // If that fails, try the fallback endpoint
+            if (!response.ok && response.status !== 409) {
+                response = await fetch('/api.php/api/auth/register', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify(data)
+                });
+            }
             
             const result = await response.json();
             
@@ -92,7 +104,7 @@ document.addEventListener('DOMContentLoaded', function() {
                 }, 2000);
             } else {
                 // Error - show error message
-                const errorMessage = result.error || 'Failed to create account. Please try again.';
+                const errorMessage = result.error || result.message || 'Failed to create account. Please try again.';
                 showMessage(errorMessage, 'error');
             }
         } catch (error) {

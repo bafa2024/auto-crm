@@ -19,7 +19,7 @@ RewriteRule .* - [E=HTTP_AUTHORIZATION:%{HTTP:Authorization}]
 # Prevent direct access to sensitive files
 RewriteRule ^(composer\.(json|lock)|\.env|\.git|\.gitignore|README\.md)$ - [F,L]
 
-# Block access to directories
+# Block access to sensitive directories but allow necessary files
 RewriteRule ^(config|models|controllers|services|vendor|logs|temp|backups|uploads)/.*$ - [F,L]
 
 # Allow access to public assets

@@ -68,13 +68,25 @@ document.addEventListener('DOMContentLoaded', function() {
         const data = Object.fromEntries(formData.entries());
         
         try {
-            const response = await fetch('/api/auth/login', {
+            // Try the main API endpoint first
+            let response = await fetch('/api/auth/login', {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json',
                 },
                 body: JSON.stringify(data)
             });
+            
+            // If that fails, try the fallback endpoint
+            if (!response.ok) {
+                response = await fetch('/api.php/api/auth/login', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify(data)
+                });
+            }
             
             const result = await response.json();
             
@@ -86,7 +98,7 @@ document.addEventListener('DOMContentLoaded', function() {
                 }, 1000);
             } else {
                 // Error - show error message
-                const errorMessage = result.message || 'Invalid email or password. Please try again.';
+                const errorMessage = result.error || result.message || 'Invalid email or password. Please try again.';
                 showMessage(errorMessage, 'error');
             }
         } catch (error) {
