@@ -12,9 +12,9 @@ if (!file_exists(__DIR__ . '/.env')) {
 # Database Configuration
 DB_HOST=localhost
 DB_PORT=3306
-DB_NAME=autocrm
-DB_USER=root
-DB_PASS=
+DB_NAME=u946493694_autocrm
+DB_USER=u946493694_autocrmu
+DB_PASS=CDExzsawq123@#$
 
 # Application Configuration
 APP_URL=https://autocrm.regrowup.ca
