@@ -113,4 +113,4 @@ echo "\n✅ Environment check completed!\n";
 echo "\nIf database connection failed, please:\n";
 echo "1. Update the .env file with correct database credentials\n";
 echo "2. Ensure the 'autocrm' database exists\n";
-echo "3. Run this script again to verify\n"; 
+echo "3. Run this script again to verify\n";

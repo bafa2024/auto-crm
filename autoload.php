@@ -2,32 +2,23 @@
 // autoload.php - Simple autoloader for the application
 
 spl_autoload_register(function ($class) {
-    // Convert namespace to file path
-    $file = '';
+    // Remove namespace if present
+    $class = str_replace("\\", "/", $class);
+    $class = basename($class);
     
-    // Handle Router namespace
-    if (strpos($class, 'Router\\') === 0) {
-        $class = str_replace('Router\\', '', $class);
-        $file = __DIR__ . '/router/' . $class . '.php';
-    }
-    // Handle other classes
-    else {
-        // Check in controllers directory
-        $file = __DIR__ . '/controllers/' . $class . '.php';
-        
-        // If not found, check in models directory
-        if (!file_exists($file)) {
-            $file = __DIR__ . '/models/' . $class . '.php';
-        }
-        
-        // If not found, check in services directory
-        if (!file_exists($file)) {
-            $file = __DIR__ . '/services/' . $class . '.php';
+    // Define search paths
+    $paths = [
+        __DIR__ . "/controllers/" . $class . ".php",
+        __DIR__ . "/models/" . $class . ".php",
+        __DIR__ . "/services/" . $class . ".php",
+        __DIR__ . "/router/" . $class . ".php",
+    ];
+    
+    // Try to load from each path
+    foreach ($paths as $path) {
+        if (file_exists($path)) {
+            require_once $path;
+            return;
         }
     }
-    
-    // Load the file if it exists
-    if (file_exists($file)) {
-        require_once $file;
-    }
-}); 
+});

@@ -1,332 +1,187 @@
 <?php
-// index.php - Main entry point with advanced routing
+// index.php - Main entry point
 
-// Use custom autoloader if Composer is not available
-if (file_exists(__DIR__ . '/vendor/autoload.php')) {
-    require_once __DIR__ . '/vendor/autoload.php';
-} else {
-    require_once __DIR__ . '/autoload.php';
+// Error reporting for debugging
+error_reporting(E_ALL);
+ini_set("display_errors", 1);
+
+// Start session only if not already started
+if (session_status() === PHP_SESSION_NONE) {
+    session_start();
 }
 
-// Load required files
-require_once __DIR__ . '/config/database.php';
-require_once __DIR__ . '/router/Router.php';
+// Define base path
+define("BASE_PATH", __DIR__);
 
-// Load all model files (temporary until proper autoloading)
-$modelFiles = glob(__DIR__ . '/models/*.php');
-foreach ($modelFiles as $modelFile) {
-    require_once $modelFile;
+// Use custom autoloader
+require_once __DIR__ . "/autoload.php";
+
+// Load environment variables from .env if it exists
+if (file_exists(__DIR__ . "/.env")) {
+    $envFile = file_get_contents(__DIR__ . "/.env");
+    $envLines = explode("\n", $envFile);
+    
+    foreach ($envLines as $line) {
+        $line = trim($line);
+        if (!empty($line) && strpos($line, "=") !== false && !str_starts_with($line, "#")) {
+            list($key, $value) = explode("=", $line, 2);
+            $_ENV[trim($key)] = trim($value, "\"'");
+            $_SERVER[trim($key)] = trim($value, "\"'");
+        }
+    }
 }
 
-// Load all controller files
-$controllerFiles = glob(__DIR__ . '/controllers/*.php');
-foreach ($controllerFiles as $controllerFile) {
-    require_once $controllerFile;
+// Get request URI and method
+$requestUri = $_SERVER["REQUEST_URI"] ?? "/";
+$requestMethod = $_SERVER["REQUEST_METHOD"] ?? "GET";
+
+// Remove query string
+$requestUri = strtok($requestUri, "?");
+
+// Remove base path if in subdirectory
+$scriptName = $_SERVER["SCRIPT_NAME"];
+$basePath = dirname($scriptName);
+if ($basePath !== "/" && strpos($requestUri, $basePath) === 0) {
+    $requestUri = substr($requestUri, strlen($basePath));
 }
 
-// Load all service files
-$serviceFiles = glob(__DIR__ . '/services/*.php');
-foreach ($serviceFiles as $serviceFile) {
-    require_once $serviceFile;
+// Ensure URI starts with /
+if ($requestUri === "" || $requestUri[0] !== "/") {
+    $requestUri = "/" . $requestUri;
 }
 
-use Router\Router;
-use Router\Request;
-use Router\Response;
+// Route static files
+if (preg_match("/\.(css|js|jpg|jpeg|png|gif|ico|woff|woff2|ttf|svg)$/i", $requestUri)) {
+    $file = __DIR__ . $requestUri;
+    if (file_exists($file)) {
+        $mime = mime_content_type($file);
+        header("Content-Type: " . $mime);
+        readfile($file);
+        exit;
+    }
+}
 
-// Initialize router
-$router = new Router();
-
-// Initialize database
+// Initialize database connection
+require_once __DIR__ . "/config/database.php";
 $database = new Database();
 $db = $database->getConnection();
 
-// Check if database connection failed
-if (!$db) {
-    // Log the error but continue with the application
-    error_log("Warning: Database connection failed, application running in limited mode");
-}
-
-// Middleware for authentication
-$authMiddleware = function($request, $next) {
-    // Check if route requires authentication
-    $publicRoutes = ['/login', '/signup', '/api/auth/login', '/api/auth/register'];
-    $currentPath = parse_url($request->uri, PHP_URL_PATH);
-    
-    if (in_array($currentPath, $publicRoutes)) {
-        return $next($request);
+// Simple routing
+try {
+    switch (true) {
+        // Landing page
+        case $requestUri === "/" || $requestUri === "/index.php":
+            require_once __DIR__ . "/views/landing.php";
+            break;
+            
+        // Auth pages
+        case $requestUri === "/login":
+            require_once __DIR__ . "/views/auth/login.php";
+            break;
+            
+        case $requestUri === "/signup":
+            require_once __DIR__ . "/views/auth/signup.php";
+            break;
+            
+        case $requestUri === "/logout":
+            session_destroy();
+            header("Location: /");
+            exit;
+            
+        // Dashboard
+        case strpos($requestUri, "/dashboard") === 0:
+            if (!isset($_SESSION["user_id"])) {
+                header("Location: /login");
+                exit;
+            }
+            require_once __DIR__ . "/views/dashboard/index.php";
+            break;
+            
+        // API endpoints
+        case strpos($requestUri, "/api/") === 0:
+            header("Content-Type: application/json");
+            header("Access-Control-Allow-Origin: *");
+            header("Access-Control-Allow-Methods: GET, POST, PUT, DELETE, OPTIONS");
+            header("Access-Control-Allow-Headers: Content-Type, Authorization");
+            
+            if ($requestMethod === "OPTIONS") {
+                http_response_code(200);
+                exit;
+            }
+            
+            // Parse API endpoint
+            $apiPath = substr($requestUri, 4); // Remove /api
+            $pathParts = explode("/", trim($apiPath, "/"));
+            
+            // Route to appropriate controller
+            switch ($pathParts[0] ?? "") {
+                case "auth":
+                    require_once __DIR__ . "/controllers/AuthController.php";
+                    $controller = new AuthController($db);
+                    
+                    switch ($pathParts[1] ?? "") {
+                        case "register":
+                            if ($requestMethod === "POST") {
+                                $input = json_decode(file_get_contents("php://input"), true);
+                                $request = new stdClass();
+                                $request->body = $input;
+                                $controller->register($request);
+                            }
+                            break;
+                            
+                        case "login":
+                            if ($requestMethod === "POST") {
+                                $input = json_decode(file_get_contents("php://input"), true);
+                                $request = new stdClass();
+                                $request->body = $input;
+                                $controller->login($request);
+                            }
+                            break;
+                            
+                        default:
+                            http_response_code(404);
+                            echo json_encode(["error" => "Endpoint not found"]);
+                    }
+                    break;
+                    
+                case "campaigns":
+                    require_once __DIR__ . "/controllers/EmailCampaignController.php";
+                    $controller = new EmailCampaignController($db);
+                    
+                    switch ($pathParts[1] ?? "") {
+                        case "create":
+                            if ($requestMethod === "POST") {
+                                $controller->createCampaign();
+                            }
+                            break;
+                            
+                        default:
+                            http_response_code(404);
+                            echo json_encode(["error" => "Campaign endpoint not found"]);
+                    }
+                    break;
+                    
+                default:
+                    http_response_code(404);
+                    echo json_encode(["error" => "API endpoint not found"]);
+            }
+            break;
+            
+        // 404 for everything else
+        default:
+            http_response_code(404);
+            require_once __DIR__ . "/views/404.php";
     }
+} catch (Exception $e) {
+    error_log("Application error: " . $e->getMessage());
+    http_response_code(500);
     
-    // Check session or JWT token
-    session_start();
-    if (!isset($_SESSION['user_id']) && strpos($currentPath, '/api/') === 0) {
-        // For API routes, check Authorization header
-        $authHeader = $request->header('Authorization');
-        if (!$authHeader || !validateJWT($authHeader)) {
-            $response = new Response();
-            return $response->status(401)->json(['error' => 'Unauthorized']);
-        }
-    } elseif (!isset($_SESSION['user_id']) && strpos($currentPath, '/dashboard') === 0) {
-        // For dashboard routes, redirect to login
-        $response = new Response();
-        return $response->redirect('/login');
-    }
-    
-    return $next($request);
-};
-
-// Global middleware
-$router->use($authMiddleware);
-
-// CORS middleware for API routes
-$router->use(function($request, $next) {
-    if (strpos($request->uri, '/api/') === 0) {
-        header('Access-Control-Allow-Origin: *');
-        header('Access-Control-Allow-Methods: GET, POST, PUT, DELETE, OPTIONS');
-        header('Access-Control-Allow-Headers: Content-Type, Authorization');
-    }
-    return $next($request);
-});
-
-// ===== WEB ROUTES =====
-
-// Landing page
-$router->get('/', function($request) {
-    require_once __DIR__ . '/views/landing.php';
-});
-
-// Auth pages
-$router->get('/login', function($request) {
-    require_once __DIR__ . '/views/auth/login.php';
-});
-
-$router->get('/signup', function($request) {
-    require_once __DIR__ . '/views/auth/signup.php';
-});
-
-$router->get('/logout', function($request) {
-    session_start();
-    session_destroy();
-    $response = new Response();
-    return $response->redirect('/');
-});
-
-// Dashboard routes
-$router->get('/dashboard', function($request) {
-    require_once __DIR__ . '/views/dashboard/index.php';
-});
-
-$router->get('/dashboard/profile', function($request) {
-    require_once __DIR__ . '/views/dashboard/profile.php';
-});
-
-$router->get('/dashboard/contacts', function($request) {
-    require_once __DIR__ . '/views/dashboard/contacts.php';
-});
-
-$router->get('/dashboard/campaigns', function($request) {
-    require_once __DIR__ . '/views/dashboard/campaigns.php';
-});
-
-$router->get('/dashboard/analytics', function($request) {
-    require_once __DIR__ . '/views/dashboard/analytics.php';
-});
-
-$router->get('/dashboard/settings', function($request) {
-    require_once __DIR__ . '/views/dashboard/settings.php';
-});
-
-// ===== API ROUTES =====
-
-// Auth endpoints
-$router->post('/api/auth/login', function($request) use ($db) {
-    $controller = new AuthController($db);
-    return $controller->login($request);
-});
-
-$router->post('/api/auth/register', function($request) use ($db) {
-    $controller = new AuthController($db);
-    return $controller->register($request);
-});
-
-$router->post('/api/auth/logout', function($request) use ($db) {
-    $controller = new AuthController($db);
-    return $controller->logout($request);
-});
-
-$router->get('/api/auth/profile', function($request) use ($db) {
-    $controller = new AuthController($db);
-    return $controller->getProfile($request);
-});
-
-$router->put('/api/auth/profile', function($request) use ($db) {
-    $controller = new AuthController($db);
-    return $controller->updateProfile($request);
-});
-
-// Contact endpoints
-$router->get('/api/contacts', function($request) use ($db) {
-    $controller = new ContactController($db);
-    return $controller->getContacts($request);
-});
-
-$router->post('/api/contacts', function($request) use ($db) {
-    $controller = new ContactController($db);
-    return $controller->createContact($request);
-});
-
-$router->get('/api/contacts/stats', function($request) use ($db) {
-    $controller = new ContactController($db);
-    return $controller->getStats($request);
-});
-
-$router->post('/api/contacts/bulk-upload', function($request) use ($db) {
-    $controller = new ContactController($db);
-    return $controller->bulkUpload($request);
-});
-
-$router->get('/api/contacts/{id}', function($request) use ($db) {
-    $controller = new ContactController($db);
-    return $controller->getContact($request);
-});
-
-$router->put('/api/contacts/{id}', function($request) use ($db) {
-    $controller = new ContactController($db);
-    return $controller->updateContact($request);
-});
-
-$router->delete('/api/contacts/{id}', function($request) use ($db) {
-    $controller = new ContactController($db);
-    return $controller->deleteContact($request);
-});
-
-// Campaign endpoints
-$router->get('/api/campaigns', function($request) use ($db) {
-    $controller = new EmailCampaignController($db);
-    return $controller->getCampaigns($request);
-});
-
-$router->post('/api/campaigns', function($request) use ($db) {
-    $controller = new EmailCampaignController($db);
-    return $controller->createCampaign($request);
-});
-
-$router->get('/api/campaigns/stats', function($request) use ($db) {
-    $controller = new EmailCampaignController($db);
-    return $controller->getCampaignStats($request);
-});
-
-$router->get('/api/campaigns/{id}', function($request) use ($db) {
-    $controller = new EmailCampaignController($db);
-    return $controller->getCampaign($request);
-});
-
-$router->put('/api/campaigns/{id}', function($request) use ($db) {
-    $controller = new EmailCampaignController($db);
-    return $controller->updateCampaign($request);
-});
-
-$router->delete('/api/campaigns/{id}', function($request) use ($db) {
-    $controller = new EmailCampaignController($db);
-    return $controller->deleteCampaign($request);
-});
-
-$router->get('/api/campaigns/{id}/recipients', function($request) use ($db) {
-    $controller = new EmailCampaignController($db);
-    return $controller->getRecipients($request);
-});
-
-$router->post('/api/campaigns/{id}/recipients', function($request) use ($db) {
-    $controller = new EmailCampaignController($db);
-    return $controller->addRecipients($request);
-});
-
-$router->post('/api/campaigns/{id}/send', function($request) use ($db) {
-    $controller = new EmailCampaignController($db);
-    return $controller->sendCampaign($request);
-});
-
-// Template endpoints
-$router->get('/api/templates', function($request) use ($db) {
-    $controller = new EmailCampaignController($db);
-    return $controller->getTemplates($request);
-});
-
-$router->post('/api/templates', function($request) use ($db) {
-    $controller = new EmailCampaignController($db);
-    return $controller->createTemplate($request);
-});
-
-// Tracking endpoints
-$router->get('/api/track/open/{trackingId}', function($request) use ($db) {
-    $emailService = new EmailService($db);
-    $trackingId = $request->param('trackingId');
-    $emailService->trackEmailOpen($trackingId);
-    
-    // Return 1x1 transparent pixel
-    header('Content-Type: image/gif');
-    echo base64_decode('R0lGODlhAQABAIAAAAAAAP///yH5BAEAAAAALAAAAAABAAEAAAIBRAA7');
-});
-
-$router->get('/api/track/click/{trackingId}', function($request) use ($db) {
-    $emailService = new EmailService($db);
-    $trackingId = $request->param('trackingId');
-    $url = $request->query('url');
-    
-    if ($url) {
-        $emailService->trackEmailClick($trackingId, $url);
-        $response = new Response();
-        return $response->redirect($url);
-    }
-    
-    $response = new Response();
-    return $response->status(400)->json(['error' => 'URL parameter required']);
-});
-
-$router->get('/api/track/unsubscribe/{trackingId}', function($request) use ($db) {
-    $emailService = new EmailService($db);
-    $trackingId = $request->param('trackingId');
-    $success = $emailService->unsubscribe($trackingId);
-    
-    $response = new Response();
-    if ($success) {
-        return $response->html('<h1>Unsubscribed Successfully</h1><p>You have been unsubscribed from our mailing list.</p>');
+    if (strpos($requestUri, "/api/") === 0) {
+        echo json_encode(["error" => "Internal server error"]);
     } else {
-        return $response->html('<h1>Error</h1><p>Unable to process unsubscribe request.</p>');
+        echo "<h1>500 Internal Server Error</h1>";
+        if ($_ENV["APP_DEBUG"] === "true") {
+            echo "<pre>" . htmlspecialchars($e->getMessage()) . "</pre>";
+        }
     }
-});
-
-// Health check endpoint for cloud platforms
-$router->get('/health', function($request) {
-    $response = new Response();
-    return $response->json([
-        'status' => 'healthy',
-        'timestamp' => date('Y-m-d H:i:s'),
-        'environment' => $_SERVER['SERVER_SOFTWARE'] ?? 'Unknown'
-    ]);
-});
-
-// 404 handler
-$router->setNotFoundHandler(function($request) {
-    $response = new Response();
-    
-    if (strpos($request->uri, '/api/') === 0) {
-        return $response->status(404)->json(['error' => 'Endpoint not found']);
-    }
-    
-    // For web routes, show 404 page
-    return $response->status(404)->html('<h1>404 - Page Not Found</h1>');
-});
-
-// Dispatch the request
-$router->dispatch();
-
-// Helper function to validate JWT (implement your JWT validation logic)
-function validateJWT($authHeader) {
-    // Extract token from "Bearer <token>"
-    $token = str_replace('Bearer ', '', $authHeader);
-    
-    // Implement JWT validation using firebase/php-jwt
-    // For now, return false
-    return false;
 }

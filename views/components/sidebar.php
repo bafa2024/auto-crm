@@ -1,22 +1,53 @@
 <div class="sidebar" id="sidebar">
-    <div class="p-4 pb-5">
-        <!-- Sidebar content here (add navigation, user info, etc.) -->
+    <div class="p-4">
+        <h5 class="mb-4">
+            <i class="bi bi-envelope-fill text-primary"></i> Email Pro
+        </h5>
         <ul class="nav flex-column">
-            <li class="nav-item mb-2">
-                <a class="nav-link" href="/dashboard">
-                    <i class="bi bi-speedometer2 me-2"></i> Overview
+            <li class="nav-item">
+                <a class="sidebar-link active" href="/dashboard">
+                    <i class="bi bi-speedometer2"></i> Dashboard
                 </a>
             </li>
-            <li class="nav-item mb-2">
-                <a class="nav-link" href="/dashboard/profile">
-                    <i class="bi bi-person me-2"></i> Profile
+            <li class="nav-item">
+                <a class="sidebar-link" href="#" onclick="showSection('campaigns')">
+                    <i class="bi bi-send"></i> Campaigns
                 </a>
             </li>
-            <li class="nav-item mb-2">
-                <a class="nav-link" href="/dashboard/settings">
-                    <i class="bi bi-gear me-2"></i> Settings
+            <li class="nav-item">
+                <a class="sidebar-link" href="#" onclick="showSection('contacts')">
+                    <i class="bi bi-people"></i> Email Lists
+                </a>
+            </li>
+            <li class="nav-item">
+                <a class="sidebar-link" href="#" onclick="showSection('templates')">
+                    <i class="bi bi-file-text"></i> Templates
+                </a>
+            </li>
+            <li class="nav-item">
+                <a class="sidebar-link" href="#" onclick="showSection('analytics')">
+                    <i class="bi bi-graph-up"></i> Analytics
+                </a>
+            </li>
+            <li class="nav-item">
+                <a class="sidebar-link" href="#" onclick="showSection('settings')">
+                    <i class="bi bi-gear"></i> Settings
                 </a>
             </li>
         </ul>
+        <hr>
+        <div class="mt-4">
+            <p class="mb-2 text-muted small">Logged in as:</p>
+            <p class="mb-0 fw-bold"><?php echo $_SESSION["user_email"] ?? "User"; ?></p>
+            <a href="/logout" class="btn btn-sm btn-outline-danger mt-2 w-100">
+                <i class="bi bi-box-arrow-right"></i> Logout
+            </a>
+        </div>
     </div>
-</div> 
+</div>
+
+<script>
+function showSection(section) {
+    alert("Section: " + section + " - Coming soon!");
+}
+</script>
