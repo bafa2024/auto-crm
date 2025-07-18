@@ -48,7 +48,7 @@
                             </span>
                         </button>
                         <div class="text-center">
-                            <p class="mb-0">Already have an account? <a href="/acrm/login">Sign in</a></p>
+                            <p class="mb-0">Already have an account? <a href="#" id="loginLink">Sign in</a></p>
                         </div>
                     </form>
                 </div>
@@ -59,6 +59,12 @@
 
 <script>
 document.addEventListener("DOMContentLoaded", function() {
+    // Auto-detect base path for live hosting compatibility
+    const basePath = window.location.pathname.includes('/acrm/') ? '/acrm' : '';
+    
+    // Set login link href
+    document.getElementById('loginLink').href = basePath + '/login';
+    
     const signupForm = document.getElementById("signupForm");
     const signupBtn = document.getElementById("signupBtn");
     const btnText = signupBtn.querySelector(".btn-text");
@@ -78,7 +84,7 @@ document.addEventListener("DOMContentLoaded", function() {
         const data = Object.fromEntries(formData.entries());
         
         try {
-            const response = await fetch("/acrm/api/auth/register", {
+            const response = await fetch(basePath + "/api/auth/register", {
                 method: "POST",
                 headers: {
                     "Content-Type": "application/json",
@@ -95,7 +101,7 @@ document.addEventListener("DOMContentLoaded", function() {
                     </div>
                 `;
                 setTimeout(() => {
-                    window.location.href = "/acrm/login";
+                    window.location.href = basePath + "/login";
                 }, 2000);
             } else {
                 messagesContainer.innerHTML = `

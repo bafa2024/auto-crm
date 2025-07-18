@@ -12,6 +12,22 @@ class AuthController extends BaseController {
         }
     }
     
+    /**
+     * Auto-detect base path for live hosting compatibility
+     */
+    private function getBasePath() {
+        $requestUri = $_SERVER['REQUEST_URI'] ?? '';
+        $scriptName = $_SERVER['SCRIPT_NAME'] ?? '';
+        
+        // If the request URI contains /acrm/, we're in local development
+        if (strpos($requestUri, '/acrm/') !== false || strpos($scriptName, '/acrm/') !== false) {
+            return '/acrm';
+        }
+        
+        // Otherwise, we're likely on live hosting
+        return '';
+    }
+    
     public function login($request = null) {
         // Set CORS headers
         header("Access-Control-Allow-Origin: *");
@@ -67,10 +83,12 @@ class AuthController extends BaseController {
         $_SESSION["user_role"] = $user["role"] ?? "user";
         $_SESSION["login_time"] = time();
         
+        $basePath = $this->getBasePath();
+        
         $this->sendSuccess([
             "user" => $user,
             "session_id" => session_id(),
-            "redirect" => "/acrm/dashboard"
+            "redirect" => $basePath . "/dashboard"
         ], "Login successful");
     }
     

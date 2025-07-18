@@ -42,7 +42,7 @@
                             </span>
                         </button>
                         <div class="text-center">
-                            <p class="mb-0">Don't have an account? <a href="/acrm/signup">Sign up</a></p>
+                            <p class="mb-0">Don't have an account? <a href="#" id="signupLink">Sign up</a></p>
                         </div>
                     </form>
                 </div>
@@ -53,6 +53,12 @@
 
 <script>
 document.addEventListener("DOMContentLoaded", function() {
+    // Auto-detect base path for live hosting compatibility
+    const basePath = window.location.pathname.includes('/acrm/') ? '/acrm' : '';
+    
+    // Set signup link href
+    document.getElementById('signupLink').href = basePath + '/signup';
+    
     const loginForm = document.getElementById("loginForm");
     const loginBtn = document.getElementById("loginBtn");
     const btnText = loginBtn.querySelector(".btn-text");
@@ -72,7 +78,9 @@ document.addEventListener("DOMContentLoaded", function() {
         const data = Object.fromEntries(formData.entries());
         
         try {
-            const response = await fetch("/acrm/api/auth/login", {
+            const apiUrl = basePath + "/api/auth/login";
+            
+            const response = await fetch(apiUrl, {
                 method: "POST",
                 headers: {
                     "Content-Type": "application/json",
@@ -89,7 +97,8 @@ document.addEventListener("DOMContentLoaded", function() {
                     </div>
                 `;
                 setTimeout(() => {
-                    window.location.href = "/acrm/dashboard";
+                    const dashboardUrl = basePath + "/dashboard";
+                    window.location.href = dashboardUrl;
                 }, 1000);
             } else {
                 messagesContainer.innerHTML = `
