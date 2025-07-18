@@ -4,7 +4,7 @@ require_once "BaseModel.php";
 class User extends BaseModel {
     protected $table = "users";
     protected $fillable = [
-        "email", "password", "first_name", "last_name", "company_name", "role", "status"
+        "email", "password", "first_name", "last_name", "company_name", "phone", "role", "status"
     ];
     protected $hidden = ["password"];
     
@@ -18,8 +18,8 @@ class User extends BaseModel {
     public function authenticate($email, $password) {
         if (!$this->db) return false;
         
-        $stmt = $this->db->prepare("SELECT * FROM {$this->table} WHERE email = ? AND status = \"active\"");
-        $stmt->execute([$email]);
+        $stmt = $this->db->prepare("SELECT * FROM {$this->table} WHERE email = ? AND status = ?");
+        $stmt->execute([$email, "active"]);
         $user = $stmt->fetch();
         
         if ($user && password_verify($password, $user["password"])) {

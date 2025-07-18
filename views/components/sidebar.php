@@ -1,7 +1,7 @@
 <div class="sidebar" id="sidebar">
     <div class="p-4">
         <h5 class="mb-4">
-            <i class="bi bi-envelope-fill text-primary"></i> Email Pro
+            <i class="bi bi-telephone-fill text-primary"></i> AutoDial Pro
         </h5>
         <ul class="nav flex-column">
             <li class="nav-item">
@@ -10,18 +10,18 @@
                 </a>
             </li>
             <li class="nav-item">
-                <a class="sidebar-link" href="#" onclick="showSection('campaigns')">
-                    <i class="bi bi-send"></i> Campaigns
-                </a>
-            </li>
-            <li class="nav-item">
                 <a class="sidebar-link" href="#" onclick="showSection('contacts')">
-                    <i class="bi bi-people"></i> Email Lists
+                    <i class="bi bi-people"></i> Contacts
                 </a>
             </li>
             <li class="nav-item">
-                <a class="sidebar-link" href="#" onclick="showSection('templates')">
-                    <i class="bi bi-file-text"></i> Templates
+                <a class="sidebar-link" href="#" onclick="showSection('campaigns')">
+                    <i class="bi bi-envelope"></i> Campaigns
+                </a>
+            </li>
+            <li class="nav-item">
+                <a class="sidebar-link" href="#" onclick="showSection('dialer')">
+                    <i class="bi bi-telephone"></i> Auto Dialer
                 </a>
             </li>
             <li class="nav-item">

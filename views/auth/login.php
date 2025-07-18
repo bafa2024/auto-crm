@@ -42,7 +42,7 @@
                             </span>
                         </button>
                         <div class="text-center">
-                            <p class="mb-0">Don't have an account? <a href="/signup">Sign up</a></p>
+                            <p class="mb-0">Don't have an account? <a href="/acrm/signup">Sign up</a></p>
                         </div>
                     </form>
                 </div>
@@ -72,7 +72,7 @@ document.addEventListener("DOMContentLoaded", function() {
         const data = Object.fromEntries(formData.entries());
         
         try {
-            const response = await fetch("/api/auth/login", {
+            const response = await fetch("/acrm/api/auth/login", {
                 method: "POST",
                 headers: {
                     "Content-Type": "application/json",
@@ -89,7 +89,7 @@ document.addEventListener("DOMContentLoaded", function() {
                     </div>
                 `;
                 setTimeout(() => {
-                    window.location.href = "/dashboard";
+                    window.location.href = "/acrm/dashboard";
                 }, 1000);
             } else {
                 messagesContainer.innerHTML = `

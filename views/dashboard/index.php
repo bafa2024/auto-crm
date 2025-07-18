@@ -119,15 +119,15 @@ $userEmail = $_SESSION["user_email"] ?? "user@example.com";
         <!-- Header -->
         <div class="d-flex justify-content-between align-items-center mb-4">
             <div>
-                <h1 class="h3 mb-0">Email Campaign Dashboard</h1>
-                <p class="text-muted">Send bulk email campaigns to your contacts</p>
+                <h1 class="h3 mb-0">AutoDial Pro Dashboard</h1>
+                <p class="text-muted">Intelligent auto dialing and CRM management</p>
             </div>
             <div class="d-flex gap-2">
-                <button class="btn btn-outline-primary" onclick="showUploadHistory()">
-                    <i class="bi bi-clock-history"></i> Upload History
+                <button class="btn btn-outline-primary" onclick="showReports()">
+                    <i class="bi bi-graph-up"></i> Reports
                 </button>
-                <button class="btn btn-primary" data-bs-toggle="modal" data-bs-target="#newCampaignModal">
-                    <i class="bi bi-plus-lg"></i> New Campaign
+                <button class="btn btn-primary" onclick="startDialer()">
+                    <i class="bi bi-telephone"></i> Start Dialer
                 </button>
             </div>
         </div>
@@ -139,10 +139,40 @@ $userEmail = $_SESSION["user_email"] ?? "user@example.com";
                     <div class="card-body">
                         <div class="d-flex justify-content-between align-items-center">
                             <div>
-                                <h6 class="text-muted mb-2">Total Emails</h6>
-                                <h3 class="mb-0" id="totalEmails">0</h3>
+                                <h6 class="text-muted mb-2">Total Contacts</h6>
+                                <h3 class="mb-0" id="totalContacts">0</h3>
                             </div>
                             <div class="stat-icon bg-primary bg-opacity-10 text-primary">
+                                <i class="bi bi-people"></i>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            <div class="col-md-3 mb-3">
+                <div class="stat-card card">
+                    <div class="card-body">
+                        <div class="d-flex justify-content-between align-items-center">
+                            <div>
+                                <h6 class="text-muted mb-2">Calls Today</h6>
+                                <h3 class="mb-0" id="callsToday">0</h3>
+                            </div>
+                            <div class="stat-icon bg-success bg-opacity-10 text-success">
+                                <i class="bi bi-telephone"></i>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            <div class="col-md-3 mb-3">
+                <div class="stat-card card">
+                    <div class="card-body">
+                        <div class="d-flex justify-content-between align-items-center">
+                            <div>
+                                <h6 class="text-muted mb-2">Active Campaigns</h6>
+                                <h3 class="mb-0" id="activeCampaigns">0</h3>
+                            </div>
+                            <div class="stat-icon bg-warning bg-opacity-10 text-warning">
                                 <i class="bi bi-envelope"></i>
                             </div>
                         </div>
@@ -154,41 +184,11 @@ $userEmail = $_SESSION["user_email"] ?? "user@example.com";
                     <div class="card-body">
                         <div class="d-flex justify-content-between align-items-center">
                             <div>
-                                <h6 class="text-muted mb-2">Emails Sent</h6>
-                                <h3 class="mb-0" id="emailsSent">0</h3>
-                            </div>
-                            <div class="stat-icon bg-success bg-opacity-10 text-success">
-                                <i class="bi bi-send-check"></i>
-                            </div>
-                        </div>
-                    </div>
-                </div>
-            </div>
-            <div class="col-md-3 mb-3">
-                <div class="stat-card card">
-                    <div class="card-body">
-                        <div class="d-flex justify-content-between align-items-center">
-                            <div>
-                                <h6 class="text-muted mb-2">Open Rate</h6>
-                                <h3 class="mb-0" id="openRate">0%</h3>
-                            </div>
-                            <div class="stat-icon bg-warning bg-opacity-10 text-warning">
-                                <i class="bi bi-envelope-open"></i>
-                            </div>
-                        </div>
-                    </div>
-                </div>
-            </div>
-            <div class="col-md-3 mb-3">
-                <div class="stat-card card">
-                    <div class="card-body">
-                        <div class="d-flex justify-content-between align-items-center">
-                            <div>
-                                <h6 class="text-muted mb-2">Click Rate</h6>
-                                <h3 class="mb-0" id="clickRate">0%</h3>
+                                <h6 class="text-muted mb-2">Connection Rate</h6>
+                                <h3 class="mb-0" id="connectionRate">0%</h3>
                             </div>
                             <div class="stat-icon bg-info bg-opacity-10 text-info">
-                                <i class="bi bi-mouse"></i>
+                                <i class="bi bi-graph-up"></i>
                             </div>
                         </div>
                     </div>
@@ -196,19 +196,67 @@ $userEmail = $_SESSION["user_email"] ?? "user@example.com";
             </div>
         </div>
 
-        <!-- Active Campaigns -->
+        <!-- Recent Activity & Quick Actions -->
         <div class="row">
-            <div class="col-12">
+            <div class="col-md-8">
                 <div class="card">
                     <div class="card-header bg-white">
-                        <h5 class="mb-0">Active Campaigns</h5>
+                        <h5 class="mb-0">Recent Activity</h5>
                     </div>
-                    <div class="card-body" id="campaignsList">
-                        <div class="text-center py-5 text-muted">
-                            <i class="bi bi-inbox display-1"></i>
-                            <p class="mt-3">No active campaigns yet. Create your first campaign to get started!</p>
-                            <button class="btn btn-primary" data-bs-toggle="modal" data-bs-target="#newCampaignModal">
-                                <i class="bi bi-plus-lg"></i> Create Campaign
+                    <div class="card-body">
+                        <div class="table-responsive">
+                            <table class="table">
+                                <thead>
+                                    <tr>
+                                        <th>Time</th>
+                                        <th>Contact</th>
+                                        <th>Action</th>
+                                        <th>Status</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="activityList">
+                                    <tr>
+                                        <td>10:32 AM</td>
+                                        <td>John Doe</td>
+                                        <td>Outbound Call</td>
+                                        <td><span class="badge bg-success">Connected</span></td>
+                                    </tr>
+                                    <tr>
+                                        <td>10:28 AM</td>
+                                        <td>Jane Smith</td>
+                                        <td>Email Sent</td>
+                                        <td><span class="badge bg-primary">Delivered</span></td>
+                                    </tr>
+                                    <tr>
+                                        <td>10:15 AM</td>
+                                        <td>Mike Johnson</td>
+                                        <td>Outbound Call</td>
+                                        <td><span class="badge bg-warning">Voicemail</span></td>
+                                    </tr>
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            <div class="col-md-4">
+                <div class="card">
+                    <div class="card-header bg-white">
+                        <h5 class="mb-0">Quick Actions</h5>
+                    </div>
+                    <div class="card-body">
+                        <div class="d-grid gap-2">
+                            <button class="btn btn-primary" onclick="startDialer()">
+                                <i class="bi bi-telephone me-2"></i>Start Auto Dialer
+                            </button>
+                            <button class="btn btn-outline-primary" onclick="addContact()">
+                                <i class="bi bi-person-plus me-2"></i>Add Contact
+                            </button>
+                            <button class="btn btn-outline-primary" onclick="createCampaign()">
+                                <i class="bi bi-envelope-plus me-2"></i>Create Campaign
+                            </button>
+                            <button class="btn btn-outline-primary" onclick="importContacts()">
+                                <i class="bi bi-upload me-2"></i>Import Contacts
                             </button>
                         </div>
                     </div>
@@ -218,161 +266,37 @@ $userEmail = $_SESSION["user_email"] ?? "user@example.com";
     </div>
 </div>
 
-<!-- New Campaign Modal -->
-<div class="modal fade" id="newCampaignModal" tabindex="-1">
-    <div class="modal-dialog modal-lg">
-        <div class="modal-content">
-            <div class="modal-header">
-                <h5 class="modal-title">Create New Email Campaign</h5>
-                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
-            </div>
-            <div class="modal-body">
-                <form id="newCampaignForm">
-                    <div class="mb-4">
-                        <label class="form-label">Campaign Name</label>
-                        <input type="text" class="form-control" name="campaign_name" required>
-                    </div>
-                    
-                    <div class="mb-4">
-                        <label class="form-label">Subject Line</label>
-                        <input type="text" class="form-control" name="subject" required>
-                    </div>
-                    
-                    <div class="mb-4">
-                        <label class="form-label">From Name</label>
-                        <input type="text" class="form-control" name="from_name" required>
-                    </div>
-                    
-                    <div class="mb-4">
-                        <label class="form-label">From Email</label>
-                        <input type="email" class="form-control" name="from_email" required>
-                    </div>
-                    
-                    <div class="mb-4">
-                        <label class="form-label">Email Template</label>
-                        <textarea class="form-control" name="email_content" rows="10" required placeholder="Dear {{name}},
-
-Your email content here...
-
-You can use variables like:
-{{name}} - Recipient name
-{{email}} - Recipient email
-{{company}} - Company name"></textarea>
-                    </div>
-                    
-                    <div class="mb-4">
-                        <label class="form-label">Upload Email List (Excel/CSV)</label>
-                        <div class="upload-area" id="emailListUpload" onclick="document.getElementById('emailFile').click()">
-                            <i class="bi bi-cloud-upload display-4 text-muted"></i>
-                            <p class="mt-3 mb-0">Click to upload or drag and drop</p>
-                            <small class="text-muted">Supported formats: .xlsx, .xls, .csv</small>
-                        </div>
-                        <input type="file" id="emailFile" name="email_file" accept=".xlsx,.xls,.csv" style="display:none" onchange="handleFileSelect(this)">
-                        <div id="fileInfo" class="mt-2"></div>
-                    </div>
-                    
-                    <div class="alert alert-info">
-                        <h6>Excel Format Requirements:</h6>
-                        <ul class="mb-0">
-                            <li>Column A: Email Address (required)</li>
-                            <li>Column B: Full Name (optional)</li>
-                            <li>Column C: Company (optional)</li>
-                            <li>Column D: Any additional data (optional)</li>
-                        </ul>
-                        <a href="#" onclick="downloadTemplate()">Download sample template</a>
-                    </div>
-                </form>
-            </div>
-            <div class="modal-footer">
-                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
-                <button type="button" class="btn btn-primary" onclick="createCampaign()">Create Campaign</button>
-            </div>
-        </div>
-    </div>
-</div>
 
 <script>
-// Fix for drag and drop
-const uploadArea = document.getElementById("emailListUpload");
-if (uploadArea) {
-    uploadArea.addEventListener("dragover", (e) => {
-        e.preventDefault();
-        uploadArea.classList.add("dragover");
-    });
-    
-    uploadArea.addEventListener("dragleave", () => {
-        uploadArea.classList.remove("dragover");
-    });
-    
-    uploadArea.addEventListener("drop", (e) => {
-        e.preventDefault();
-        uploadArea.classList.remove("dragover");
-        
-        const files = e.dataTransfer.files;
-        if (files.length > 0) {
-            document.getElementById("emailFile").files = files;
-            handleFileSelect(document.getElementById("emailFile"));
-        }
-    });
+
+// Load dashboard statistics
+function loadStats() {
+    // This would normally fetch from API
+    document.getElementById("totalContacts").textContent = "1,234";
+    document.getElementById("callsToday").textContent = "156";
+    document.getElementById("activeCampaigns").textContent = "8";
+    document.getElementById("connectionRate").textContent = "23.5%";
 }
 
-function handleFileSelect(input) {
-    const file = input.files[0];
-    if (file) {
-        const fileInfo = document.getElementById("fileInfo");
-        fileInfo.innerHTML = `
-            <div class="alert alert-success">
-                <i class="bi bi-file-earmark-check"></i> 
-                ${file.name} (${(file.size / 1024).toFixed(2)} KB)
-            </div>
-        `;
-    }
+// AutoDial Pro specific functions
+function startDialer() {
+    alert("Starting Auto Dialer... This feature will connect to your phone system.");
+}
+
+function addContact() {
+    alert("Add Contact feature coming soon!");
 }
 
 function createCampaign() {
-    const form = document.getElementById("newCampaignForm");
-    const formData = new FormData(form);
-    
-    // Add file
-    const fileInput = document.getElementById("emailFile");
-    if (fileInput.files[0]) {
-        formData.append("email_file", fileInput.files[0]);
-    }
-    
-    // Show loading
-    const btn = event.target;
-    btn.disabled = true;
-    btn.innerHTML = '<span class="spinner-border spinner-border-sm me-2"></span>Creating...';
-    
-    // Simulate campaign creation
-    setTimeout(() => {
-        alert("Campaign created successfully!");
-        location.reload();
-    }, 2000);
+    alert("Create Campaign feature coming soon!");
 }
 
-function downloadTemplate() {
-    const csvContent = "Email,Name,Company,Custom Field\nuser@example.com,John Doe,ABC Company,Additional Info\nexample@email.com,Jane Smith,XYZ Corp,More Data";
-    const blob = new Blob([csvContent], { type: "text/csv" });
-    const url = window.URL.createObjectURL(blob);
-    const a = document.createElement("a");
-    a.href = url;
-    a.download = "email_campaign_template.csv";
-    a.click();
-    window.URL.revokeObjectURL(url);
+function importContacts() {
+    alert("Import Contacts feature coming soon!");
 }
 
-function showUploadHistory() {
-    alert("Upload history feature coming soon!");
-}
-
-// Load campaign statistics
-function loadStats() {
-    // This would normally fetch from API
-    document.getElementById("totalEmails").textContent = "1,234";
-    document.getElementById("emailsSent").textContent = "987";
-    document.getElementById("openRate").textContent = "24.5%";
-    document.getElementById("clickRate").textContent = "3.2%";
+function showReports() {
+    alert("Reports dashboard coming soon!");
 }
 
 // Load on page ready
