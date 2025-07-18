@@ -17,14 +17,6 @@ class EmailCampaignController extends BaseController {
             $this->sendError("Method not allowed", 405);
         }
         
-        // Handle file upload
-        if (isset($_FILES["email_file"])) {
-            $uploadResult = $this->handleFileUpload($_FILES["email_file"]);
-            if (!$uploadResult["success"]) {
-                $this->sendError($uploadResult["message"], 400);
-            }
-        }
-        
         // Get form data
         $data = [
             "name" => $_POST["campaign_name"] ?? "",
@@ -40,6 +32,20 @@ class EmailCampaignController extends BaseController {
             $campaign = $this->campaignModel->create($data);
             
             if ($campaign) {
+                $campaignId = $campaign["id"];
+                
+                // Handle file upload after campaign creation
+                if (isset($_FILES["email_file"])) {
+                    $uploadResult = $this->handleFileUpload($_FILES["email_file"], $campaignId);
+                    if (!$uploadResult["success"]) {
+                        $this->sendError($uploadResult["message"], 400);
+                        return;
+                    }
+                    
+                    // Add upload results to response
+                    $campaign["upload_results"] = $uploadResult;
+                }
+                
                 $this->sendSuccess($campaign, "Campaign created successfully");
             } else {
                 $this->sendError("Failed to create campaign", 500);
@@ -49,15 +55,28 @@ class EmailCampaignController extends BaseController {
         }
     }
     
-    private function handleFileUpload($file) {
-        $allowedTypes = ["text/csv", "application/vnd.ms-excel", "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"];
+    private function handleFileUpload($file, $campaignId = null) {
+        require_once __DIR__ . "/../services/EmailUploadService.php";
         
-        if (!in_array($file["type"], $allowedTypes)) {
-            return ["success" => false, "message" => "Invalid file type. Please upload CSV or Excel file."];
+        $allowedTypes = [
+            "text/csv", 
+            "application/csv",
+            "text/comma-separated-values",
+            "application/vnd.ms-excel", 
+            "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+            "application/octet-stream" // Some browsers send this for Excel files
+        ];
+        
+        // Also check file extension as fallback
+        $extension = strtolower(pathinfo($file["name"], PATHINFO_EXTENSION));
+        $allowedExtensions = ["csv", "xlsx", "xls"];
+        
+        if (!in_array($file["type"], $allowedTypes) && !in_array($extension, $allowedExtensions)) {
+            return ["success" => false, "message" => "Invalid file type. Please upload CSV or Excel file. (Detected: " . $file["type"] . ", Extension: " . $extension . ")"];
         }
         
-        if ($file["size"] > 5 * 1024 * 1024) { // 5MB limit
-            return ["success" => false, "message" => "File size exceeds 5MB limit."];
+        if ($file["size"] > 10 * 1024 * 1024) { // 10MB limit
+            return ["success" => false, "message" => "File size exceeds 10MB limit."];
         }
         
         $uploadDir = __DIR__ . "/../uploads/";
@@ -69,8 +88,27 @@ class EmailCampaignController extends BaseController {
         $uploadPath = $uploadDir . $fileName;
         
         if (move_uploaded_file($file["tmp_name"], $uploadPath)) {
-            // Process the file here (parse CSV/Excel)
-            return ["success" => true, "file" => $fileName];
+            // Process the file using EmailUploadService
+            $uploadService = new EmailUploadService($this->db);
+            
+            // Validate file first
+            $validationErrors = $uploadService->validateFile($uploadPath);
+            if (!empty($validationErrors)) {
+                // Clean up uploaded file
+                if (file_exists($uploadPath)) {
+                    unlink($uploadPath);
+                }
+                return ["success" => false, "message" => implode(", ", $validationErrors)];
+            }
+            
+            $result = $uploadService->processUploadedFile($uploadPath, $campaignId, $file["name"]);
+            
+            // Clean up uploaded file
+            if (file_exists($uploadPath)) {
+                unlink($uploadPath);
+            }
+            
+            return $result;
         }
         
         return ["success" => false, "message" => "Failed to upload file."];

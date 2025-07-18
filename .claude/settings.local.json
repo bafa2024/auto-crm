@@ -1,0 +1,13 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(php:*)",
+      "Bash(git add:*)",
+      "Bash(python:*)",
+      "Bash(dir:*)",
+      "Bash(composer show:*)",
+      "Bash(composer:*)"
+    ],
+    "deny": []
+  }
+}

@@ -5,9 +5,10 @@
     "license": "proprietary",
     "require": {
         "php": "^7.4|^8.0",
+        "ext-json": "*",
         "ext-pdo": "*",
         "ext-pdo_mysql": "*",
-        "ext-json": "*"
+        "phpoffice/phpspreadsheet": "^4.4"
     },
     "autoload": {
         "psr-4": {

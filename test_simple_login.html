@@ -1,0 +1,88 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Test Login</title>
+    <style>
+        body { font-family: Arial, sans-serif; margin: 40px; }
+        .container { max-width: 400px; margin: 0 auto; }
+        input, button { width: 100%; padding: 10px; margin: 10px 0; }
+        .result { margin-top: 20px; padding: 10px; border-radius: 5px; }
+        .success { background-color: #d4edda; color: #155724; }
+        .error { background-color: #f8d7da; color: #721c24; }
+        .loading { background-color: #fff3cd; color: #856404; }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h2>AutoDial Pro - Login Test</h2>
+        
+        <form id="testLoginForm">
+            <input type="email" id="email" placeholder="Email" value="admin@autocrm.com" required>
+            <input type="password" id="password" placeholder="Password" value="admin123" required>
+            <button type="submit">Test Login</button>
+        </form>
+        
+        <div id="result"></div>
+        
+        <h3>Test Different URLs:</h3>
+        <button onclick="testUrl('/acrm/api/auth/login')">Test: /acrm/api/auth/login</button>
+        <button onclick="testUrl('/acrm/index.php/api/auth/login')">Test: /acrm/index.php/api/auth/login</button>
+        <button onclick="testUrl('api/auth/login')">Test: api/auth/login</button>
+        <button onclick="testUrl('./api/auth/login')">Test: ./api/auth/login</button>
+    </div>
+
+    <script>
+        const resultDiv = document.getElementById('result');
+        
+        function showResult(message, type = 'loading') {
+            resultDiv.innerHTML = `<div class="result ${type}">${message}</div>`;
+        }
+        
+        function testUrl(url) {
+            const email = document.getElementById('email').value;
+            const password = document.getElementById('password').value;
+            
+            showResult(`Testing URL: ${url}...`, 'loading');
+            
+            fetch(url, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify({ email, password })
+            })
+            .then(response => {
+                showResult(`URL: ${url}<br>Status: ${response.status}<br>Status Text: ${response.statusText}`, 'loading');
+                return response.json();
+            })
+            .then(data => {
+                if (data.success) {
+                    showResult(`✅ SUCCESS with URL: ${url}<br>Message: ${data.message}<br>Response: ${JSON.stringify(data, null, 2)}`, 'success');
+                    
+                    // If login successful, try to redirect
+                    if (data.data && data.data.redirect) {
+                        setTimeout(() => {
+                            window.location.href = data.data.redirect;
+                        }, 2000);
+                    }
+                } else {
+                    showResult(`❌ FAILED with URL: ${url}<br>Error: ${data.message}<br>Response: ${JSON.stringify(data, null, 2)}`, 'error');
+                }
+            })
+            .catch(error => {
+                showResult(`🚫 NETWORK ERROR with URL: ${url}<br>Error: ${error.message}<br>This is the same error you're seeing!`, 'error');
+            });
+        }
+        
+        document.getElementById('testLoginForm').addEventListener('submit', function(e) {
+            e.preventDefault();
+            testUrl('/acrm/api/auth/login'); // Default test
+        });
+        
+        // Test on page load
+        showResult('Ready to test login. Click "Test Login" or try different URLs below.', 'loading');
+    </script>
+</body>
+</html>
