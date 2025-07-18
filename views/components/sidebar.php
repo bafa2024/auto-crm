@@ -10,7 +10,7 @@
                 </a>
             </li>
             <li class="nav-item">
-                <a class="sidebar-link" href="/test_email_upload_form.php">
+                <a class="sidebar-link" href="/contacts.php">
                     <i class="bi bi-people"></i> Contacts
                 </a>
             </li>
