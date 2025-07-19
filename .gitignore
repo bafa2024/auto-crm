@@ -26,6 +26,7 @@ switch_to_*.php
 # Documentation
 *.md
 !README.md
+!HOSTINGER_DEPLOYMENT_GUIDE.md
 
 # IDE files
 .claude/
