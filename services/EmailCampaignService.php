@@ -20,7 +20,7 @@ class EmailCampaignService {
                 status, created_at
             ) VALUES (
                 :user_id, :name, :subject, :content, :sender_name, :sender_email,
-                :status, datetime('now')
+                :status, NOW()
             )";
             
             $stmt = $this->db->prepare($sql);
@@ -103,7 +103,7 @@ class EmailCampaignService {
                     $sql = "INSERT INTO campaign_sends (
                         campaign_id, recipient_id, recipient_email, status, sent_at
                     ) VALUES (
-                        :campaign_id, :recipient_id, :recipient_email, :status, datetime('now')
+                        :campaign_id, :recipient_id, :recipient_email, :status, NOW()
                     )";
                     
                     $stmt = $this->db->prepare($sql);
@@ -261,23 +261,26 @@ class EmailCampaignService {
      */
     private function createCampaignsTable() {
         $sql = "CREATE TABLE IF NOT EXISTS email_campaigns (
-            id INTEGER PRIMARY KEY AUTOINCREMENT,
-            name TEXT NOT NULL,
-            subject TEXT NOT NULL,
-            content TEXT NOT NULL,
-            sender_name TEXT NOT NULL,
-            sender_email TEXT NOT NULL,
-            schedule_type TEXT DEFAULT 'immediate',
+            id INT AUTO_INCREMENT PRIMARY KEY,
+            user_id INT NOT NULL,
+            name VARCHAR(255) NOT NULL,
+            subject VARCHAR(255) NOT NULL,
+            email_content TEXT NOT NULL,
+            from_name VARCHAR(100) NOT NULL,
+            from_email VARCHAR(255) NOT NULL,
+            schedule_type VARCHAR(50) DEFAULT 'immediate',
             schedule_date DATETIME,
-            frequency TEXT,
-            status TEXT DEFAULT 'draft',
-            total_recipients INTEGER DEFAULT 0,
-            sent_count INTEGER DEFAULT 0,
-            opened_count INTEGER DEFAULT 0,
-            clicked_count INTEGER DEFAULT 0,
+            frequency VARCHAR(50),
+            status VARCHAR(50) DEFAULT 'draft',
+            total_recipients INT DEFAULT 0,
+            sent_count INT DEFAULT 0,
+            opened_count INT DEFAULT 0,
+            clicked_count INT DEFAULT 0,
             created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
-            updated_at DATETIME DEFAULT CURRENT_TIMESTAMP
-        )";
+            updated_at DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+            INDEX idx_user_id (user_id),
+            INDEX idx_status (status)
+        ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci";
         
         $this->db->exec($sql);
     }
@@ -287,18 +290,19 @@ class EmailCampaignService {
      */
     private function createCampaignSendsTable() {
         $sql = "CREATE TABLE IF NOT EXISTS campaign_sends (
-            id INTEGER PRIMARY KEY AUTOINCREMENT,
-            campaign_id INTEGER NOT NULL,
-            recipient_id INTEGER NOT NULL,
-            recipient_email TEXT NOT NULL,
-            status TEXT DEFAULT 'pending',
+            id INT AUTO_INCREMENT PRIMARY KEY,
+            campaign_id INT NOT NULL,
+            recipient_id INT NOT NULL,
+            recipient_email VARCHAR(255) NOT NULL,
+            status VARCHAR(50) DEFAULT 'pending',
             sent_at DATETIME,
             opened_at DATETIME,
             clicked_at DATETIME,
-            tracking_id TEXT UNIQUE,
-            FOREIGN KEY (campaign_id) REFERENCES email_campaigns (id),
-            FOREIGN KEY (recipient_id) REFERENCES email_recipients (id)
-        )";
+            tracking_id VARCHAR(64) UNIQUE,
+            INDEX idx_campaign_id (campaign_id),
+            INDEX idx_recipient_id (recipient_id),
+            INDEX idx_status (status)
+        ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci";
         
         $this->db->exec($sql);
     }
