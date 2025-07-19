@@ -34,20 +34,36 @@ class EmailCampaignService {
             // Create email_campaigns table if it doesn't exist
             $this->createCampaignsTable();
             
+            // Verify user exists before creating campaign
+            $userId = $campaignData['user_id'] ?? 1;
+            $stmt = $this->db->prepare("SELECT id FROM users WHERE id = ?");
+            $stmt->execute([$userId]);
+            $user = $stmt->fetch();
+            
+            if (!$user) {
+                // Create default admin user if it doesn't exist
+                $hashedPassword = password_hash('admin123', PASSWORD_DEFAULT);
+                $datetimeFunc = ($this->dbType === 'sqlite') ? "datetime('now')" : "NOW()";
+                
+                $stmt = $this->db->prepare("INSERT INTO users (first_name, last_name, email, password, role, status, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, $datetimeFunc, $datetimeFunc)");
+                $stmt->execute(['Admin', 'User', 'admin@autocrm.com', $hashedPassword, 'admin', 'active']);
+                $userId = $this->db->lastInsertId();
+            }
+            
             // Use appropriate datetime function based on database type
             $datetimeFunc = ($this->dbType === 'sqlite') ? "datetime('now')" : "NOW()";
             
             $sql = "INSERT INTO email_campaigns (
                 user_id, name, subject, email_content, from_name, from_email, 
-                status, created_at
+                status, created_at, updated_at
             ) VALUES (
                 :user_id, :name, :subject, :content, :sender_name, :sender_email,
-                :status, $datetimeFunc
+                :status, $datetimeFunc, $datetimeFunc
             )";
             
             $stmt = $this->db->prepare($sql);
             $stmt->execute([
-                ':user_id' => $campaignData['user_id'] ?? 1, // Default to user_id 1 if not provided
+                ':user_id' => $userId,
                 ':name' => $campaignData['name'],
                 ':subject' => $campaignData['subject'],
                 ':content' => $campaignData['content'],
