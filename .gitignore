@@ -1,27 +1,34 @@
-# Dependencies
-vendor/
-node_modules/
+# Database files
+database/*.db
+database/*.sqlite
+database/*.sql
 
-# Environment files
-.env
-.env.local
-.env.production
+# Test files
+test_*.php
+debug_*.php
+simple_*.php
+show_*.php
+*_test.php
+*_debug.php
 
-# Logs
-logs/
-*.log
+# Backup files
+*.zip
+*.tar
+*.tar.gz
+create_backup_*.php
+create_version_backup.php
 
-# Cache
-cache/
-temp/
+# Configuration files (environment-specific)
+config/database_mysql_*.php
+setup_*.php
+switch_to_*.php
 
-# Uploads
-uploads/
-
-# Backups
-backups/
+# Documentation
+*.md
+!README.md
 
 # IDE files
+.claude/
 .vscode/
 .idea/
 *.swp
@@ -30,13 +37,32 @@ backups/
 # OS files
 .DS_Store
 Thumbs.db
+desktop.ini
 
-# Session files
-sessions/
+# Logs
+*.log
+logs/
 
-# Database
-*.sql
-*.sqlite
+# Cache
+cache/
+temp/
 
-# Configuration files with sensitive data
-config/database.php 
+# Uploads (if any)
+uploads/
+
+# Environment files
+.env
+.env.local
+.env.production
+
+# Composer
+vendor/
+composer.lock
+
+# Node modules (if any)
+node_modules/
+package-lock.json
+
+# Build files
+dist/
+build/ 
