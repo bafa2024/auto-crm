@@ -232,7 +232,7 @@ class EmailUploadService {
             'email' => null,
             'name' => null,
             'company' => null,
-            // Optionally: 'dot' => null
+            'dot' => null
         ];
         foreach ($headers as $index => $header) {
             $headerLower = strtolower(trim($header));
@@ -248,10 +248,10 @@ class EmailUploadService {
             elseif ($headerLower === 'company' || $headerLower === 'company name' || $headerLower === 'organization') {
                 $fieldMap['company'] = $index;
             }
-            // Optionally: map DOT field if needed
-            // elseif ($headerLower === 'dot') {
-            //     $fieldMap['dot'] = $index;
-            // }
+            // Map DOT field
+            elseif ($headerLower === 'dot' || $headerLower === 'dot number' || $headerLower === 'dot_number') {
+                $fieldMap['dot'] = $index;
+            }
         }
         return $fieldMap;
     }
@@ -283,8 +283,8 @@ class EmailUploadService {
                 }
                 
                 // Insert into email_recipients table
-                $sql = "INSERT INTO email_recipients (campaign_id, email, name, company, status, tracking_id, created_at) 
-                        VALUES (:campaign_id, :email, :name, :company, 'pending', :tracking_id, datetime('now'))";
+                $sql = "INSERT INTO email_recipients (campaign_id, email, name, company, dot, status, tracking_id, created_at) 
+                        VALUES (:campaign_id, :email, :name, :company, :dot, 'pending', :tracking_id, datetime('now'))";
                 
                 $stmt = $this->db->prepare($sql);
                 $stmt->execute([
@@ -292,6 +292,7 @@ class EmailUploadService {
                     ':email' => $contact['email'],
                     ':name' => $contact['name'] ?? null,
                     ':company' => $contact['company'] ?? null,
+                    ':dot' => $contact['dot'] ?? null,
                     ':tracking_id' => uniqid('track_', true)
                 ]);
                 

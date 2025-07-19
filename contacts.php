@@ -4,9 +4,12 @@ ini_set('display_startup_errors', 1);
 error_reporting(E_ALL);
 session_start();
 
+// Include base path configuration
+require_once 'config/base_path.php';
+
 // Check if user is logged in
 if (!isset($_SESSION["user_id"])) {
-    header("Location: /login");
+    header("Location: " . base_path('login'));
     exit;
 }
 
@@ -16,6 +19,48 @@ require_once 'services/EmailUploadService.php';
 
 $message = '';
 $messageType = '';
+
+// Handle contact creation
+if (isset($_SERVER['REQUEST_METHOD']) && $_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action']) && $_POST['action'] === 'create_contact') {
+    $dot = $_POST['dot'] ?? '';
+    $companyName = $_POST['company_name'] ?? '';
+    $customerName = $_POST['customer_name'] ?? '';
+    $email = $_POST['email'] ?? '';
+    $campaignId = $_POST['campaign_id'] ?? null;
+    
+    // Validate required fields
+    if (empty($email) || empty($customerName)) {
+        $message = 'Email and Customer Name are required.';
+        $messageType = 'danger';
+    } else {
+        // Validate email format
+        if (!filter_var($email, FILTER_VALIDATE_EMAIL)) {
+            $message = 'Please enter a valid email address.';
+            $messageType = 'danger';
+        } else {
+            try {
+                // Check if email already exists
+                $stmt = $database->prepare("SELECT id FROM email_recipients WHERE email = ?");
+                $stmt->execute([$email]);
+                if ($stmt->fetch()) {
+                    $message = 'A contact with this email address already exists.';
+                    $messageType = 'warning';
+                } else {
+                    // Insert new contact
+                    $sql = "INSERT INTO email_recipients (email, name, company, dot, campaign_id, created_at) VALUES (?, ?, ?, ?, ?, datetime('now'))";
+                    $stmt = $database->prepare($sql);
+                    $stmt->execute([$email, $customerName, $companyName, $dot, $campaignId]);
+                    
+                    $message = 'Contact created successfully!';
+                    $messageType = 'success';
+                }
+            } catch (Exception $e) {
+                $message = 'Failed to create contact: ' . $e->getMessage();
+                $messageType = 'danger';
+            }
+        }
+    }
+}
 
 // Handle file upload
 if (isset($_SERVER['REQUEST_METHOD']) && $_SERVER['REQUEST_METHOD'] === 'POST' && isset($_FILES['email_file'])) {
@@ -86,6 +131,28 @@ try {
 } catch (Exception $e) {
     // Ignore error if table doesn't exist
 }
+
+// Get existing contacts for display
+$contacts = [];
+try {
+    $stmt = $database->query("
+        SELECT 
+            er.id,
+            er.email,
+            er.name,
+            er.company,
+            er.dot,
+            er.created_at,
+            ec.name as campaign_name
+        FROM email_recipients er
+        LEFT JOIN email_campaigns ec ON er.campaign_id = ec.id
+        ORDER BY er.created_at DESC
+        LIMIT 50
+    ");
+    $contacts = $stmt->fetchAll(PDO::FETCH_ASSOC);
+} catch (Exception $e) {
+    // Ignore error if table doesn't exist
+}
 ?>
 
 <!DOCTYPE html>
@@ -148,53 +215,7 @@ try {
 </head>
 <body>
     <!-- Sidebar -->
-    <div class="sidebar" id="sidebar">
-        <div class="p-4">
-            <h5 class="mb-4">
-                <i class="bi bi-telephone-fill text-primary"></i> AutoDial Pro
-            </h5>
-            <ul class="nav flex-column">
-                <li class="nav-item">
-                    <a class="sidebar-link" href="/dashboard">
-                        <i class="bi bi-speedometer2"></i> Dashboard
-                    </a>
-                </li>
-                <li class="nav-item">
-                    <a class="sidebar-link active" href="/contacts.php">
-                        <i class="bi bi-people"></i> Contacts
-                    </a>
-                </li>
-                <li class="nav-item">
-                    <a class="sidebar-link" href="#" onclick="showSection('campaigns')">
-                        <i class="bi bi-envelope"></i> Campaigns
-                    </a>
-                </li>
-                <li class="nav-item">
-                    <a class="sidebar-link" href="#" onclick="showSection('dialer')">
-                        <i class="bi bi-telephone"></i> Auto Dialer
-                    </a>
-                </li>
-                <li class="nav-item">
-                    <a class="sidebar-link" href="#" onclick="showSection('analytics')">
-                        <i class="bi bi-graph-up"></i> Analytics
-                    </a>
-                </li>
-                <li class="nav-item">
-                    <a class="sidebar-link" href="#" onclick="showSection('settings')">
-                        <i class="bi bi-gear"></i> Settings
-                    </a>
-                </li>
-            </ul>
-            <hr>
-            <div class="mt-4">
-                <p class="mb-2 text-muted small">Logged in as:</p>
-                <p class="mb-0 fw-bold"><?php echo $_SESSION["user_email"] ?? "User"; ?></p>
-                <a href="/logout" class="btn btn-sm btn-outline-danger mt-2 w-100">
-                    <i class="bi bi-box-arrow-right"></i> Logout
-                </a>
-            </div>
-        </div>
-    </div>
+    <?php include 'views/components/sidebar.php'; ?>
 
     <!-- Main Content -->
     <div class="main-content">
@@ -209,30 +230,221 @@ try {
                     <button class="btn btn-outline-primary" onclick="showReports()">
                         <i class="bi bi-graph-up"></i> Reports
                     </button>
+                    <button class="btn btn-success" data-bs-toggle="modal" data-bs-target="#createContactModal">
+                        <i class="bi bi-person-plus"></i> Create Contact
+                    </button>
                     <button class="btn btn-primary" onclick="startDialer()">
                         <i class="bi bi-telephone"></i> Start Dialer
                     </button>
                 </div>
             </div>
-            
-            <?php if ($message): ?>
-                <div class="alert alert-<?php echo $messageType; ?> alert-dismissible fade show" role="alert">
-                    <?php echo $message; ?>
-                    <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
-                </div>
-            <?php endif; ?>
-            
+                
+                <?php if ($message): ?>
+                    <div class="alert alert-<?php echo $messageType; ?> alert-dismissible fade show" role="alert">
+                        <?php echo $message; ?>
+                        <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+                    </div>
+                <?php endif; ?>
+                
             <div class="row">
                 <div class="col-md-8">
-                    <div class="card">
-                        <div class="card-body">
-                            <h5 class="card-title">Upload Email Contacts</h5>
-                            <p class="text-muted">Upload a CSV or Excel file with columns: DOT, Company Name, Customer Name, Email. Extra columns will be ignored.</p>
+                <div class="card">
+                    <div class="card-body">
+                        <h5 class="card-title">Upload Email Contacts</h5>
+                        <p class="text-muted">Upload a CSV or Excel file with columns: DOT, Company Name, Customer Name, Email. Extra columns will be ignored.</p>
+                        
+                        <form method="POST" enctype="multipart/form-data">
+                            <div class="mb-3">
+                                <label for="campaign_id" class="form-label">Campaign (Optional)</label>
+                                <select class="form-select" id="campaign_id" name="campaign_id">
+                                    <option value="">-- No Campaign --</option>
+                                    <?php foreach ($campaigns as $campaign): ?>
+                                        <option value="<?php echo $campaign['id']; ?>">
+                                            <?php echo htmlspecialchars($campaign['name']); ?>
+                                        </option>
+                                    <?php endforeach; ?>
+                                </select>
+                                <div class="form-text">Select a campaign to associate these contacts with</div>
+                            </div>
                             
-                            <form method="POST" enctype="multipart/form-data">
+                            <div class="mb-3">
+                                <label for="email_file" class="form-label">Email List File</label>
+                                <input type="file" class="form-control" id="email_file" name="email_file" accept=".csv,.xlsx,.xls" required>
+                                <div class="form-text">Supported formats: CSV, Excel (.xlsx, .xls)</div>
+                            </div>
+                            
+                            <button type="submit" class="btn btn-primary">
+                                <i class="bi bi-cloud-upload"></i> Upload Contacts
+                            </button>
+                            
+                                <a href="<?php echo base_path('download_template.php'); ?>" class="btn btn-secondary">
+                                <i class="bi bi-download"></i> Download Template
+                            </a>
+                        </form>
+                    </div>
+                </div>
+                
+                <div class="card mt-4">
+                    <div class="card-body">
+                        <h5 class="card-title">Template Format</h5>
+                        <p>Your file should have the following columns (extra columns are ignored):</p>
+                        <table class="table table-bordered">
+                            <thead>
+                                <tr>
+                                    <th>DOT</th>
+                                    <th>Company Name</th>
+                                    <th>Customer Name</th>
+                                    <th>Email</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                <tr>
+                                    <td>170481</td>
+                                    <td>BELL TRUCKING CO INC</td>
+                                    <td>JUDY BELL</td>
+                                    <td>DOODLEBUGBELL@YAHOO.COM</td>
+                                </tr>
+                                <tr>
+                                    <td>226308</td>
+                                    <td>ROBERT L COSBY TRUCKING LLC</td>
+                                    <td>ROBERT L COSBY</td>
+                                    <td>robertlcosby@gmail.com</td>
+                                </tr>
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+                
+                <!-- Contacts List -->
+                <div class="card mt-4">
+                    <div class="card-header d-flex justify-content-between align-items-center">
+                        <h5 class="mb-0">Recent Contacts</h5>
+                        <span class="badge bg-primary"><?php echo count($contacts); ?> contacts</span>
+                    </div>
+                    <div class="card-body">
+                        <?php if (!empty($contacts)): ?>
+                            <div class="table-responsive">
+                                <table class="table table-hover">
+                                    <thead>
+                                        <tr>
+                                            <th>Name</th>
+                                            <th>Email</th>
+                                            <th>Company</th>
+                                            <th>DOT</th>
+                                            <th>Campaign</th>
+                                            <th>Added</th>
+                                            <th>Actions</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody>
+                                        <?php foreach ($contacts as $contact): ?>
+                                        <tr>
+                                            <td>
+                                                <strong><?php echo htmlspecialchars($contact['name']); ?></strong>
+                                            </td>
+                                            <td>
+                                                <a href="mailto:<?php echo htmlspecialchars($contact['email']); ?>">
+                                                    <?php echo htmlspecialchars($contact['email']); ?>
+                                                </a>
+                                            </td>
+                                            <td><?php echo htmlspecialchars($contact['company'] ?? '-'); ?></td>
+                                            <td><?php echo htmlspecialchars($contact['dot'] ?? '-'); ?></td>
+                                            <td>
+                                                <?php if ($contact['campaign_name']): ?>
+                                                    <span class="badge bg-info"><?php echo htmlspecialchars($contact['campaign_name']); ?></span>
+                                                <?php else: ?>
+                                                    <span class="text-muted">-</span>
+                                                <?php endif; ?>
+                                            </td>
+                                            <td>
+                                                <small class="text-muted">
+                                                    <?php echo date('M d, Y', strtotime($contact['created_at'])); ?>
+                                                </small>
+                                            </td>
+                                            <td>
+                                                <div class="btn-group btn-group-sm">
+                                                    <button class="btn btn-outline-primary" onclick="editContact(<?php echo $contact['id']; ?>)">
+                                                        <i class="bi bi-pencil"></i>
+                                                    </button>
+                                                    <button class="btn btn-outline-danger" onclick="deleteContact(<?php echo $contact['id']; ?>)">
+                                                        <i class="bi bi-trash"></i>
+                                                    </button>
+                                                </div>
+                                            </td>
+                                        </tr>
+                                        <?php endforeach; ?>
+                                    </tbody>
+                                </table>
+                            </div>
+                        <?php else: ?>
+                            <div class="text-center py-4">
+                                <i class="bi bi-people display-1 text-muted"></i>
+                                <h5 class="mt-3">No contacts yet</h5>
+                                <p class="text-muted">Create your first contact or upload a file to get started</p>
+                                <button class="btn btn-primary" data-bs-toggle="modal" data-bs-target="#createContactModal">
+                                    <i class="bi bi-person-plus"></i> Create Contact
+                                </button>
+                            </div>
+                        <?php endif; ?>
+                    </div>
+                </div>
+                
+                <div class="col-md-4">
+                    <div class="card">
+                    <div class="card-body">
+                        <h5 class="card-title">Recent Uploads</h5>
+                        <table class="table">
+                            <thead>
+                                <tr>
+                                    <th>Campaign</th>
+                                    <th>Recipients</th>
+                                    <th>Upload Date</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                <?php if (!empty($recentUploads)): ?>
+                                    <?php foreach ($recentUploads as $upload): ?>
+                                    <tr>
+                                        <td><?php echo htmlspecialchars($upload['campaign_name'] ?? 'No Campaign'); ?></td>
+                                        <td><?php echo $upload['recipient_count']; ?></td>
+                                        <td><?php echo date('Y-m-d H:i', strtotime($upload['upload_date'])); ?></td>
+                                    </tr>
+                                    <?php endforeach; ?>
+                                <?php else: ?>
+                                    <tr><td colspan="3" class="text-center text-muted">No uploads found.</td></tr>
+                                <?php endif; ?>
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <!-- Create Contact Modal -->
+    <div class="modal fade" id="createContactModal" tabindex="-1">
+        <div class="modal-dialog">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title">Create New Contact</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                </div>
+                <form method="POST">
+                    <input type="hidden" name="action" value="create_contact">
+                    <div class="modal-body">
+                        <div class="row">
+                            <div class="col-md-6">
+                                <div class="mb-3">
+                                    <label for="dot" class="form-label">DOT Number</label>
+                                    <input type="text" class="form-control" id="dot" name="dot" placeholder="e.g., 170481">
+                                    <div class="form-text">Optional DOT number</div>
+                                </div>
+                            </div>
+                            <div class="col-md-6">
                                 <div class="mb-3">
                                     <label for="campaign_id" class="form-label">Campaign (Optional)</label>
-                                    <select class="form-select" id="campaign_id" name="campaign_id">
+                                    <select class="form-select" id="modal_campaign_id" name="campaign_id">
                                         <option value="">-- No Campaign --</option>
                                         <?php foreach ($campaigns as $campaign): ?>
                                             <option value="<?php echo $campaign['id']; ?>">
@@ -240,87 +452,30 @@ try {
                                             </option>
                                         <?php endforeach; ?>
                                     </select>
-                                    <div class="form-text">Select a campaign to associate these contacts with</div>
                                 </div>
-                                
-                                <div class="mb-3">
-                                    <label for="email_file" class="form-label">Email List File</label>
-                                    <input type="file" class="form-control" id="email_file" name="email_file" accept=".csv,.xlsx,.xls" required>
-                                    <div class="form-text">Supported formats: CSV, Excel (.xlsx, .xls)</div>
-                                </div>
-                                
-                                <button type="submit" class="btn btn-primary">
-                                    <i class="bi bi-cloud-upload"></i> Upload Contacts
-                                </button>
-                                
-                                <a href="download_template.php" class="btn btn-secondary">
-                                    <i class="bi bi-download"></i> Download Template
-                                </a>
-                            </form>
+                            </div>
+                        </div>
+                        
+                        <div class="mb-3">
+                            <label for="company_name" class="form-label">Company Name</label>
+                            <input type="text" class="form-control" id="company_name" name="company_name" placeholder="e.g., BELL TRUCKING CO INC">
+                        </div>
+                        
+                        <div class="mb-3">
+                            <label for="customer_name" class="form-label">Customer Name *</label>
+                            <input type="text" class="form-control" id="customer_name" name="customer_name" placeholder="e.g., JUDY BELL" required>
+                        </div>
+                        
+                        <div class="mb-3">
+                            <label for="email" class="form-label">Email Address *</label>
+                            <input type="email" class="form-control" id="email" name="email" placeholder="e.g., judy@example.com" required>
                         </div>
                     </div>
-                    
-                    <div class="card mt-4">
-                        <div class="card-body">
-                            <h5 class="card-title">Template Format</h5>
-                            <p>Your file should have the following columns (extra columns are ignored):</p>
-                            <table class="table table-bordered">
-                                <thead>
-                                    <tr>
-                                        <th>DOT</th>
-                                        <th>Company Name</th>
-                                        <th>Customer Name</th>
-                                        <th>Email</th>
-                                    </tr>
-                                </thead>
-                                <tbody>
-                                    <tr>
-                                        <td>170481</td>
-                                        <td>BELL TRUCKING CO INC</td>
-                                        <td>JUDY BELL</td>
-                                        <td>DOODLEBUGBELL@YAHOO.COM</td>
-                                    </tr>
-                                    <tr>
-                                        <td>226308</td>
-                                        <td>ROBERT L COSBY TRUCKING LLC</td>
-                                        <td>ROBERT L COSBY</td>
-                                        <td>robertlcosby@gmail.com</td>
-                                    </tr>
-                                </tbody>
-                            </table>
-                        </div>
+                    <div class="modal-footer">
+                        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                        <button type="submit" class="btn btn-primary">Create Contact</button>
                     </div>
-                </div>
-                
-                <div class="col-md-4">
-                    <div class="card">
-                        <div class="card-body">
-                            <h5 class="card-title">Recent Uploads</h5>
-                            <table class="table">
-                                <thead>
-                                    <tr>
-                                        <th>Campaign</th>
-                                        <th>Recipients</th>
-                                        <th>Upload Date</th>
-                                    </tr>
-                                </thead>
-                                <tbody>
-                                    <?php if (!empty($recentUploads)): ?>
-                                        <?php foreach ($recentUploads as $upload): ?>
-                                        <tr>
-                                            <td><?php echo htmlspecialchars($upload['campaign_name'] ?? 'No Campaign'); ?></td>
-                                            <td><?php echo $upload['recipient_count']; ?></td>
-                                            <td><?php echo date('Y-m-d H:i', strtotime($upload['upload_date'])); ?></td>
-                                        </tr>
-                                        <?php endforeach; ?>
-                                    <?php else: ?>
-                                        <tr><td colspan="3" class="text-center text-muted">No uploads found.</td></tr>
-                                    <?php endif; ?>
-                                </tbody>
-                            </table>
-                        </div>
-                    </div>
-                </div>
+                </form>
             </div>
         </div>
     </div>
@@ -337,6 +492,17 @@ try {
         
         function startDialer() {
             alert("Auto Dialer feature coming soon!");
+        }
+        
+        function editContact(contactId) {
+            alert("Edit contact " + contactId + " - Coming soon!");
+        }
+        
+        function deleteContact(contactId) {
+            if (confirm("Are you sure you want to delete this contact?")) {
+                // TODO: Implement delete functionality
+                alert("Delete contact " + contactId + " - Coming soon!");
+            }
         }
     </script>
 </body>

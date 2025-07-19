@@ -1,3 +1,7 @@
+<?php
+// Include base path configuration
+require_once __DIR__ . '/../../config/base_path.php';
+?>
 <div class="sidebar" id="sidebar">
     <div class="p-4">
         <h5 class="mb-4">
@@ -5,17 +9,17 @@
         </h5>
         <ul class="nav flex-column">
             <li class="nav-item">
-                <a class="sidebar-link active" href="/dashboard">
+                <a class="sidebar-link <?php echo basename($_SERVER['PHP_SELF']) === 'dashboard' || basename($_SERVER['PHP_SELF']) === 'index.php' ? 'active' : ''; ?>" href="<?php echo base_path('dashboard'); ?>">
                     <i class="bi bi-speedometer2"></i> Dashboard
                 </a>
             </li>
             <li class="nav-item">
-                <a class="sidebar-link" href="/contacts.php">
+                <a class="sidebar-link <?php echo basename($_SERVER['PHP_SELF']) === 'contacts.php' ? 'active' : ''; ?>" href="<?php echo base_path('contacts.php'); ?>">
                     <i class="bi bi-people"></i> Contacts
                 </a>
             </li>
             <li class="nav-item">
-                <a class="sidebar-link" href="#" onclick="showSection('campaigns')">
+                <a class="sidebar-link <?php echo basename($_SERVER['PHP_SELF']) === 'campaigns.php' ? 'active' : ''; ?>" href="<?php echo base_path('campaigns.php'); ?>">
                     <i class="bi bi-envelope"></i> Campaigns
                 </a>
             </li>
@@ -39,7 +43,7 @@
         <div class="mt-4">
             <p class="mb-2 text-muted small">Logged in as:</p>
             <p class="mb-0 fw-bold"><?php echo $_SESSION["user_email"] ?? "User"; ?></p>
-            <a href="/logout" class="btn btn-sm btn-outline-danger mt-2 w-100">
+            <a href="<?php echo base_path('logout'); ?>" class="btn btn-sm btn-outline-danger mt-2 w-100">
                 <i class="bi bi-box-arrow-right"></i> Logout
             </a>
         </div>
