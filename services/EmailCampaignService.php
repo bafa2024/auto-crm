@@ -428,5 +428,143 @@ class EmailCampaignService {
             return [];
         }
     }
+    
+    /**
+     * Get campaign by ID for editing
+     */
+    public function getCampaignById($campaignId) {
+        try {
+            $sql = "SELECT * FROM email_campaigns WHERE id = :id";
+            $stmt = $this->db->prepare($sql);
+            $stmt->execute([':id' => $campaignId]);
+            return $stmt->fetch(PDO::FETCH_ASSOC);
+            
+        } catch (Exception $e) {
+            return null;
+        }
+    }
+    
+    /**
+     * Edit/Update an existing campaign
+     */
+    public function editCampaign($campaignId, $campaignData) {
+        try {
+            // First check if campaign exists
+            $existingCampaign = $this->getCampaignById($campaignId);
+            if (!$existingCampaign) {
+                return [
+                    'success' => false,
+                    'message' => 'Campaign not found'
+                ];
+            }
+            
+            // Check if campaign can be edited (not sent/completed)
+            if (in_array($existingCampaign['status'], ['completed', 'sending'])) {
+                return [
+                    'success' => false,
+                    'message' => 'Cannot edit campaign that is already sent or in progress'
+                ];
+            }
+            
+            // Use appropriate datetime function based on database type
+            $datetimeFunc = ($this->dbType === 'sqlite') ? "datetime('now')" : "NOW()";
+            
+            $sql = "UPDATE email_campaigns SET 
+                name = :name,
+                subject = :subject,
+                email_content = :content,
+                from_name = :sender_name,
+                from_email = :sender_email,
+                schedule_type = :schedule_type,
+                schedule_date = :schedule_date,
+                frequency = :frequency,
+                status = :status,
+                updated_at = $datetimeFunc
+                WHERE id = :id";
+            
+            $stmt = $this->db->prepare($sql);
+            $result = $stmt->execute([
+                ':name' => $campaignData['name'],
+                ':subject' => $campaignData['subject'],
+                ':content' => $campaignData['content'],
+                ':sender_name' => $campaignData['sender_name'],
+                ':sender_email' => $campaignData['sender_email'],
+                ':schedule_type' => $campaignData['schedule_type'] ?? 'immediate',
+                ':schedule_date' => $campaignData['schedule_date'] ?? null,
+                ':frequency' => $campaignData['frequency'] ?? null,
+                ':status' => $campaignData['status'] ?? 'draft',
+                ':id' => $campaignId
+            ]);
+            
+            if ($result) {
+                return [
+                    'success' => true,
+                    'campaign_id' => $campaignId,
+                    'message' => 'Campaign updated successfully'
+                ];
+            } else {
+                return [
+                    'success' => false,
+                    'message' => 'Failed to update campaign'
+                ];
+            }
+            
+        } catch (Exception $e) {
+            return [
+                'success' => false,
+                'message' => 'Failed to update campaign: ' . $e->getMessage()
+            ];
+        }
+    }
+    
+    /**
+     * Delete a campaign
+     */
+    public function deleteCampaign($campaignId) {
+        try {
+            // First check if campaign exists
+            $existingCampaign = $this->getCampaignById($campaignId);
+            if (!$existingCampaign) {
+                return [
+                    'success' => false,
+                    'message' => 'Campaign not found'
+                ];
+            }
+            
+            // Check if campaign can be deleted (not sent/completed)
+            if (in_array($existingCampaign['status'], ['completed', 'sending'])) {
+                return [
+                    'success' => false,
+                    'message' => 'Cannot delete campaign that is already sent or in progress'
+                ];
+            }
+            
+            // Delete campaign sends first (due to foreign key)
+            $stmt = $this->db->prepare("DELETE FROM campaign_sends WHERE campaign_id = ?");
+            $stmt->execute([$campaignId]);
+            
+            // Delete the campaign
+            $stmt = $this->db->prepare("DELETE FROM email_campaigns WHERE id = ?");
+            $result = $stmt->execute([$campaignId]);
+            
+            if ($result) {
+                return [
+                    'success' => true,
+                    'message' => 'Campaign deleted successfully'
+                ];
+            } else {
+                return [
+                    'success' => false,
+                    'message' => 'Failed to delete campaign'
+                ];
+            }
+            
+        } catch (Exception $e) {
+            return [
+                'success' => false,
+                'message' => 'Failed to delete campaign: ' . $e->getMessage()
+            ];
+        }
+    }
 }
 ?> 

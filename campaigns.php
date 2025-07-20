@@ -50,6 +50,30 @@ if (isset($_SERVER['REQUEST_METHOD']) && $_SERVER['REQUEST_METHOD'] === 'POST') 
                 }
                 break;
                 
+            case 'edit_campaign':
+                $campaignId = $_POST['campaign_id'];
+                $campaignData = [
+                    'name' => $_POST['campaign_name'],
+                    'subject' => $_POST['email_subject'],
+                    'content' => $_POST['email_content'],
+                    'sender_name' => $_POST['sender_name'],
+                    'sender_email' => $_POST['sender_email'],
+                    'schedule_type' => $_POST['schedule_type'],
+                    'schedule_date' => $_POST['schedule_date'] ?? null,
+                    'frequency' => $_POST['frequency'] ?? null,
+                    'status' => $_POST['status'] ?? 'draft'
+                ];
+                
+                $result = $campaignService->editCampaign($campaignId, $campaignData);
+                if ($result['success']) {
+                    $message = "Campaign updated successfully!";
+                    $messageType = 'success';
+                } else {
+                    $message = 'Campaign update failed: ' . $result['message'];
+                    $messageType = 'danger';
+                }
+                break;
+                
             case 'send_campaign':
                 $campaignId = $_POST['campaign_id'];
                 $recipientIds = $_POST['recipient_ids'] ?? [];
@@ -428,6 +452,100 @@ try {
         </div>
     </div>
     
+    <!-- Edit Campaign Modal -->
+    <div class="modal fade" id="editCampaignModal" tabindex="-1">
+        <div class="modal-dialog modal-lg">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title">Edit Campaign</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                </div>
+                <form method="POST">
+                    <input type="hidden" name="action" value="edit_campaign">
+                    <input type="hidden" name="campaign_id" id="edit_campaign_id">
+                    <div class="modal-body">
+                        <div class="row">
+                            <div class="col-md-6">
+                                <div class="mb-3">
+                                    <label for="edit_campaign_name" class="form-label">Campaign Name</label>
+                                    <input type="text" class="form-control" id="edit_campaign_name" name="campaign_name" required>
+                                </div>
+                            </div>
+                            <div class="col-md-6">
+                                <div class="mb-3">
+                                    <label for="edit_schedule_type" class="form-label">Schedule Type</label>
+                                    <select class="form-select" id="edit_schedule_type" name="schedule_type" required>
+                                        <option value="immediate">Send Immediately</option>
+                                        <option value="scheduled">Scheduled</option>
+                                        <option value="recurring">Recurring</option>
+                                    </select>
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <div class="row" id="editScheduleOptions" style="display: none;">
+                            <div class="col-md-6">
+                                <div class="mb-3">
+                                    <label for="edit_schedule_date" class="form-label">Schedule Date</label>
+                                    <input type="datetime-local" class="form-control" id="edit_schedule_date" name="schedule_date">
+                                </div>
+                            </div>
+                            <div class="col-md-6">
+                                <div class="mb-3">
+                                    <label for="edit_frequency" class="form-label">Frequency</label>
+                                    <select class="form-select" id="edit_frequency" name="frequency">
+                                        <option value="daily">Daily</option>
+                                        <option value="weekly">Weekly</option>
+                                        <option value="monthly">Monthly</option>
+                                    </select>
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <div class="row">
+                            <div class="col-md-6">
+                                <div class="mb-3">
+                                    <label for="edit_sender_name" class="form-label">Sender Name</label>
+                                    <input type="text" class="form-control" id="edit_sender_name" name="sender_name" required>
+                                </div>
+                            </div>
+                            <div class="col-md-6">
+                                <div class="mb-3">
+                                    <label for="edit_sender_email" class="form-label">Sender Email</label>
+                                    <input type="email" class="form-control" id="edit_sender_email" name="sender_email" required>
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <div class="mb-3">
+                            <label for="edit_email_subject" class="form-label">Email Subject</label>
+                            <input type="text" class="form-control" id="edit_email_subject" name="email_subject" required>
+                        </div>
+                        
+                        <div class="mb-3">
+                            <label for="edit_email_content" class="form-label">Email Content</label>
+                            <textarea class="form-control" id="edit_email_content" name="email_content" rows="10" required placeholder="Enter your email content here..."></textarea>
+                        </div>
+                        
+                        <div class="mb-3">
+                            <label for="edit_status" class="form-label">Campaign Status</label>
+                            <select class="form-select" id="edit_status" name="status">
+                                <option value="draft">Draft</option>
+                                <option value="scheduled">Scheduled</option>
+                                <option value="active">Active</option>
+                                <option value="paused">Paused</option>
+                            </select>
+                        </div>
+                    </div>
+                    <div class="modal-footer">
+                        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                        <button type="submit" class="btn btn-primary">Update Campaign</button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+    
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/js/bootstrap.bundle.min.js"></script>
     <script>
         function showSection(section) {
@@ -439,7 +557,54 @@ try {
         }
         
         function editCampaign(campaignId) {
-            alert("Edit campaign " + campaignId + " - Coming soon!");
+            // Load campaign data via AJAX
+            fetch('api/get_campaign.php?id=' + campaignId)
+                .then(response => response.json())
+                .then(data => {
+                    if (data.success) {
+                        const campaign = data.campaign;
+                        
+                        // Populate the edit form
+                        document.getElementById('edit_campaign_id').value = campaign.id;
+                        document.getElementById('edit_campaign_name').value = campaign.name;
+                        document.getElementById('edit_email_subject').value = campaign.subject;
+                        document.getElementById('edit_email_content').value = campaign.email_content;
+                        document.getElementById('edit_sender_name').value = campaign.from_name;
+                        document.getElementById('edit_sender_email').value = campaign.from_email;
+                        document.getElementById('edit_schedule_type').value = campaign.schedule_type || 'immediate';
+                        document.getElementById('edit_status').value = campaign.status;
+                        
+                        // Handle schedule date
+                        if (campaign.schedule_date) {
+                            // Convert to datetime-local format
+                            const date = new Date(campaign.schedule_date);
+                            const localDateTime = date.toISOString().slice(0, 16);
+                            document.getElementById('edit_schedule_date').value = localDateTime;
+                        }
+                        
+                        // Handle frequency
+                        if (campaign.frequency) {
+                            document.getElementById('edit_frequency').value = campaign.frequency;
+                        }
+                        
+                        // Show/hide schedule options
+                        const editScheduleOptions = document.getElementById('editScheduleOptions');
+                        if (campaign.schedule_type === 'scheduled' || campaign.schedule_type === 'recurring') {
+                            editScheduleOptions.style.display = 'block';
+                        } else {
+                            editScheduleOptions.style.display = 'none';
+                        }
+                        
+                        // Show the modal
+                        new bootstrap.Modal(document.getElementById('editCampaignModal')).show();
+                    } else {
+                        alert('Failed to load campaign data: ' + data.message);
+                    }
+                })
+                .catch(error => {
+                    console.error('Error:', error);
+                    alert('Failed to load campaign data. Please try again.');
+                });
         }
         
         function sendCampaign(campaignId) {
@@ -513,6 +678,16 @@ try {
                 scheduleOptions.style.display = 'block';
             } else {
                 scheduleOptions.style.display = 'none';
+            }
+        });
+        
+        // Show/hide edit schedule options based on schedule type
+        document.getElementById('edit_schedule_type').addEventListener('change', function() {
+            const editScheduleOptions = document.getElementById('editScheduleOptions');
+            if (this.value === 'scheduled' || this.value === 'recurring') {
+                editScheduleOptions.style.display = 'block';
+            } else {
+                editScheduleOptions.style.display = 'none';
             }
         });
     </script>
