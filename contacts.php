@@ -46,10 +46,13 @@ if (isset($_SERVER['REQUEST_METHOD']) && $_SERVER['REQUEST_METHOD'] === 'POST' &
                     $message = 'A contact with this email address already exists.';
                     $messageType = 'warning';
                 } else {
-                    // Insert new contact
-                    $sql = "INSERT INTO email_recipients (email, name, company, dot, campaign_id, created_at) VALUES (?, ?, ?, ?, ?, datetime('now'))";
+                    // Use proper datetime handling for both SQLite and MySQL
+                    $currentTime = date('Y-m-d H:i:s');
+                    
+                    // Insert new contact with proper datetime
+                    $sql = "INSERT INTO email_recipients (email, name, company, dot, campaign_id, created_at) VALUES (?, ?, ?, ?, ?, ?)";
                     $stmt = $database->prepare($sql);
-                    $stmt->execute([$email, $customerName, $companyName, $dot, $campaignId]);
+                    $stmt->execute([$email, $customerName, $companyName, $dot, $campaignId, $currentTime]);
                     
                     $message = 'Contact created successfully!';
                     $messageType = 'success';
