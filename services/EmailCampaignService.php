@@ -3,27 +3,26 @@
 class EmailCampaignService {
     private $db;
     private $dbType;
+    private $database;
     
     public function __construct($database) {
-        $this->db = $database;
-        $this->detectDatabaseType();
+        $this->database = $database;
+        $this->db = $database->getConnection();
+        $this->dbType = $database->getDatabaseType();
     }
     
     /**
-     * Detect database type (SQLite or MySQL)
+     * Get database type from the database configuration
      */
-    private function detectDatabaseType() {
-        try {
-            $this->db->query("SELECT sqlite_version()");
-            $this->dbType = 'sqlite';
-        } catch (Exception $e) {
-            try {
-                $this->db->query("SELECT version()");
-                $this->dbType = 'mysql';
-            } catch (Exception $e2) {
-                $this->dbType = 'unknown';
-            }
-        }
+    private function getDatabaseType() {
+        return $this->dbType;
+    }
+    
+    /**
+     * Get appropriate datetime function based on database type
+     */
+    private function getDateTimeFunction() {
+        return ($this->dbType === 'sqlite') ? "datetime('now')" : "NOW()";
     }
     
     /**
@@ -43,7 +42,7 @@ class EmailCampaignService {
             if (!$user) {
                 // Create default admin user if it doesn't exist
                 $hashedPassword = password_hash('admin123', PASSWORD_DEFAULT);
-                $datetimeFunc = ($this->dbType === 'sqlite') ? "datetime('now')" : "NOW()";
+                $datetimeFunc = $this->getDateTimeFunction();
                 
                 $stmt = $this->db->prepare("INSERT INTO users (first_name, last_name, email, password, role, status, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, $datetimeFunc, $datetimeFunc)");
                 $stmt->execute(['Admin', 'User', 'admin@autocrm.com', $hashedPassword, 'admin', 'active']);
@@ -51,7 +50,7 @@ class EmailCampaignService {
             }
             
             // Use appropriate datetime function based on database type
-            $datetimeFunc = ($this->dbType === 'sqlite') ? "datetime('now')" : "NOW()";
+            $datetimeFunc = $this->getDateTimeFunction();
             
             $sql = "INSERT INTO email_campaigns (
                 user_id, name, subject, email_content, from_name, from_email, 
@@ -138,7 +137,7 @@ class EmailCampaignService {
                     );
                     
                     // Record the send
-                    $datetimeFunc = ($this->dbType === 'sqlite') ? "datetime('now')" : "NOW()";
+                    $datetimeFunc = $this->getDateTimeFunction();
                     $sql = "INSERT INTO campaign_sends (
                         campaign_id, recipient_id, recipient_email, status, sent_at
                     ) VALUES (
@@ -299,6 +298,7 @@ class EmailCampaignService {
      * Create email_campaigns table
      */
     private function createCampaignsTable() {
+        $datetimeFunc = $this->getDateTimeFunction();
         if ($this->dbType === 'sqlite') {
             $sql = "CREATE TABLE IF NOT EXISTS email_campaigns (
                 id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -351,6 +351,7 @@ class EmailCampaignService {
      * Create campaign_sends table
      */
     private function createCampaignSendsTable() {
+        $datetimeFunc = $this->getDateTimeFunction();
         if ($this->dbType === 'sqlite') {
             $sql = "CREATE TABLE IF NOT EXISTS campaign_sends (
                 id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -467,7 +468,7 @@ class EmailCampaignService {
             }
             
             // Use appropriate datetime function based on database type
-            $datetimeFunc = ($this->dbType === 'sqlite') ? "datetime('now')" : "NOW()";
+            $datetimeFunc = $this->getDateTimeFunction();
             
             $sql = "UPDATE email_campaigns SET 
                 name = :name,
