@@ -14,7 +14,7 @@ if (!isset($_SESSION["user_id"])) {
 }
 
 require_once 'config/database.php';
-$database = (new Database())->getConnection();
+$database = new Database();
 require_once 'services/EmailCampaignService.php';
 
 $message = '';
@@ -94,7 +94,7 @@ if (isset($_SERVER['REQUEST_METHOD']) && $_SERVER['REQUEST_METHOD'] === 'POST') 
 // Get campaigns
 $campaigns = [];
 try {
-    $stmt = $database->query("SELECT * FROM email_campaigns ORDER BY created_at DESC");
+    $stmt = $database->getConnection()->query("SELECT * FROM email_campaigns ORDER BY created_at DESC");
     $campaigns = $stmt->fetchAll(PDO::FETCH_ASSOC);
 } catch (Exception $e) {
     // Ignore error if table doesn't exist
@@ -103,7 +103,7 @@ try {
 // Get recipients for selection
 $recipients = [];
 try {
-    $stmt = $database->query("SELECT id, email, name, company FROM email_recipients ORDER BY created_at DESC");
+    $stmt = $database->getConnection()->query("SELECT id, email, name, company FROM email_recipients ORDER BY created_at DESC");
     $recipients = $stmt->fetchAll(PDO::FETCH_ASSOC);
 } catch (Exception $e) {
     // Ignore error if table doesn't exist

@@ -181,7 +181,7 @@ try {
     echo "Using user: {$user['first_name']} {$user['last_name']} (ID: {$user['id']})\n";
     
     require_once 'services/EmailCampaignService.php';
-    $campaignService = new EmailCampaignService($db);
+    $campaignService = new EmailCampaignService($database);
     
     $testCampaignData = [
         'user_id' => $user['id'],

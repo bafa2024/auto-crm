@@ -22,7 +22,7 @@ try {
     require_once '../config/database.php';
     require_once '../services/EmailCampaignService.php';
     
-    $database = (new Database())->getConnection();
+    $database = new Database();
     $campaignService = new EmailCampaignService($database);
     
     // Get campaign data
