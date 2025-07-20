@@ -49,6 +49,9 @@ class EmailCampaignService {
                 $userId = $this->db->lastInsertId();
             }
             
+            // Check table structure and add missing columns if needed
+            $this->ensureTableStructure();
+            
             // Use appropriate datetime function based on database type
             $datetimeFunc = $this->getDateTimeFunction();
             
@@ -84,6 +87,59 @@ class EmailCampaignService {
                 'success' => false,
                 'message' => 'Failed to create campaign: ' . $e->getMessage()
             ];
+        }
+    }
+    
+    /**
+     * Ensure table has all required columns
+     */
+    private function ensureTableStructure() {
+        try {
+            // Get current table structure
+            if ($this->dbType === 'mysql') {
+                $stmt = $this->db->query("DESCRIBE email_campaigns");
+                $columns = $stmt->fetchAll(PDO::FETCH_ASSOC);
+                $existingColumns = array_column($columns, 'Field');
+            } else {
+                $stmt = $this->db->query("PRAGMA table_info(email_campaigns)");
+                $columns = $stmt->fetchAll(PDO::FETCH_ASSOC);
+                $existingColumns = array_column($columns, 'name');
+            }
+            
+            // Define required columns
+            $requiredColumns = [
+                'user_id' => $this->dbType === 'mysql' ? 'INT NOT NULL' : 'INTEGER NOT NULL',
+                'schedule_type' => $this->dbType === 'mysql' ? 'VARCHAR(50) DEFAULT "immediate"' : 'TEXT DEFAULT "immediate"',
+                'schedule_date' => $this->dbType === 'mysql' ? 'DATETIME NULL' : 'DATETIME',
+                'frequency' => $this->dbType === 'mysql' ? 'VARCHAR(50) NULL' : 'TEXT',
+                'total_recipients' => $this->dbType === 'mysql' ? 'INT DEFAULT 0' : 'INTEGER DEFAULT 0',
+                'sent_count' => $this->dbType === 'mysql' ? 'INT DEFAULT 0' : 'INTEGER DEFAULT 0',
+                'opened_count' => $this->dbType === 'mysql' ? 'INT DEFAULT 0' : 'INTEGER DEFAULT 0',
+                'clicked_count' => $this->dbType === 'mysql' ? 'INT DEFAULT 0' : 'INTEGER DEFAULT 0',
+                'updated_at' => $this->dbType === 'mysql' ? 'DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP' : 'DATETIME DEFAULT CURRENT_TIMESTAMP'
+            ];
+            
+            // Add missing columns
+            foreach ($requiredColumns as $columnName => $columnDef) {
+                if (!in_array($columnName, $existingColumns)) {
+                    try {
+                        if ($this->dbType === 'mysql') {
+                            $sql = "ALTER TABLE email_campaigns ADD COLUMN $columnName $columnDef";
+                        } else {
+                            // SQLite doesn't support adding columns with default values easily
+                            // We'll skip this for SQLite as the table should be created correctly
+                            continue;
+                        }
+                        $this->db->exec($sql);
+                        error_log("Added missing column: $columnName to email_campaigns table");
+                    } catch (Exception $e) {
+                        error_log("Failed to add column $columnName: " . $e->getMessage());
+                    }
+                }
+            }
+            
+        } catch (Exception $e) {
+            error_log("Error ensuring table structure: " . $e->getMessage());
         }
     }
     
