@@ -25,16 +25,30 @@ require_once __DIR__ . '/../../version.php';
     <style>
         .version-badge {
             font-size: 0.75rem;
+            margin-left: 15px;
         }
         .version-badge .badge {
             font-size: 0.7rem;
+            margin-right: 5px;
         }
         .version-badge small {
             font-size: 0.65rem;
+            color: rgba(255, 255, 255, 0.8) !important;
+        }
+        .navbar-brand {
+            margin-right: 0;
         }
         @media (max-width: 768px) {
             .version-badge small {
                 display: none !important;
+            }
+            .version-badge {
+                margin-left: 10px;
+            }
+        }
+        @media (max-width: 576px) {
+            .version-badge .badge {
+                font-size: 0.6rem;
             }
         }
     </style>
@@ -43,12 +57,14 @@ require_once __DIR__ . '/../../version.php';
 <!-- Navigation -->
 <nav class="navbar navbar-expand-lg navbar-dark bg-primary">
     <div class="container">
-        <a class="navbar-brand fw-bold" href="/dashboard">
-            <i class="bi bi-telephone-fill"></i>
-        </a>
-        
-        <!-- Version Badge -->
-        <?php echo VersionManager::getVersionBadge(); ?>
+        <div class="d-flex align-items-center">
+            <a class="navbar-brand fw-bold" href="/dashboard">
+                <i class="bi bi-telephone-fill"></i>
+            </a>
+            
+            <!-- Version Badge -->
+            <?php echo VersionManager::getVersionBadge(); ?>
+        </div>
         
         <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbarNav" aria-label="Toggle navigation">
             <span class="navbar-toggler-icon"></span>
