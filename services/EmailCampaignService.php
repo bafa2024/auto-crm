@@ -42,25 +42,25 @@ class EmailCampaignService {
             if (!$user) {
                 // Create default admin user if it doesn't exist
                 $hashedPassword = password_hash('admin123', PASSWORD_DEFAULT);
-                $datetimeFunc = $this->getDateTimeFunction();
+                $currentTime = date('Y-m-d H:i:s');
                 
-                $stmt = $this->db->prepare("INSERT INTO users (first_name, last_name, email, password, role, status, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, $datetimeFunc, $datetimeFunc)");
-                $stmt->execute(['Admin', 'User', 'admin@autocrm.com', $hashedPassword, 'admin', 'active']);
+                $stmt = $this->db->prepare("INSERT INTO users (first_name, last_name, email, password, role, status, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?)");
+                $stmt->execute(['Admin', 'User', 'admin@autocrm.com', $hashedPassword, 'admin', 'active', $currentTime, $currentTime]);
                 $userId = $this->db->lastInsertId();
             }
             
             // Check table structure and add missing columns if needed
             $this->ensureTableStructure();
             
-            // Use appropriate datetime function based on database type
-            $datetimeFunc = $this->getDateTimeFunction();
+            // Use current timestamp for datetime values
+            $currentTime = date('Y-m-d H:i:s');
             
             $sql = "INSERT INTO email_campaigns (
                 user_id, name, subject, email_content, from_name, from_email, 
                 status, created_at, updated_at
             ) VALUES (
                 :user_id, :name, :subject, :content, :sender_name, :sender_email,
-                :status, $datetimeFunc, $datetimeFunc
+                :status, :created_at, :updated_at
             )";
             
             $stmt = $this->db->prepare($sql);
@@ -71,7 +71,9 @@ class EmailCampaignService {
                 ':content' => $campaignData['content'],
                 ':sender_name' => $campaignData['sender_name'],
                 ':sender_email' => $campaignData['sender_email'],
-                ':status' => $campaignData['status']
+                ':status' => $campaignData['status'],
+                ':created_at' => $currentTime,
+                ':updated_at' => $currentTime
             ]);
             
             $campaignId = $this->db->lastInsertId();
@@ -193,11 +195,11 @@ class EmailCampaignService {
                     );
                     
                     // Record the send
-                    $datetimeFunc = $this->getDateTimeFunction();
+                    $currentTime = date('Y-m-d H:i:s');
                     $sql = "INSERT INTO campaign_sends (
                         campaign_id, recipient_id, recipient_email, status, sent_at
                     ) VALUES (
-                        :campaign_id, :recipient_id, :recipient_email, :status, $datetimeFunc
+                        :campaign_id, :recipient_id, :recipient_email, :status, :sent_at
                     )";
                     
                     $stmt = $this->db->prepare($sql);
@@ -205,7 +207,8 @@ class EmailCampaignService {
                         ':campaign_id' => $campaignId,
                         ':recipient_id' => $recipient['id'],
                         ':recipient_email' => $recipient['email'],
-                        ':status' => $emailSent ? 'sent' : 'failed'
+                        ':status' => $emailSent ? 'sent' : 'failed',
+                        ':sent_at' => $currentTime
                     ]);
                     
                     if ($emailSent) {
@@ -523,8 +526,8 @@ class EmailCampaignService {
                 ];
             }
             
-            // Use appropriate datetime function based on database type
-            $datetimeFunc = $this->getDateTimeFunction();
+            // Use current timestamp for datetime values
+            $currentTime = date('Y-m-d H:i:s');
             
             $sql = "UPDATE email_campaigns SET 
                 name = :name,
@@ -536,7 +539,7 @@ class EmailCampaignService {
                 schedule_date = :schedule_date,
                 frequency = :frequency,
                 status = :status,
-                updated_at = $datetimeFunc
+                updated_at = :updated_at
                 WHERE id = :id";
             
             $stmt = $this->db->prepare($sql);
@@ -550,6 +553,7 @@ class EmailCampaignService {
                 ':schedule_date' => $campaignData['schedule_date'] ?? null,
                 ':frequency' => $campaignData['frequency'] ?? null,
                 ':status' => $campaignData['status'] ?? 'draft',
+                ':updated_at' => $currentTime,
                 ':id' => $campaignId
             ]);
             
