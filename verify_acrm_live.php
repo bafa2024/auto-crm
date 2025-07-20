@@ -152,14 +152,32 @@ header('Content-Type: text/html; charset=utf-8');
                 'created_by' => 1
             ];
             
-            $contact = $contactModel->create($testContact);
-            
-            if ($contact) {
-                // Clean up test data
-                $db->exec("DELETE FROM contacts WHERE id = {$contact['id']}");
-                return ['success' => true, 'message' => "Contact created successfully (ID: {$contact['id']}) and cleaned up"];
+            try {
+                // Test direct SQL insertion to isolate the issue
+                $currentTime = date('Y-m-d H:i:s');
+                $sql = "INSERT INTO contacts (first_name, last_name, email, phone, company, created_by, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?)";
+                $stmt = $db->prepare($sql);
+                $result = $stmt->execute([
+                    $testContact['first_name'],
+                    $testContact['last_name'],
+                    $testContact['email'],
+                    $testContact['phone'],
+                    $testContact['company'],
+                    $testContact['created_by'],
+                    $currentTime,
+                    $currentTime
+                ]);
+                
+                if ($result) {
+                    $contactId = $db->lastInsertId();
+                    // Clean up test data
+                    $db->exec("DELETE FROM contacts WHERE id = $contactId");
+                    return ['success' => true, 'message' => "Contact created successfully (ID: $contactId) and cleaned up"];
+                }
+                return ['success' => false, 'message' => 'Contact creation failed - SQL execution failed'];
+            } catch (Exception $e) {
+                return ['success' => false, 'message' => 'Contact creation failed: ' . $e->getMessage()];
             }
-            return ['success' => false, 'message' => 'Contact creation failed'];
         });
         echo "</div>";
 
