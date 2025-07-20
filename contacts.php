@@ -49,6 +49,11 @@ if (isset($_SERVER['REQUEST_METHOD']) && $_SERVER['REQUEST_METHOD'] === 'POST' &
                     // Use proper datetime handling for both SQLite and MySQL
                     $currentTime = date('Y-m-d H:i:s');
                     
+                    // Handle campaign_id - convert empty string to NULL
+                    if (empty($campaignId) || $campaignId === '') {
+                        $campaignId = null;
+                    }
+                    
                     // Insert new contact with proper datetime
                     $sql = "INSERT INTO email_recipients (email, name, company, dot, campaign_id, created_at) VALUES (?, ?, ?, ?, ?, ?)";
                     $stmt = $database->prepare($sql);
