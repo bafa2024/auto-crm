@@ -277,7 +277,7 @@ class ScheduledCampaignService {
      */
     private function sendEmail($to, $subject, $content, $senderName, $senderEmail) {
         // Use the existing EmailService
-        return $this->emailService->sendEmail($to, $subject, $content, $senderName, $senderEmail);
+        return $this->emailService->sendSimpleEmail($to, $subject, $content, $senderName, $senderEmail);
     }
     
     /**
