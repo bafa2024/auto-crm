@@ -44,7 +44,7 @@ require_once __DIR__ . '/../../version.php';
 <nav class="navbar navbar-expand-lg navbar-dark bg-primary">
     <div class="container">
         <a class="navbar-brand fw-bold" href="/dashboard">
-            <i class="bi bi-telephone-fill"></i> AutoDial Pro
+            <i class="bi bi-telephone-fill"></i>
         </a>
         
         <!-- Version Badge -->

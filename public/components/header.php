@@ -39,7 +39,7 @@ require_once __DIR__ . '/../../version.php';
 <nav class="navbar navbar-expand-lg landing-nav">
     <div class="container">
         <a class="navbar-brand fw-bold" href="/landing">
-            <i class="bi bi-telephone-fill text-primary"></i> AutoDial Pro
+            <i class="bi bi-telephone-fill text-primary"></i>
         </a>
         
         <!-- Version Badge -->
