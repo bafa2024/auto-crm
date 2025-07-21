@@ -48,6 +48,22 @@ if (isset($_SERVER['REQUEST_METHOD']) && $_SERVER['REQUEST_METHOD'] === 'POST') 
                 if ($result['success']) {
                     $message = "Campaign created successfully! Campaign ID: " . $result['campaign_id'];
                     $messageType = 'success';
+                    // If immediate, send campaign now
+                    if ($_POST['schedule_type'] === 'immediate') {
+                        // Get all recipient IDs
+                        $recipientStmt = $database->getConnection()->query("SELECT id FROM email_recipients");
+                        $recipientIds = $recipientStmt->fetchAll(PDO::FETCH_COLUMN);
+                        if (!empty($recipientIds)) {
+                            $sendResult = $campaignService->sendCampaign($result['campaign_id'], $recipientIds);
+                            if ($sendResult['success']) {
+                                $message .= "<br>Immediate campaign sent to " . $sendResult['sent_count'] . " recipients.";
+                            } else {
+                                $message .= "<br>Immediate campaign sending failed: " . $sendResult['message'];
+                            }
+                        } else {
+                            $message .= "<br>No recipients found for immediate sending.";
+                        }
+                    }
                 } else {
                     $message = 'Campaign creation failed: ' . $result['message'];
                     $messageType = 'danger';
