@@ -67,3 +67,4 @@ package-lock.json
 # Build files
 dist/
 build/ 
+!cron/cron_test.php 
