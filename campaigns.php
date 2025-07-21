@@ -107,6 +107,17 @@ if (isset($_SERVER['REQUEST_METHOD']) && $_SERVER['REQUEST_METHOD'] === 'POST') 
                     $messageType = 'danger';
                 }
                 break;
+            case 'delete_campaign':
+                $campaignId = $_POST['campaign_id'];
+                $result = $campaignService->deleteCampaign($campaignId);
+                if ($result['success']) {
+                    $message = 'Campaign deleted successfully!';
+                    $messageType = 'success';
+                } else {
+                    $message = 'Failed to delete campaign: ' . $result['message'];
+                    $messageType = 'danger';
+                }
+                break;
         }
     }
 }
@@ -271,6 +282,12 @@ try {
                                             <button class="btn btn-sm btn-primary" onclick="sendCampaign(<?php echo $campaign['id']; ?>)">
                                                 <i class="bi bi-send"></i> Send
                                             </button>
+                                            <button class="btn btn-sm btn-danger" onclick="deleteCampaign(<?php echo $campaign['id']; ?>)">
+                                                <i class="bi bi-trash"></i> Delete
+                                            </button>
+                                            <a class="btn btn-sm btn-info" href="campaign_progress.php?id=<?php echo $campaign['id']; ?>">
+                                                <i class="bi bi-graph-up"></i> View Progress
+                                            </a>
                                         </div>
                                     </div>
                                 </div>
@@ -630,6 +647,30 @@ try {
         function sendCampaign(campaignId) {
             document.getElementById('send_campaign_id').value = campaignId;
             new bootstrap.Modal(document.getElementById('sendCampaignModal')).show();
+        }
+
+        function deleteCampaign(campaignId) {
+            if (!confirm('Are you sure you want to delete this campaign? This action cannot be undone.')) return;
+            fetch(window.location.pathname, {
+                method: 'POST',
+                headers: { 'X-Requested-With': 'XMLHttpRequest' },
+                body: new URLSearchParams({ action: 'delete_campaign', campaign_id: campaignId })
+            })
+            .then(response => response.text())
+            .then(html => {
+                // Try to extract alert message from returned HTML
+                const parser = new DOMParser();
+                const doc = parser.parseFromString(html, 'text/html');
+                const alert = doc.querySelector('.alert');
+                if (alert) {
+                    document.body.insertAdjacentElement('afterbegin', alert);
+                }
+                // Reload if success
+                if (alert && alert.classList.contains('alert-success')) {
+                    setTimeout(() => window.location.reload(), 1200);
+                }
+            })
+            .catch(() => alert('Failed to delete campaign. Please try again.'));
         }
         
         function toggleRecipient(recipientId) {
