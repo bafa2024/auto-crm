@@ -385,28 +385,33 @@ class EmailService {
      */
     public function sendSimpleEmail($to, $subject, $content, $senderName, $senderEmail) {
         try {
-            // In production, you would use PHPMailer or similar
-            // For now, we'll simulate sending
-            
-            // Simulate sending delay
-            usleep(100000); // 0.1 second delay
-            
-            // Log the email send attempt
-            error_log("Email sent to: $to, Subject: $subject, From: $senderName <$senderEmail>");
-            
-            // For demo purposes, simulate success rate
-            $success = (rand(1, 100) <= 95); // 95% success rate
-            
-            if ($success) {
-                error_log("Email sent successfully to: $to");
-            } else {
-                error_log("Email failed to send to: $to");
-            }
-            
-            return $success;
-            
-        } catch (Exception $e) {
-            error_log("Email sending failed: " . $e->getMessage());
+            // Use PHPMailer for real sending
+            require_once __DIR__ . '/../vendor/autoload.php';
+            $mail = new \PHPMailer\PHPMailer\PHPMailer(true);
+            $mail->isSMTP();
+            $mail->Host = $this->config['smtp_host'] ?? 'smtp.hostinger.com';
+            $mail->SMTPAuth = true;
+            $mail->Username = $this->config['smtp_username'] ?? 'noreply@regrowup.ca';
+            $mail->Password = $this->config['smtp_password'] ?? '';
+            $mail->SMTPSecure = $this->config['smtp_encryption'] ?? 'tls';
+            $mail->Port = $this->config['smtp_port'] ?? 587;
+            $mail->setFrom($senderEmail, $senderName);
+            $mail->addAddress($to);
+            $mail->addReplyTo($senderEmail, $senderName);
+            // List-Unsubscribe header
+            $unsubscribeUrl = 'https://regrowup.ca/unsubscribe.php?email=' . urlencode($to);
+            $mail->addCustomHeader('List-Unsubscribe', '<' . $unsubscribeUrl . '>');
+            // HTML and plain text
+            $mail->isHTML(true);
+            $mail->Subject = $subject;
+            $mail->Body = $content;
+            $mail->AltBody = strip_tags($content);
+            // Send
+            $mail->send();
+            error_log("PHPMailer: Email sent to: $to, Subject: $subject, From: $senderName <$senderEmail>");
+            return true;
+        } catch (\Exception $e) {
+            error_log("PHPMailer: Email sending failed: " . $e->getMessage());
             return false;
         }
     }
