@@ -147,6 +147,41 @@ try {
         echo "✓ Default admin user already exists\n";
     }
     
+    // Migration: Add timezone columns to users and email_campaigns
+    $dbType = $database->getDatabaseType();
+
+    function addColumnIfNotExists($db, $table, $column, $definition) {
+        $exists = false;
+        if ($GLOBALS['dbType'] === 'mysql') {
+            $stmt = $db->prepare("SHOW COLUMNS FROM `$table` LIKE ?");
+            $stmt->execute([$column]);
+            $exists = $stmt->fetch() ? true : false;
+        } else {
+            $stmt = $db->prepare("PRAGMA table_info($table)");
+            $stmt->execute();
+            foreach ($stmt->fetchAll() as $col) {
+                if ($col['name'] === $column) {
+                    $exists = true;
+                    break;
+                }
+            }
+        }
+        if (!$exists) {
+            if ($GLOBALS['dbType'] === 'mysql') {
+                $db->exec("ALTER TABLE `$table` ADD COLUMN `$column` $definition");
+            } else {
+                $db->exec("ALTER TABLE $table ADD COLUMN $column $definition");
+            }
+            echo "Added $column to $table\n";
+        } else {
+            echo "$column already exists in $table\n";
+        }
+    }
+
+    addColumnIfNotExists($db, 'users', 'timezone', ($dbType === 'mysql' ? "VARCHAR(64) DEFAULT 'UTC'" : "TEXT DEFAULT 'UTC'"));
+    addColumnIfNotExists($db, 'email_campaigns', 'timezone', ($dbType === 'mysql' ? "VARCHAR(64) DEFAULT 'UTC'" : "TEXT DEFAULT 'UTC'"));
+    echo "Migration complete.\n";
+    
     echo "\n✅ Migration completed successfully!\n";
     
 } catch (Exception $e) {
