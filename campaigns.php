@@ -320,7 +320,7 @@ try {
                     <h5 class="modal-title">Create New Campaign</h5>
                     <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
                 </div>
-                <form method="POST">
+                <form id="createCampaignForm" method="POST">
                     <input type="hidden" name="action" value="create_campaign">
                     <div class="modal-body">
                         <div class="row">
@@ -710,6 +710,44 @@ try {
                 editScheduleOptions.style.display = 'none';
             }
         });
+
+        // AJAX for campaign creation
+        const createCampaignForm = document.getElementById('createCampaignForm');
+        if (createCampaignForm) {
+            createCampaignForm.addEventListener('submit', function(e) {
+                e.preventDefault();
+                const formData = new FormData(createCampaignForm);
+                fetch(window.location.pathname, {
+                    method: 'POST',
+                    body: formData
+                })
+                .then(response => response.text())
+                .then(html => {
+                    // Try to extract alert message from returned HTML
+                    const parser = new DOMParser();
+                    const doc = parser.parseFromString(html, 'text/html');
+                    const alert = doc.querySelector('.alert');
+                    if (alert) {
+                        // Show alert in modal or above form
+                        const modalBody = createCampaignForm.closest('.modal-content').querySelector('.modal-body');
+                        let existingAlert = modalBody.querySelector('.alert');
+                        if (existingAlert) existingAlert.remove();
+                        modalBody.insertAdjacentElement('afterbegin', alert);
+                    }
+                    // Optionally, close modal and refresh campaign list if success
+                    if (alert && alert.classList.contains('alert-success')) {
+                        setTimeout(() => {
+                            const modal = bootstrap.Modal.getInstance(document.getElementById('createCampaignModal'));
+                            if (modal) modal.hide();
+                            window.location.reload(); // Or use AJAX to refresh campaign list only
+                        }, 1500);
+                    }
+                })
+                .catch(err => {
+                    alert('Failed to create campaign. Please try again.');
+                });
+            });
+        }
     </script>
 </body>
 </html> 
