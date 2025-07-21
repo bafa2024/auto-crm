@@ -153,8 +153,8 @@ try {
     function addColumnIfNotExists($db, $table, $column, $definition) {
         $exists = false;
         if ($GLOBALS['dbType'] === 'mysql') {
-            $stmt = $db->prepare("SHOW COLUMNS FROM `$table` LIKE ?");
-            $stmt->execute([$column]);
+            // Use direct string interpolation for SHOW COLUMNS
+            $stmt = $db->query("SHOW COLUMNS FROM `$table` LIKE '" . $column . "'");
             $exists = $stmt->fetch() ? true : false;
         } else {
             $stmt = $db->prepare("PRAGMA table_info($table)");
@@ -168,6 +168,7 @@ try {
         }
         if (!$exists) {
             if ($GLOBALS['dbType'] === 'mysql') {
+                // Use direct string interpolation for ALTER TABLE
                 $db->exec("ALTER TABLE `$table` ADD COLUMN `$column` $definition");
             } else {
                 $db->exec("ALTER TABLE $table ADD COLUMN $column $definition");
