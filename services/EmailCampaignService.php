@@ -185,13 +185,14 @@ class EmailCampaignService {
             
             foreach ($recipients as $recipient) {
                 try {
-                    // Send email
+                    $personalizedContent = $this->personalizeContent($campaign['email_content'], $recipient);
                     $emailSent = $this->sendEmail(
                         $recipient['email'],
                         $campaign['subject'],
-                        $this->personalizeContent($campaign['email_content'], $recipient),
+                        $personalizedContent,
                         $campaign['from_name'],
-                        $campaign['from_email']
+                        $campaign['from_email'],
+                        $recipient
                     );
                     
                     // Record the send
@@ -291,7 +292,7 @@ class EmailCampaignService {
     /**
      * Send email using PHP mail() function
      */
-    private function sendEmail($to, $subject, $content, $senderName, $senderEmail) {
+    private function sendEmail($to, $subject, $content, $senderName, $senderEmail, $recipient = null) {
         // Prepare email headers
         $headers = [
             'MIME-Version: 1.0',
@@ -302,7 +303,7 @@ class EmailCampaignService {
         ];
         
         // Create HTML email
-        $htmlContent = $this->createHtmlEmail($content, $senderName);
+        $htmlContent = $this->createHtmlEmail($content, $senderName, $recipient);
         
         // Send email
         return mail($to, $subject, $htmlContent, implode("\r\n", $headers));
@@ -311,33 +312,31 @@ class EmailCampaignService {
     /**
      * Create HTML email template
      */
-    private function createHtmlEmail($content, $senderName) {
+    private function createHtmlEmail($content, $senderName, $recipient = null) {
+        $greeting = '';
+        if ($recipient && !empty($recipient['name'])) {
+            $firstName = $this->getFirstName($recipient['name']);
+            $greeting = '<p>Hi ' . htmlspecialchars($firstName) . ',</p>';
+        }
         return '
         <!DOCTYPE html>
         <html>
         <head>
             <meta charset="UTF-8">
             <meta name="viewport" content="width=device-width, initial-scale=1.0">
-            <title>Email Campaign</title>
+            <title>Email</title>
             <style>
-                body { font-family: Arial, sans-serif; line-height: 1.6; color: #333; }
-                .container { max-width: 600px; margin: 0 auto; padding: 20px; }
-                .header { background-color: #f8f9fa; padding: 20px; text-align: center; }
-                .content { padding: 20px; }
-                .footer { background-color: #f8f9fa; padding: 20px; text-align: center; font-size: 12px; color: #666; }
+                body { font-family: Arial, sans-serif; background: #fff; color: #222; margin: 0; padding: 0; }
+                .email-body { max-width: 600px; margin: 0 auto; padding: 24px; background: #fff; border: 1px solid #eee; border-radius: 8px; }
+                .footer { font-size: 12px; color: #888; margin-top: 32px; text-align: left; }
             </style>
         </head>
         <body>
-            <div class="container">
-                <div class="header">
-                    <h2>' . htmlspecialchars($senderName) . '</h2>
-                </div>
-                <div class="content">
-                    ' . nl2br(htmlspecialchars($content)) . '
-                </div>
+            <div class="email-body">
+                ' . $greeting . '
+                <div>' . nl2br($content) . '</div>
                 <div class="footer">
-                    <p>This email was sent by ACRM Email Campaign System</p>
-                    <p>To unsubscribe, please contact the sender</p>
+                    <br>This message was sent by ' . htmlspecialchars($senderName) . '.
                 </div>
             </div>
         </body>
