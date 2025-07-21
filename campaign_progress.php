@@ -18,6 +18,7 @@ if (!$campaignId) {
 
 $campaign = $campaignService->getCampaignById($campaignId);
 $stats = $campaignService->getCampaignStats($campaignId);
+$recipients = $campaignService->getCampaignRecipientsWithStatus($campaignId);
 
 if (!$campaign) {
     echo '<div class="alert alert-danger">Campaign not found.</div>';
@@ -57,6 +58,10 @@ if ($campaign['status'] === 'completed') {
         .timeline-event { margin-bottom: 30px; }
         .timeline-label { font-weight: bold; color: #5B5FDE; }
         .timeline-time { font-size: 0.95em; color: #888; }
+        .recipient-status-sent { color: #198754; }
+        .recipient-status-failed { color: #dc3545; }
+        .recipient-status-opened { color: #0d6efd; }
+        .recipient-status-pending { color: #6c757d; }
     </style>
 </head>
 <body class="bg-light">
@@ -95,8 +100,55 @@ if ($campaign['status'] === 'completed') {
             </div>
         </div>
     </div>
+    <div class="card mb-4">
+        <div class="card-header">Recipients & Status</div>
+        <div class="card-body">
+            <?php if (empty($recipients)): ?>
+                <div class="alert alert-warning">No recipients found for this campaign. <br>Check if you uploaded or assigned recipients, or if the campaign was sent.</div>
+            <?php else: ?>
+                <div class="table-responsive">
+                    <table class="table table-bordered table-sm align-middle">
+                        <thead>
+                            <tr>
+                                <th>Email</th>
+                                <th>Name</th>
+                                <th>Company</th>
+                                <th>Status</th>
+                                <th>Sent At</th>
+                                <th>Opened At</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                        <?php foreach ($recipients as $r): ?>
+                            <tr>
+                                <td><?php echo htmlspecialchars($r['email']); ?></td>
+                                <td><?php echo htmlspecialchars($r['name']); ?></td>
+                                <td><?php echo htmlspecialchars($r['company']); ?></td>
+                                <td>
+                                    <?php
+                                    if ($r['status'] === 'sent') {
+                                        echo '<span class="recipient-status-sent">Sent</span>';
+                                    } elseif ($r['status'] === 'failed') {
+                                        echo '<span class="recipient-status-failed">Failed</span>';
+                                    } elseif ($r['opened_at']) {
+                                        echo '<span class="recipient-status-opened">Opened</span>';
+                                    } else {
+                                        echo '<span class="recipient-status-pending">Pending</span>';
+                                    }
+                                    ?>
+                                </td>
+                                <td><?php echo $r['sent_at'] ? date('M d, Y H:i', strtotime($r['sent_at'])) : '-'; ?></td>
+                                <td><?php echo $r['opened_at'] ? date('M d, Y H:i', strtotime($r['opened_at'])) : '-'; ?></td>
+                            </tr>
+                        <?php endforeach; ?>
+                        </tbody>
+                    </table>
+                </div>
+            <?php endif; ?>
+        </div>
+    </div>
     <div class="card">
-        <div class="card-header">Confirmation</div>
+        <div class="card-header">Confirmation & Debug</div>
         <div class="card-body">
             <p>
                 <?php if (($stats['sent_count'] ?? 0) > 0): ?>
@@ -110,6 +162,11 @@ if ($campaign['status'] === 'completed') {
                     <span class="text-warning">No opens tracked yet. (May still be in spam or not opened)</span>
                 <?php endif; ?>
             </p>
+            <?php if (empty($recipients)): ?>
+                <div class="alert alert-info mt-2">Debug: No recipients found. Make sure you have uploaded or assigned recipients to this campaign.</div>
+            <?php elseif (($stats['sent_count'] ?? 0) == 0): ?>
+                <div class="alert alert-info mt-2">Debug: No emails sent. If this is a scheduled campaign, check if the cron job is running and the schedule date is in the past. If immediate, check the sending logic.</div>
+            <?php endif; ?>
         </div>
     </div>
     <a href="campaigns.php" class="btn btn-secondary mt-4">Back to Campaigns</a>
