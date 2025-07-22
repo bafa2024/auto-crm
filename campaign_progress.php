@@ -103,6 +103,32 @@ if ($campaign['status'] === 'completed') {
     <div class="card mb-4">
         <div class="card-header">Recipients & Status</div>
         <div class="card-body">
+            <?php
+            // Prepare summary lists
+            $sentList = [];
+            $openedList = [];
+            $notOpenedList = [];
+            $failedList = [];
+            foreach ($recipients as $r) {
+                if ($r['status'] === 'sent' || $r['opened_at']) {
+                    $sentList[] = $r['email'] . ($r['name'] ? ' (' . $r['name'] . ')' : '');
+                }
+                if ($r['opened_at']) {
+                    $openedList[] = $r['email'] . ($r['name'] ? ' (' . $r['name'] . ')' : '');
+                } elseif ($r['status'] === 'sent') {
+                    $notOpenedList[] = $r['email'] . ($r['name'] ? ' (' . $r['name'] . ')' : '');
+                }
+                if ($r['status'] === 'failed') {
+                    $failedList[] = $r['email'] . ($r['name'] ? ' (' . $r['name'] . ')' : '');
+                }
+            }
+            ?>
+            <div class="mb-3">
+                <strong>Sent to:</strong> <?php echo $sentList ? implode(', ', $sentList) : '<span class="text-muted">None</span>'; ?><br>
+                <strong>Opened by:</strong> <?php echo $openedList ? implode(', ', $openedList) : '<span class="text-muted">None</span>'; ?><br>
+                <strong>Not opened yet:</strong> <?php echo $notOpenedList ? implode(', ', $notOpenedList) : '<span class="text-muted">None</span>'; ?><br>
+                <strong>Failed:</strong> <?php echo $failedList ? implode(', ', $failedList) : '<span class="text-muted">None</span>'; ?>
+            </div>
             <?php if (empty($recipients)): ?>
                 <div class="alert alert-warning">No recipients found for this campaign. <br>Check if you uploaded or assigned recipients, or if the campaign was sent.</div>
             <?php else: ?>
@@ -116,6 +142,7 @@ if ($campaign['status'] === 'completed') {
                                 <th>Status</th>
                                 <th>Sent At</th>
                                 <th>Opened At</th>
+                                <th>Failure Reason</th>
                             </tr>
                         </thead>
                         <tbody>
@@ -139,6 +166,7 @@ if ($campaign['status'] === 'completed') {
                                 </td>
                                 <td><?php echo $r['sent_at'] ? date('M d, Y H:i', strtotime($r['sent_at'])) : '-'; ?></td>
                                 <td><?php echo $r['opened_at'] ? date('M d, Y H:i', strtotime($r['opened_at'])) : '-'; ?></td>
+                                <td><?php echo isset($r['failure_reason']) && $r['failure_reason'] ? htmlspecialchars($r['failure_reason']) : '-'; ?></td>
                             </tr>
                         <?php endforeach; ?>
                         </tbody>

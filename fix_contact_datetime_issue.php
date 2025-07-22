@@ -171,7 +171,7 @@ try {
         ];
         
         $currentTime = date('Y-m-d H:i:s');
-        $sql = "INSERT INTO contacts (first_name, last_name, email, phone, company, created_by, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?)";
+        $sql = "INSERT INTO email_recipients (name, email, company, created_at) VALUES (?, ?, ?, ?)";
         $stmt = $db->prepare($sql);
         
         try {

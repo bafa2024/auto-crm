@@ -183,43 +183,52 @@ class EmailCampaignService {
             $sentCount = 0;
             $errors = [];
             
-            foreach ($recipients as $recipient) {
-                try {
-                    $personalizedContent = $this->personalizeContent($campaign['email_content'], $recipient);
-                    $emailSent = $this->sendEmail(
-                        $recipient['email'],
-                        $campaign['subject'],
-                        $personalizedContent,
-                        $campaign['from_name'],
-                        $campaign['from_email'],
-                        $recipient
-                    );
-                    
-                    // Record the send
-                    $currentTime = date('Y-m-d H:i:s');
-                    $sql = "INSERT INTO campaign_sends (
-                        campaign_id, recipient_id, recipient_email, status, sent_at
-                    ) VALUES (
-                        :campaign_id, :recipient_id, :recipient_email, :status, :sent_at
-                    )";
-                    
-                    $stmt = $this->db->prepare($sql);
-                    $stmt->execute([
-                        ':campaign_id' => $campaignId,
-                        ':recipient_id' => $recipient['id'],
-                        ':recipient_email' => $recipient['email'],
-                        ':status' => $emailSent ? 'sent' : 'failed',
-                        ':sent_at' => $currentTime
-                    ]);
-                    
-                    if ($emailSent) {
-                        $sentCount++;
-                    } else {
-                        $errors[] = "Failed to send to {$recipient['email']}";
+            // Batch processing: split recipients into chunks of 50
+            $recipientChunks = array_chunk($recipients, 50);
+            foreach ($recipientChunks as $batchIndex => $batch) {
+                error_log("Processing batch " . ($batchIndex + 1) . " of " . count($recipientChunks));
+                foreach ($batch as $recipient) {
+                    try {
+                        $personalizedContent = $this->personalizeContent($campaign['email_content'], $recipient);
+                        $emailSent = $this->sendEmail(
+                            $recipient['email'],
+                            $campaign['subject'],
+                            $personalizedContent,
+                            $campaign['from_name'],
+                            $campaign['from_email'],
+                            $recipient
+                        );
+                        
+                        // Record the send
+                        $currentTime = date('Y-m-d H:i:s');
+                        $sql = "INSERT INTO campaign_sends (
+                            campaign_id, recipient_id, recipient_email, status, sent_at
+                        ) VALUES (
+                            :campaign_id, :recipient_id, :recipient_email, :status, :sent_at
+                        )";
+                        
+                        $stmt = $this->db->prepare($sql);
+                        $stmt->execute([
+                            ':campaign_id' => $campaignId,
+                            ':recipient_id' => $recipient['id'],
+                            ':recipient_email' => $recipient['email'],
+                            ':status' => $emailSent ? 'sent' : 'failed',
+                            ':sent_at' => $currentTime
+                        ]);
+                        
+                        if ($emailSent) {
+                            $sentCount++;
+                        } else {
+                            $errors[] = "Failed to send to {$recipient['email']}";
+                        }
+                        
+                    } catch (Exception $e) {
+                        $errors[] = "Error sending to {$recipient['email']}: " . $e->getMessage();
                     }
-                    
-                } catch (Exception $e) {
-                    $errors[] = "Error sending to {$recipient['email']}: " . $e->getMessage();
+                }
+                // Optional: sleep 1 second between batches to avoid rate limits
+                if ($batchIndex < count($recipientChunks) - 1) {
+                    sleep(1);
                 }
             }
             

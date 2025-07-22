@@ -62,7 +62,10 @@ class ContactController extends BaseController {
         }
         
         // Add created_by from session
-        session_start();
+// Start session
+if (session_status() === PHP_SESSION_NONE) {
+    session_start();
+}
         $data['created_by'] = $_SESSION['user_id'] ?? 1;
         
         $contact = $this->contactModel->create($data);
@@ -140,7 +143,10 @@ class ContactController extends BaseController {
         }
         
         // Create bulk upload record
-        session_start();
+// Start session
+if (session_status() === PHP_SESSION_NONE) {
+    session_start();
+}
         $bulkUploadModel = new BulkUpload($this->db);
         $uploadRecord = $bulkUploadModel->create([
             'filename' => $filename,

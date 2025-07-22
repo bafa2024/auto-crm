@@ -54,7 +54,7 @@ if (isset($_SERVER['REQUEST_METHOD']) && $_SERVER['REQUEST_METHOD'] === 'POST' &
                     $currentTime = date('Y-m-d H:i:s');
                     
                     // Handle campaign_id - convert empty string to NULL
-                    if (empty($campaignId) || $campaignId === '') {
+                    if (empty($campaignId) || $campaignId === '' || $campaignId === '0') {
                         $campaignId = null;
                     }
                     
