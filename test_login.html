@@ -1,0 +1,102 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Login API Test</title>
+    <style>
+        body { font-family: Arial, sans-serif; margin: 20px; }
+        .result { margin: 10px 0; padding: 10px; border-radius: 5px; }
+        .success { background-color: #d4edda; border: 1px solid #c3e6cb; }
+        .error { background-color: #f8d7da; border: 1px solid #f5c6cb; }
+        button { padding: 10px 20px; margin: 5px; }
+        input { padding: 8px; margin: 5px; width: 200px; }
+    </style>
+</head>
+<body>
+    <h1>Login API Test</h1>
+    
+    <div>
+        <label>Email:</label><br>
+        <input type="email" id="email" value="test@example.com"><br>
+        <label>Password:</label><br>
+        <input type="password" id="password" value="password123"><br>
+        <button onclick="testLogin()">Test Login</button>
+        <button onclick="testRegister()">Test Register</button>
+    </div>
+    
+    <div id="result"></div>
+    
+    <script>
+        // Auto-detect base path
+        const basePath = window.location.pathname.includes('/acrm/') ? '/acrm' : '';
+        
+        function showResult(message, isError = false) {
+            const resultDiv = document.getElementById('result');
+            resultDiv.innerHTML = `<div class="result ${isError ? 'error' : 'success'}">${message}</div>`;
+        }
+        
+        async function testLogin() {
+            const email = document.getElementById('email').value;
+            const password = document.getElementById('password').value;
+            
+            const url = basePath + '/api/auth/login';
+            showResult(`Testing login API at: ${url}`);
+            
+            try {
+                const response = await fetch(url, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify({ email, password })
+                });
+                
+                const result = await response.json();
+                
+                if (response.ok) {
+                    showResult(`Login successful: ${JSON.stringify(result, null, 2)}`);
+                } else {
+                    showResult(`Login failed: ${JSON.stringify(result, null, 2)}`, true);
+                }
+            } catch (error) {
+                showResult(`Network error: ${error.message}`, true);
+            }
+        }
+        
+        async function testRegister() {
+            const email = document.getElementById('email').value;
+            const password = document.getElementById('password').value;
+            
+            const url = basePath + '/api/auth/register';
+            showResult(`Testing register API at: ${url}`);
+            
+            try {
+                const response = await fetch(url, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify({
+                        email,
+                        password,
+                        first_name: 'Test',
+                        last_name: 'User',
+                        company_name: 'Test Company'
+                    })
+                });
+                
+                const result = await response.json();
+                
+                if (response.ok) {
+                    showResult(`Register successful: ${JSON.stringify(result, null, 2)}`);
+                } else {
+                    showResult(`Register failed: ${JSON.stringify(result, null, 2)}`, true);
+                }
+            } catch (error) {
+                showResult(`Network error: ${error.message}`, true);
+            }
+        }
+    </script>
+</body>
+</html> 
