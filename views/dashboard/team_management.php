@@ -14,16 +14,31 @@ if (!isset($_SESSION['user_id'])) {
     <link rel="stylesheet" href="/public/css/styles.css">
     <style>
         .team-list, .member-list, .privilege-list { margin-bottom: 2em; }
-        .panel { border: 1px solid #ccc; border-radius: 6px; padding: 1em; margin-bottom: 2em; }
+        .panel { border: 1px solid #ccc; border-radius: 6px; padding: 1em; margin-bottom: 2em; background: #fff; }
         .panel-title { font-weight: bold; margin-bottom: 0.5em; }
+        .table { width: 100%; border-collapse: collapse; margin-bottom: 1em; }
+        .table th, .table td { border: 1px solid #eee; padding: 0.5em; text-align: left; }
+        .empty-msg { color: #888; font-style: italic; }
+        .loading { color: #888; font-style: italic; }
+        .success-msg { color: green; margin-bottom: 1em; }
+        .error-msg { color: red; margin-bottom: 1em; }
+        .toggle-switch { cursor: pointer; }
     </style>
 </head>
 <body>
     <div class="container">
         <h2>Team Management</h2>
+        <div id="msg"></div>
         <div class="panel team-list">
             <div class="panel-title">Teams</div>
-            <ul id="teams"></ul>
+            <div id="teams-loading" class="loading" style="display:none;">Loading teams...</div>
+            <table class="table">
+                <thead>
+                    <tr><th>Name</th><th>Description</th><th>Actions</th></tr>
+                </thead>
+                <tbody id="teams"></tbody>
+            </table>
+            <div id="teams-empty" class="empty-msg" style="display:none;">No teams found.</div>
             <form id="create-team-form">
                 <input type="text" name="name" placeholder="Team Name" required>
                 <input type="text" name="description" placeholder="Description">
@@ -32,8 +47,16 @@ if (!isset($_SESSION['user_id'])) {
         </div>
         <div class="panel member-list" style="display:none;">
             <div class="panel-title">Team Members (<span id="selected-team-name"></span>)</div>
-            <ul id="members"></ul>
+            <div id="members-loading" class="loading" style="display:none;">Loading members...</div>
+            <table class="table">
+                <thead>
+                    <tr><th>User ID</th><th>Role</th><th>Actions</th></tr>
+                </thead>
+                <tbody id="members"></tbody>
+            </table>
+            <div id="members-empty" class="empty-msg" style="display:none;">No members in this team.</div>
             <form id="add-member-form">
+                <!-- TODO: Replace with user search/autocomplete -->
                 <input type="number" name="user_id" placeholder="User ID" required>
                 <select name="role">
                     <option value="worker">Worker</option>
@@ -44,9 +67,15 @@ if (!isset($_SESSION['user_id'])) {
         </div>
         <div class="panel privilege-list" style="display:none;">
             <div class="panel-title">Privileges for User <span id="selected-user-id"></span> in Team <span id="selected-team-id"></span></div>
-            <ul id="privileges"></ul>
+            <div id="privileges-loading" class="loading" style="display:none;">Loading privileges...</div>
+            <table class="table">
+                <thead>
+                    <tr><th>Privilege</th><th>Allowed</th></tr>
+                </thead>
+                <tbody id="privileges"></tbody>
+            </table>
             <form id="set-privilege-form">
-                <input type="text" name="privilege" placeholder="Privilege (e.g. manage_campaigns)" required>
+                <input type="text" name="privilege" placeholder="Custom Privilege (e.g. manage_campaigns)" required>
                 <select name="allowed">
                     <option value="1">Allow</option>
                     <option value="0">Deny</option>
@@ -59,22 +88,38 @@ if (!isset($_SESSION['user_id'])) {
     let selectedTeamId = null;
     let selectedTeamName = '';
     let selectedUserId = null;
+    const commonPrivileges = [
+        'manage_campaigns', 'view_contacts', 'edit_contacts', 'delete_contacts', 'view_reports', 'manage_team'
+    ];
+
+    function showMsg(msg, type) {
+        const el = document.getElementById('msg');
+        el.innerHTML = `<div class="${type}-msg">${msg}</div>`;
+        setTimeout(() => { el.innerHTML = ''; }, 3000);
+    }
 
     function fetchTeams() {
+        document.getElementById('teams-loading').style.display = '';
         fetch('/api/teams/list')
             .then(r => r.json())
             .then(data => {
-                const ul = document.getElementById('teams');
-                ul.innerHTML = '';
-                if (data.success && Array.isArray(data.data)) {
+                document.getElementById('teams-loading').style.display = 'none';
+                const tbody = document.getElementById('teams');
+                tbody.innerHTML = '';
+                if (data.success && Array.isArray(data.data) && data.data.length) {
                     data.data.forEach(team => {
-                        const li = document.createElement('li');
-                        li.textContent = team.name + ' (ID: ' + team.id + ')';
-                        li.style.cursor = 'pointer';
-                        li.onclick = () => selectTeam(team.id, team.name);
-                        ul.appendChild(li);
+                        const tr = document.createElement('tr');
+                        tr.innerHTML = `<td>${team.name}</td><td>${team.description || ''}</td><td><button onclick="selectTeam(${team.id}, '${team.name.replace(/'/g, "\\'")}')">Select</button></td>`;
+                        tbody.appendChild(tr);
                     });
+                    document.getElementById('teams-empty').style.display = 'none';
+                } else {
+                    document.getElementById('teams-empty').style.display = '';
                 }
+            })
+            .catch(() => {
+                document.getElementById('teams-loading').style.display = 'none';
+                showMsg('Failed to load teams.', 'error');
             });
     }
     function selectTeam(teamId, teamName) {
@@ -85,24 +130,27 @@ if (!isset($_SESSION['user_id'])) {
         fetchMembers();
     }
     function fetchMembers() {
+        document.getElementById('members-loading').style.display = '';
         fetch('/api/teams/' + selectedTeamId + '/members')
             .then(r => r.json())
             .then(data => {
-                const ul = document.getElementById('members');
-                ul.innerHTML = '';
-                if (data.success && Array.isArray(data.data)) {
+                document.getElementById('members-loading').style.display = 'none';
+                const tbody = document.getElementById('members');
+                tbody.innerHTML = '';
+                if (data.success && Array.isArray(data.data) && data.data.length) {
                     data.data.forEach(member => {
-                        const li = document.createElement('li');
-                        li.textContent = 'User ID: ' + member.user_id + ' (' + member.role + ')';
-                        li.style.cursor = 'pointer';
-                        li.onclick = () => selectMember(member.user_id);
-                        const btn = document.createElement('button');
-                        btn.textContent = 'Remove';
-                        btn.onclick = (e) => { e.stopPropagation(); removeMember(member.user_id); };
-                        li.appendChild(btn);
-                        ul.appendChild(li);
+                        const tr = document.createElement('tr');
+                        tr.innerHTML = `<td>${member.user_id}</td><td>${member.role}</td><td><button onclick="selectMember(${member.user_id})">Privileges</button> <button onclick="removeMember(${member.user_id})">Remove</button></td>`;
+                        tbody.appendChild(tr);
                     });
+                    document.getElementById('members-empty').style.display = 'none';
+                } else {
+                    document.getElementById('members-empty').style.display = '';
                 }
+            })
+            .catch(() => {
+                document.getElementById('members-loading').style.display = 'none';
+                showMsg('Failed to load members.', 'error');
             });
     }
     function selectMember(userId) {
@@ -113,26 +161,53 @@ if (!isset($_SESSION['user_id'])) {
         fetchPrivileges();
     }
     function fetchPrivileges() {
+        document.getElementById('privileges-loading').style.display = '';
         fetch('/api/teams/' + selectedTeamId + '/privileges/' + selectedUserId)
             .then(r => r.json())
             .then(data => {
-                const ul = document.getElementById('privileges');
-                ul.innerHTML = '';
+                document.getElementById('privileges-loading').style.display = 'none';
+                const tbody = document.getElementById('privileges');
+                tbody.innerHTML = '';
+                let privMap = {};
                 if (data.success && Array.isArray(data.data)) {
                     data.data.forEach(priv => {
-                        const li = document.createElement('li');
-                        li.textContent = priv.privilege + ': ' + (priv.allowed ? 'Allowed' : 'Denied');
-                        ul.appendChild(li);
+                        privMap[priv.privilege] = priv.allowed;
                     });
                 }
+                // Show common privileges as toggles
+                commonPrivileges.forEach(priv => {
+                    const tr = document.createElement('tr');
+                    const allowed = privMap[priv] ? true : false;
+                    tr.innerHTML = `<td>${priv}</td><td><input type="checkbox" class="toggle-switch" ${allowed ? 'checked' : ''} onchange="setPrivilege('${priv}', this.checked ? 1 : 0)"></td>`;
+                    tbody.appendChild(tr);
+                });
+                // Show custom privileges
+                for (const priv in privMap) {
+                    if (!commonPrivileges.includes(priv)) {
+                        const tr = document.createElement('tr');
+                        tr.innerHTML = `<td>${priv}</td><td>${privMap[priv] ? 'Allowed' : 'Denied'}</td>`;
+                        tbody.appendChild(tr);
+                    }
+                }
+            })
+            .catch(() => {
+                document.getElementById('privileges-loading').style.display = 'none';
+                showMsg('Failed to load privileges.', 'error');
             });
+    }
+    function setPrivilege(privilege, allowed) {
+        fetch('/api/teams/set-privilege', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ team_id: selectedTeamId, user_id: selectedUserId, privilege, allowed })
+        }).then(() => fetchPrivileges());
     }
     function removeMember(userId) {
         fetch('/api/teams/remove-member', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ team_id: selectedTeamId, user_id: userId })
-        }).then(() => fetchMembers());
+        }).then(() => { showMsg('Member removed.', 'success'); fetchMembers(); });
     }
     document.getElementById('create-team-form').onsubmit = function(e) {
         e.preventDefault();
@@ -141,7 +216,18 @@ if (!isset($_SESSION['user_id'])) {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ name: form.name.value, description: form.description.value })
-        }).then(() => { form.reset(); fetchTeams(); });
+        })
+        .then(r => r.json())
+        .then(data => {
+            if (data.success) {
+                showMsg('Team created!', 'success');
+                form.reset();
+                fetchTeams();
+            } else {
+                showMsg(data.message || 'Failed to create team.', 'error');
+            }
+        })
+        .catch(() => showMsg('Failed to create team.', 'error'));
     };
     document.getElementById('add-member-form').onsubmit = function(e) {
         e.preventDefault();
@@ -150,7 +236,18 @@ if (!isset($_SESSION['user_id'])) {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ team_id: selectedTeamId, user_id: form.user_id.value, role: form.role.value })
-        }).then(() => { form.reset(); fetchMembers(); });
+        })
+        .then(r => r.json())
+        .then(data => {
+            if (data.success) {
+                showMsg('Member added!', 'success');
+                form.reset();
+                fetchMembers();
+            } else {
+                showMsg(data.message || 'Failed to add member.', 'error');
+            }
+        })
+        .catch(() => showMsg('Failed to add member.', 'error'));
     };
     document.getElementById('set-privilege-form').onsubmit = function(e) {
         e.preventDefault();
@@ -159,7 +256,18 @@ if (!isset($_SESSION['user_id'])) {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ team_id: selectedTeamId, user_id: selectedUserId, privilege: form.privilege.value, allowed: form.allowed.value })
-        }).then(() => { form.reset(); fetchPrivileges(); });
+        })
+        .then(r => r.json())
+        .then(data => {
+            if (data.success) {
+                showMsg('Privilege set!', 'success');
+                form.reset();
+                fetchPrivileges();
+            } else {
+                showMsg(data.message || 'Failed to set privilege.', 'error');
+            }
+        })
+        .catch(() => showMsg('Failed to set privilege.', 'error'));
     };
     // Initial load
     fetchTeams();
