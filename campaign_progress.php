@@ -80,8 +80,6 @@ if ($campaign['status'] === 'completed') {
                 <div class="card-body">
                     <p><strong>Total Recipients:</strong> <?php echo $stats['total_sends'] ?? 0; ?></p>
                     <p><strong>Sent:</strong> <?php echo $stats['sent_count'] ?? 0; ?></p>
-                    <p><strong>Failed:</strong> <?php echo $stats['failed_count'] ?? 0; ?></p>
-                    <p><strong>Opened:</strong> <?php echo $stats['opened_count'] ?? 0; ?></p>
                 </div>
             </div>
         </div>
