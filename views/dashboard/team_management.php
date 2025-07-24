@@ -99,6 +99,46 @@ if (!isset($_SESSION['user_id'])) {
         setTimeout(() => { el.innerHTML = ''; }, 3000);
     }
 
+    // Edit/Delete Team Modal logic
+    let editingTeamId = null;
+    function showEditTeamForm(team) {
+        const name = prompt('Edit team name:', team.name);
+        if (name === null) return;
+        const description = prompt('Edit description:', team.description || '');
+        if (description === null) return;
+        fetch('/api/teams/edit', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ id: team.id, name, description })
+        })
+        .then(r => r.json())
+        .then(data => {
+            if (data.success) {
+                showMsg('Team updated!', 'success');
+                fetchTeams();
+            } else {
+                showMsg(data.message || 'Failed to update team.', 'error');
+            }
+        });
+    }
+    function deleteTeam(teamId) {
+        if (!confirm('Are you sure you want to delete this team? This cannot be undone.')) return;
+        fetch('/api/teams/delete', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ id: teamId })
+        })
+        .then(r => r.json())
+        .then(data => {
+            if (data.success) {
+                showMsg('Team deleted!', 'success');
+                fetchTeams();
+            } else {
+                showMsg(data.message || 'Failed to delete team.', 'error');
+            }
+        });
+    }
+
     function fetchTeams() {
         document.getElementById('teams-loading').style.display = '';
         fetch('/api/teams/list')
@@ -110,7 +150,11 @@ if (!isset($_SESSION['user_id'])) {
                 if (data.success && Array.isArray(data.data) && data.data.length) {
                     data.data.forEach(team => {
                         const tr = document.createElement('tr');
-                        tr.innerHTML = `<td>${team.name}</td><td>${team.description || ''}</td><td><button onclick="selectTeam(${team.id}, '${team.name.replace(/'/g, "\\'")}')">Select</button></td>`;
+                        tr.innerHTML = `<td>${team.name}</td><td>${team.description || ''}</td><td>
+                            <button onclick="selectTeam(${team.id}, '${team.name.replace(/'/g, "\\'")}')">Select</button>
+                            <button onclick='showEditTeamForm(${JSON.stringify(team)})'>Edit</button>
+                            <button onclick='deleteTeam(${team.id})'>Delete</button>
+                        </td>`;
                         tbody.appendChild(tr);
                     });
                     document.getElementById('teams-empty').style.display = 'none';
@@ -142,7 +186,12 @@ if (!isset($_SESSION['user_id'])) {
                     data.data.forEach(member => {
                         const tr = document.createElement('tr');
                         const name = (member.first_name || member.last_name) ? `${member.first_name || ''} ${member.last_name || ''}`.trim() : member.user_id;
-                        tr.innerHTML = `<td>${name}</td><td>${member.email || ''}</td><td>${member.role}</td><td><button onclick="selectMember(${member.user_id})">Privileges</button> <button onclick="removeMember(${member.user_id})">Remove</button></td>`;
+                        tr.innerHTML = `<td>${name}</td><td>${member.email || ''}</td><td>
+                            <select onchange="updateMemberRole(${member.team_id}, ${member.user_id}, this.value)">
+                                <option value="worker" ${member.role === 'worker' ? 'selected' : ''}>Worker</option>
+                                <option value="owner" ${member.role === 'owner' ? 'selected' : ''}>Owner</option>
+                            </select>
+                        </td><td><button onclick="selectMember(${member.user_id})">Privileges</button> <button onclick="removeMember(${member.user_id})">Remove</button></td>`;
                         tbody.appendChild(tr);
                     });
                     document.getElementById('members-empty').style.display = 'none';
@@ -210,6 +259,23 @@ if (!isset($_SESSION['user_id'])) {
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ team_id: selectedTeamId, user_id: userId })
         }).then(() => { showMsg('Member removed.', 'success'); fetchMembers(); });
+    }
+    function updateMemberRole(teamId, userId, role) {
+        if (!confirm('Change this member\'s role?')) return;
+        fetch('/api/teams/update-member-role', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ team_id: teamId, user_id: userId, role })
+        })
+        .then(r => r.json())
+        .then(data => {
+            if (data.success) {
+                showMsg('Role updated!', 'success');
+                fetchMembers();
+            } else {
+                showMsg(data.message || 'Failed to update role.', 'error');
+            }
+        });
     }
     document.getElementById('create-team-form').onsubmit = function(e) {
         e.preventDefault();
