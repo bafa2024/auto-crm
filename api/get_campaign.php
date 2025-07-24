@@ -31,11 +31,26 @@ try {
     // Get campaign data
     $campaign = $campaignService->getCampaignById($campaignId);
     
+    // If recipients=unsent is requested, return unsent recipients as well
+    $recipients = [];
+    if (isset($_GET['recipients']) && $_GET['recipients'] === 'unsent') {
+        $allRecipients = $campaignService->getCampaignRecipientsWithStatus($campaignId);
+        $recipients = array_filter($allRecipients, function($r) {
+            return empty($r['status']) || $r['status'] !== 'sent';
+        });
+        // Re-index array for JSON
+        $recipients = array_values($recipients);
+    }
+
     if ($campaign) {
-        echo json_encode([
+        $response = [
             'success' => true,
             'campaign' => $campaign
-        ]);
+        ];
+        if (!empty($recipients)) {
+            $response['recipients'] = $recipients;
+        }
+        echo json_encode($response);
     } else {
         echo json_encode([
             'success' => false,

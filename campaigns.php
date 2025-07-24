@@ -133,11 +133,22 @@ try {
 
 // Get recipients for selection
 $recipients = [];
-try {
-    $stmt = $database->getConnection()->query("SELECT id, email, name, company FROM email_recipients ORDER BY created_at DESC");
-    $recipients = $stmt->fetchAll(PDO::FETCH_ASSOC);
-} catch (Exception $e) {
-    // Ignore error if table doesn't exist
+if (isset($_GET['send_campaign_id'])) {
+    // If sending, filter recipients for that campaign
+    require_once 'services/EmailCampaignService.php';
+    $campaignService = new EmailCampaignService($database);
+    $allRecipients = $campaignService->getCampaignRecipientsWithStatus($_GET['send_campaign_id']);
+    // Only show recipients who have not been sent (status is null or not 'sent')
+    $recipients = array_filter($allRecipients, function($r) {
+        return empty($r['status']) || $r['status'] !== 'sent';
+    });
+} else {
+    try {
+        $stmt = $database->getConnection()->query("SELECT id, email, name, company FROM email_recipients ORDER BY created_at DESC");
+        $recipients = $stmt->fetchAll(PDO::FETCH_ASSOC);
+    } catch (Exception $e) {
+        // Ignore error if table doesn't exist
+    }
 }
 ?>
 
@@ -427,7 +438,7 @@ try {
                         <div class="mb-3">
                             <div class="d-flex justify-content-between align-items-center mb-2">
                                 <label class="form-label mb-0">Select Recipients</label>
-                                <small class="text-muted"><?php echo count($recipients); ?> total recipients</small>
+                                <small class="text-muted" id="totalRecipientsCount">0 total recipients</small>
                             </div>
                             
                             <!-- Search and Select All -->
@@ -450,33 +461,8 @@ try {
                                 <small class="text-primary" id="selectedCount">0 recipients selected</small>
                             </div>
                             
-                            <div class="recipients-list" style="max-height: 400px; overflow-y: auto; border: 1px solid #dee2e6; border-radius: 8px; padding: 10px;">
-                                <?php 
-                                // Show only first 50 recipients initially for better performance
-                                $displayRecipients = array_slice($recipients, 0, 50);
-                                foreach ($displayRecipients as $recipient): 
-                                ?>
-                                <div class="recipient-item" onclick="toggleRecipient(<?php echo $recipient['id']; ?>)" data-search="<?php echo strtolower(htmlspecialchars($recipient['email'] . ' ' . $recipient['name'] . ' ' . $recipient['company'])); ?>">
-                                    <div class="form-check">
-                                        <input class="form-check-input" type="checkbox" name="recipient_ids[]" value="<?php echo $recipient['id']; ?>" id="recipient_<?php echo $recipient['id']; ?>" onchange="updateSelectedCount()">
-                                        <label class="form-check-label" for="recipient_<?php echo $recipient['id']; ?>">
-                                            <strong><?php echo htmlspecialchars($recipient['email']); ?></strong>
-                                            <?php if ($recipient['name']): ?>
-                                                <br><small class="text-muted"><?php echo htmlspecialchars($recipient['name']); ?></small>
-                                            <?php endif; ?>
-                                            <?php if ($recipient['company']): ?>
-                                                <br><small class="text-muted"><?php echo htmlspecialchars($recipient['company']); ?></small>
-                                            <?php endif; ?>
-                                        </label>
-                                    </div>
-                                </div>
-                                <?php endforeach; ?>
-                                
-                                <?php if (count($recipients) > 50): ?>
-                                <div class="text-center mt-3">
-                                    <small class="text-muted">Showing first 50 recipients. Use search to find specific recipients.</small>
-                                </div>
-                                <?php endif; ?>
+                            <div class="recipients-list" id="recipientsList" style="max-height: 400px; overflow-y: auto; border: 1px solid #dee2e6; border-radius: 8px; padding: 10px;">
+                                <!-- Recipients will be loaded here by JS -->
                             </div>
                         </div>
                     </div>
@@ -646,6 +632,40 @@ try {
         
         function sendCampaign(campaignId) {
             document.getElementById('send_campaign_id').value = campaignId;
+            // Fetch unsent recipients via AJAX
+            fetch('api/get_campaign.php?id=' + campaignId + '&recipients=unsent')
+                .then(response => response.json())
+                .then(data => {
+                    const recipientsList = document.getElementById('recipientsList');
+                    const totalRecipientsCount = document.getElementById('totalRecipientsCount');
+                    recipientsList.innerHTML = '';
+                    let recipients = data.recipients || [];
+                    totalRecipientsCount.textContent = recipients.length + ' total recipients';
+                    // Show only first 50
+                    recipients = recipients.slice(0, 50);
+                    recipients.forEach(recipient => {
+                        const div = document.createElement('div');
+                        div.className = 'recipient-item';
+                        div.setAttribute('onclick', `toggleRecipient(${recipient.id})`);
+                        div.setAttribute('data-search', (recipient.email + ' ' + (recipient.name || '') + ' ' + (recipient.company || '')).toLowerCase());
+                        div.innerHTML = `<div class=\"form-check\">
+                            <input class=\"form-check-input\" type=\"checkbox\" name=\"recipient_ids[]\" value=\"${recipient.id}\" id=\"recipient_${recipient.id}\" onchange=\"updateSelectedCount()\">
+                            <label class=\"form-check-label\" for=\"recipient_${recipient.id}\">
+                                <strong>${recipient.email}</strong>
+                                ${recipient.name ? `<br><small class=\"text-muted\">${recipient.name}</small>` : ''}
+                                ${recipient.company ? `<br><small class=\"text-muted\">${recipient.company}</small>` : ''}
+                            </label>
+                        </div>`;
+                        recipientsList.appendChild(div);
+                    });
+                    if (data.recipients && data.recipients.length > 50) {
+                        const info = document.createElement('div');
+                        info.className = 'text-center mt-3';
+                        info.innerHTML = '<small class="text-muted">Showing first 50 recipients. Use search to find specific recipients.</small>';
+                        recipientsList.appendChild(info);
+                    }
+                    updateSelectedCount();
+                });
             new bootstrap.Modal(document.getElementById('sendCampaignModal')).show();
         }
 
