@@ -117,7 +117,11 @@ class TeamController extends BaseController {
     }
 
     public function getMembers($teamId) {
-        $members = $this->teamMemberModel->findAllBy('team_id', $teamId);
+        // Join team_members with users to get user info
+        $sql = "SELECT tm.*, u.first_name, u.last_name, u.email FROM team_members tm JOIN users u ON tm.user_id = u.id WHERE tm.team_id = ?";
+        $stmt = $this->db->prepare($sql);
+        $stmt->execute([$teamId]);
+        $members = $stmt->fetchAll();
         $this->sendSuccess($members);
     }
 

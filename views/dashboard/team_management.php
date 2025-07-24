@@ -50,7 +50,7 @@ if (!isset($_SESSION['user_id'])) {
             <div id="members-loading" class="loading" style="display:none;">Loading members...</div>
             <table class="table">
                 <thead>
-                    <tr><th>User ID</th><th>Role</th><th>Actions</th></tr>
+                    <tr><th>User</th><th>Email</th><th>Role</th><th>Actions</th></tr>
                 </thead>
                 <tbody id="members"></tbody>
             </table>
@@ -140,7 +140,8 @@ if (!isset($_SESSION['user_id'])) {
                 if (data.success && Array.isArray(data.data) && data.data.length) {
                     data.data.forEach(member => {
                         const tr = document.createElement('tr');
-                        tr.innerHTML = `<td>${member.user_id}</td><td>${member.role}</td><td><button onclick="selectMember(${member.user_id})">Privileges</button> <button onclick="removeMember(${member.user_id})">Remove</button></td>`;
+                        const name = (member.first_name || member.last_name) ? `${member.first_name || ''} ${member.last_name || ''}`.trim() : member.user_id;
+                        tr.innerHTML = `<td>${name}</td><td>${member.email || ''}</td><td>${member.role}</td><td><button onclick="selectMember(${member.user_id})">Privileges</button> <button onclick="removeMember(${member.user_id})">Remove</button></td>`;
                         tbody.appendChild(tr);
                     });
                     document.getElementById('members-empty').style.display = 'none';
