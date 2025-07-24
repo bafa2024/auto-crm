@@ -125,4 +125,9 @@ class TeamController extends BaseController {
         $privs = $this->privilegeModel->findAllByFields(['team_id' => $teamId, 'user_id' => $userId]);
         $this->sendSuccess($privs);
     }
+
+    public function listTeams() {
+        $teams = $this->teamModel->findAll();
+        $this->sendSuccess($teams);
+    }
 } 

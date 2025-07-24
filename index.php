@@ -197,6 +197,11 @@ try {
                                 $controller->setPrivilege($request);
                             }
                             break;
+                        case "list":
+                            if ($requestMethod === "GET") {
+                                $controller->listTeams();
+                            }
+                            break;
                         default:
                             // GET /api/teams/{id}, /api/teams/{id}/members, /api/teams/{id}/privileges/{user_id}
                             if ($requestMethod === "GET" && isset($pathParts[1]) && is_numeric($pathParts[1])) {
