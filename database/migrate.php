@@ -40,8 +40,7 @@ try {
     $tables = ['contacts', 'email_campaigns', 'email_templates'];
     
     foreach ($tables as $table) {
-        $stmt = $db->prepare("SHOW TABLES LIKE ?");
-        $stmt->execute([$table]);
+        $stmt = $db->query("SHOW TABLES LIKE '$table'");
         $tableExists = $stmt->fetch();
         
         if (!$tableExists) {
@@ -127,8 +126,7 @@ try {
     // Add new tables for teams and privileges
     $newTables = ['teams', 'team_members', 'worker_privileges'];
     foreach ($newTables as $table) {
-        $stmt = $db->prepare("SHOW TABLES LIKE ?");
-        $stmt->execute([$table]);
+        $stmt = $db->query("SHOW TABLES LIKE '$table'");
         $tableExists = $stmt->fetch();
         if (!$tableExists) {
             echo "Creating $table table...\n";
@@ -227,23 +225,4 @@ try {
         if (!$exists) {
             if ($GLOBALS['dbType'] === 'mysql') {
                 // Use direct string interpolation for ALTER TABLE
-                $db->exec("ALTER TABLE `$table` ADD COLUMN `$column` $definition");
-            } else {
-                $db->exec("ALTER TABLE $table ADD COLUMN $column $definition");
-            }
-            echo "Added $column to $table\n";
-        } else {
-            echo "$column already exists in $table\n";
-        }
-    }
-
-    addColumnIfNotExists($db, 'users', 'timezone', ($dbType === 'mysql' ? "VARCHAR(64) DEFAULT 'UTC'" : "TEXT DEFAULT 'UTC'"));
-    addColumnIfNotExists($db, 'email_campaigns', 'timezone', ($dbType === 'mysql' ? "VARCHAR(64) DEFAULT 'UTC'" : "TEXT DEFAULT 'UTC'"));
-    echo "Migration complete.\n";
-    
-    echo "\n✅ Migration completed successfully!\n";
-    
-} catch (Exception $e) {
-    echo "❌ Migration failed: " . $e->getMessage() . "\n";
-    echo "Error code: " . $e->getCode() . "\n";
-} 
+                $db->exec("ALTER TABLE `$table` ADD COLUMN `$column`
