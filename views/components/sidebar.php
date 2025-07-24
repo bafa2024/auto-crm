@@ -24,6 +24,11 @@ require_once __DIR__ . '/../../config/base_path.php';
                 </a>
             </li>
             <li class="nav-item">
+                <a class="sidebar-link <?php echo basename($_SERVER['PHP_SELF']) === 'team_management.php' ? 'active' : ''; ?>" href="<?php echo base_path('views/dashboard/team_management.php'); ?>">
+                    <i class="bi bi-people-gear"></i> Team Management
+                </a>
+            </li>
+            <li class="nav-item">
                 <a class="sidebar-link" href="#" onclick="showSection('dialer')">
                     <i class="bi bi-telephone"></i> Auto Dialer
                 </a>
