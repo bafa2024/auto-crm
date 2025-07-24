@@ -55,9 +55,10 @@ if (!isset($_SESSION['user_id'])) {
                 <tbody id="members"></tbody>
             </table>
             <div id="members-empty" class="empty-msg" style="display:none;">No members in this team.</div>
-            <form id="add-member-form">
-                <!-- TODO: Replace with user search/autocomplete -->
-                <input type="number" name="user_id" placeholder="User ID" required>
+            <form id="add-member-form" autocomplete="off">
+                <input type="text" id="user-search" placeholder="Search user by name or email" required>
+                <input type="hidden" name="user_id" id="user-id-hidden">
+                <div id="user-suggestions" style="position:relative;z-index:10;background:#fff;border:1px solid #ccc;display:none;"></div>
                 <select name="role">
                     <option value="worker">Worker</option>
                     <option value="owner">Owner</option>
@@ -230,19 +231,68 @@ if (!isset($_SESSION['user_id'])) {
         })
         .catch(() => showMsg('Failed to create team.', 'error'));
     };
+    // Autocomplete logic for user search
+    const userSearch = document.getElementById('user-search');
+    const userIdHidden = document.getElementById('user-id-hidden');
+    const userSuggestions = document.getElementById('user-suggestions');
+    let userSearchTimeout = null;
+    userSearch.addEventListener('input', function() {
+        const q = userSearch.value.trim();
+        userIdHidden.value = '';
+        if (q.length < 2) {
+            userSuggestions.style.display = 'none';
+            return;
+        }
+        clearTimeout(userSearchTimeout);
+        userSearchTimeout = setTimeout(() => {
+            fetch('/api/teams/search-users?q=' + encodeURIComponent(q))
+                .then(r => r.json())
+                .then(data => {
+                    userSuggestions.innerHTML = '';
+                    if (data.success && Array.isArray(data.data) && data.data.length) {
+                        data.data.forEach(user => {
+                            const div = document.createElement('div');
+                            div.style.padding = '4px 8px';
+                            div.style.cursor = 'pointer';
+                            div.textContent = `${user.first_name || ''} ${user.last_name || ''} (${user.email})`.trim();
+                            div.onclick = () => {
+                                userSearch.value = `${user.first_name || ''} ${user.last_name || ''}`.trim() + ' (' + user.email + ')';
+                                userIdHidden.value = user.id;
+                                userSuggestions.style.display = 'none';
+                            };
+                            userSuggestions.appendChild(div);
+                        });
+                        userSuggestions.style.display = '';
+                    } else {
+                        userSuggestions.style.display = 'none';
+                    }
+                });
+        }, 200);
+    });
+    document.addEventListener('click', function(e) {
+        if (!userSuggestions.contains(e.target) && e.target !== userSearch) {
+            userSuggestions.style.display = 'none';
+        }
+    });
+    // Update add-member-form submit to use selected user_id
     document.getElementById('add-member-form').onsubmit = function(e) {
         e.preventDefault();
         const form = e.target;
+        if (!userIdHidden.value) {
+            showMsg('Please select a user from the suggestions.', 'error');
+            return;
+        }
         fetch('/api/teams/add-member', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ team_id: selectedTeamId, user_id: form.user_id.value, role: form.role.value })
+            body: JSON.stringify({ team_id: selectedTeamId, user_id: userIdHidden.value, role: form.role.value })
         })
         .then(r => r.json())
         .then(data => {
             if (data.success) {
                 showMsg('Member added!', 'success');
                 form.reset();
+                userIdHidden.value = '';
                 fetchMembers();
             } else {
                 showMsg(data.message || 'Failed to add member.', 'error');
