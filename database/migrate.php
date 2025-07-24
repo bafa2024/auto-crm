@@ -124,6 +124,64 @@ try {
         }
     }
     
+    // Add new tables for teams and privileges
+    $newTables = ['teams', 'team_members', 'worker_privileges'];
+    foreach ($newTables as $table) {
+        $stmt = $db->prepare("SHOW TABLES LIKE ?");
+        $stmt->execute([$table]);
+        $tableExists = $stmt->fetch();
+        if (!$tableExists) {
+            echo "Creating $table table...\n";
+            $tableSql = '';
+            switch ($table) {
+                case 'teams':
+                    $tableSql = "CREATE TABLE IF NOT EXISTS teams (
+                        id INT PRIMARY KEY AUTO_INCREMENT,
+                        name VARCHAR(255) NOT NULL,
+                        description TEXT,
+                        created_by INT,
+                        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                        updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
+                    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4";
+                    break;
+                case 'team_members':
+                    $tableSql = "CREATE TABLE IF NOT EXISTS team_members (
+                        id INT PRIMARY KEY AUTO_INCREMENT,
+                        team_id INT NOT NULL,
+                        user_id INT NOT NULL,
+                        role ENUM('owner','worker') DEFAULT 'worker',
+                        status ENUM('active','inactive') DEFAULT 'active',
+                        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                        FOREIGN KEY (team_id) REFERENCES teams(id) ON DELETE CASCADE,
+                        FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
+                    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4";
+                    break;
+                case 'worker_privileges':
+                    $tableSql = "CREATE TABLE IF NOT EXISTS worker_privileges (
+                        id INT PRIMARY KEY AUTO_INCREMENT,
+                        team_id INT NOT NULL,
+                        user_id INT NOT NULL,
+                        privilege VARCHAR(100) NOT NULL,
+                        allowed BOOLEAN DEFAULT TRUE,
+                        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                        FOREIGN KEY (team_id) REFERENCES teams(id) ON DELETE CASCADE,
+                        FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
+                    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4";
+                    break;
+            }
+            if ($tableSql) {
+                $stmt = $db->prepare($tableSql);
+                if ($stmt->execute()) {
+                    echo "✓ $table table created successfully\n";
+                } else {
+                    echo "❌ Failed to create $table table\n";
+                }
+            }
+        } else {
+            echo "✓ $table table already exists\n";
+        }
+    }
+    
     // Check if admin user exists
     $stmt = $db->prepare("SELECT id FROM users WHERE email = ?");
     $stmt->execute(['admin@autocrm.com']);

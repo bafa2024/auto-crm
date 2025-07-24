@@ -132,6 +132,11 @@ $userEmail = $_SESSION["user_email"] ?? "user@example.com";
             </div>
         </div>
         
+        <?php if (session_status() === PHP_SESSION_NONE) session_start(); ?>
+        <?php if (isset($_SESSION['user_id'])): ?>
+            <div style="margin-bottom: 1em;"><a href="/views/dashboard/team_management.php" class="btn btn-primary">Team Management</a></div>
+        <?php endif; ?>
+
         <!-- Statistics Cards -->
         <div class="row mb-4">
             <div class="col-md-3 mb-3">

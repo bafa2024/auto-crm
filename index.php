@@ -161,6 +161,64 @@ try {
                     }
                     break;
                     
+                case "teams":
+                    require_once __DIR__ . "/controllers/TeamController.php";
+                    $controller = new TeamController($db);
+                    switch ($pathParts[1] ?? "") {
+                        case "create":
+                            if ($requestMethod === "POST") {
+                                $input = json_decode(file_get_contents("php://input"), true);
+                                $request = new stdClass();
+                                $request->body = $input;
+                                $controller->createTeam($request);
+                            }
+                            break;
+                        case "add-member":
+                            if ($requestMethod === "POST") {
+                                $input = json_decode(file_get_contents("php://input"), true);
+                                $request = new stdClass();
+                                $request->body = $input;
+                                $controller->addMember($request);
+                            }
+                            break;
+                        case "remove-member":
+                            if ($requestMethod === "POST") {
+                                $input = json_decode(file_get_contents("php://input"), true);
+                                $request = new stdClass();
+                                $request->body = $input;
+                                $controller->removeMember($request);
+                            }
+                            break;
+                        case "set-privilege":
+                            if ($requestMethod === "POST") {
+                                $input = json_decode(file_get_contents("php://input"), true);
+                                $request = new stdClass();
+                                $request->body = $input;
+                                $controller->setPrivilege($request);
+                            }
+                            break;
+                        default:
+                            // GET /api/teams/{id}, /api/teams/{id}/members, /api/teams/{id}/privileges/{user_id}
+                            if ($requestMethod === "GET" && isset($pathParts[1]) && is_numeric($pathParts[1])) {
+                                $teamId = (int)$pathParts[1];
+                                if (!isset($pathParts[2])) {
+                                    $controller->getTeam($teamId);
+                                } elseif ($pathParts[2] === "members") {
+                                    $controller->getMembers($teamId);
+                                } elseif ($pathParts[2] === "privileges" && isset($pathParts[3]) && is_numeric($pathParts[3])) {
+                                    $userId = (int)$pathParts[3];
+                                    $controller->getPrivileges($teamId, $userId);
+                                } else {
+                                    http_response_code(404);
+                                    echo json_encode(["error" => "Teams endpoint not found"]);
+                                }
+                            } else {
+                                http_response_code(404);
+                                echo json_encode(["error" => "Teams endpoint not found"]);
+                            }
+                    }
+                    break;
+                    
                 default:
                     http_response_code(404);
                     echo json_encode(["error" => "API endpoint not found"]);

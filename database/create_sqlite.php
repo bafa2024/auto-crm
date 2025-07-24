@@ -158,6 +158,49 @@ try {
         )
     ");
     echo "✓ Bulk uploads table created\n";
+
+    // Create teams table
+    $pdo->exec("
+        CREATE TABLE teams (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            name TEXT NOT NULL,
+            description TEXT,
+            created_by INTEGER,
+            created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+            updated_at DATETIME DEFAULT CURRENT_TIMESTAMP
+        )
+    ");
+    echo "✓ Teams table created\n";
+
+    // Create team_members table
+    $pdo->exec("
+        CREATE TABLE team_members (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            team_id INTEGER NOT NULL,
+            user_id INTEGER NOT NULL,
+            role TEXT DEFAULT 'worker',
+            status TEXT DEFAULT 'active',
+            created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+            FOREIGN KEY (team_id) REFERENCES teams(id) ON DELETE CASCADE,
+            FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
+        )
+    ");
+    echo "✓ Team members table created\n";
+
+    // Create worker_privileges table
+    $pdo->exec("
+        CREATE TABLE worker_privileges (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            team_id INTEGER NOT NULL,
+            user_id INTEGER NOT NULL,
+            privilege TEXT NOT NULL,
+            allowed INTEGER DEFAULT 1,
+            created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+            FOREIGN KEY (team_id) REFERENCES teams(id) ON DELETE CASCADE,
+            FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
+        )
+    ");
+    echo "✓ Worker privileges table created\n";
     
     echo "\n2. Adding sample data...\n";
     

@@ -74,4 +74,51 @@ abstract class BaseModel {
         
         return $data;
     }
+
+    public function findByFields($fields) {
+        if (!$this->db) return null;
+        $where = [];
+        $params = [];
+        foreach ($fields as $k => $v) {
+            $where[] = "$k = ?";
+            $params[] = $v;
+        }
+        $sql = "SELECT * FROM {$this->table} WHERE " . implode(' AND ', $where) . " LIMIT 1";
+        $stmt = $this->db->prepare($sql);
+        $stmt->execute($params);
+        $result = $stmt->fetch();
+        return $result ? $this->hideFields($result) : null;
+    }
+    public function findAllBy($field, $value) {
+        if (!$this->db) return [];
+        $sql = "SELECT * FROM {$this->table} WHERE $field = ?";
+        $stmt = $this->db->prepare($sql);
+        $stmt->execute([$value]);
+        return array_map([$this, 'hideFields'], $stmt->fetchAll());
+    }
+    public function findAllByFields($fields) {
+        if (!$this->db) return [];
+        $where = [];
+        $params = [];
+        foreach ($fields as $k => $v) {
+            $where[] = "$k = ?";
+            $params[] = $v;
+        }
+        $sql = "SELECT * FROM {$this->table} WHERE " . implode(' AND ', $where);
+        $stmt = $this->db->prepare($sql);
+        $stmt->execute($params);
+        return array_map([$this, 'hideFields'], $stmt->fetchAll());
+    }
+    public function deleteWhere($fields) {
+        if (!$this->db) return false;
+        $where = [];
+        $params = [];
+        foreach ($fields as $k => $v) {
+            $where[] = "$k = ?";
+            $params[] = $v;
+        }
+        $sql = "DELETE FROM {$this->table} WHERE " . implode(' AND ', $where);
+        $stmt = $this->db->prepare($sql);
+        return $stmt->execute($params);
+    }
 }
