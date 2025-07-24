@@ -97,13 +97,16 @@ if (isset($_SERVER['REQUEST_METHOD']) && $_SERVER['REQUEST_METHOD'] === 'POST') 
             case 'send_campaign':
                 $campaignId = $_POST['campaign_id'];
                 $recipientIds = $_POST['recipient_ids'] ?? [];
-                
+                // DEBUG: Log the number of recipient IDs received
+                error_log('DEBUG: Received ' . count($recipientIds) . ' recipient_ids in POST');
+                // Optionally, display on page for testing
+                $message = '<b>DEBUG:</b> Received ' . count($recipientIds) . ' recipient_ids in POST.<br>';
                 $result = $campaignService->sendCampaign($campaignId, $recipientIds);
                 if ($result['success']) {
-                    $message = "Campaign sent successfully! Sent to " . $result['sent_count'] . " recipients";
+                    $message .= "Emails successfully sent.";
                     $messageType = 'success';
                 } else {
-                    $message = 'Campaign sending failed: ' . $result['message'];
+                    $message .= 'Campaign sending failed: ' . $result['message'];
                     $messageType = 'danger';
                 }
                 break;
@@ -431,7 +434,7 @@ if (isset($_GET['send_campaign_id'])) {
                     <h5 class="modal-title">Send Campaign</h5>
                     <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
                 </div>
-                <form method="POST">
+                <form method="POST" id="sendCampaignForm">
                     <input type="hidden" name="action" value="send_campaign">
                     <input type="hidden" name="campaign_id" id="send_campaign_id">
                     <div class="modal-body">
@@ -461,6 +464,7 @@ if (isset($_GET['send_campaign_id'])) {
                                 <small class="text-primary" id="selectedCount">0 recipients selected</small>
                             </div>
                             
+                            <!-- The recipients-list div is inside the form, so checkboxes will be submitted -->
                             <div class="recipients-list" id="recipientsList" style="max-height: 400px; overflow-y: auto; border: 1px solid #dee2e6; border-radius: 8px; padding: 10px;">
                                 <!-- Recipients will be loaded here by JS -->
                             </div>
@@ -807,6 +811,15 @@ if (isset($_GET['send_campaign_id'])) {
                 .catch(err => {
                     alert('Failed to create campaign. Please try again.');
                 });
+            });
+        }
+
+        // Add JS to log the number of checked recipient_ids before form submission
+        const sendCampaignForm = document.getElementById('sendCampaignForm');
+        if (sendCampaignForm) {
+            sendCampaignForm.addEventListener('submit', function(e) {
+                const checked = document.querySelectorAll('input[name="recipient_ids[]"]:checked');
+                console.log('DEBUG: Submitting with ' + checked.length + ' recipient_ids');
             });
         }
     </script>
