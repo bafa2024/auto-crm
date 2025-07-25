@@ -2,7 +2,7 @@
 // Include base path configuration
 require_once __DIR__ . '/../../config/base_path.php';
 ?>
-<div class="sidebar" id="sidebar">
+<div class="sidebar bg-white border-end shadow-sm position-fixed min-vh-100" id="sidebar" style="top:0;left:0;width:250px;z-index:1040;">
     <div class="p-4">
         <h5 class="mb-4">
             <i class="bi bi-telephone-fill text-primary"></i> AutoDial Pro
