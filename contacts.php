@@ -43,9 +43,12 @@ if (isset($_SERVER['REQUEST_METHOD']) && $_SERVER['REQUEST_METHOD'] === 'POST' &
             $messageType = 'danger';
         } else {
             try {
-                // Check if email already exists
-                $stmt = $database->prepare("SELECT id FROM email_recipients WHERE email = ?");
-                $stmt->execute([$email]);
+                // Normalize email to lowercase for case-insensitive comparison
+                $normalizedEmail = strtolower(trim($email));
+                
+                // Check if email already exists (case-insensitive)
+                $stmt = $database->prepare("SELECT id FROM email_recipients WHERE LOWER(email) = ?");
+                $stmt->execute([$normalizedEmail]);
                 if ($stmt->fetch()) {
                     $message = 'A contact with this email address already exists.';
                     $messageType = 'warning';
@@ -58,10 +61,10 @@ if (isset($_SERVER['REQUEST_METHOD']) && $_SERVER['REQUEST_METHOD'] === 'POST' &
                         $campaignId = null;
                     }
                     
-                    // Insert new contact with proper datetime
+                    // Insert new contact with normalized email
                     $sql = "INSERT INTO email_recipients (email, name, company, dot, campaign_id, created_at) VALUES (?, ?, ?, ?, ?, ?)";
                     $stmt = $database->prepare($sql);
-                    $stmt->execute([$email, $customerName, $companyName, $dot, $campaignId, $currentTime]);
+                    $stmt->execute([$normalizedEmail, $customerName, $companyName, $dot, $campaignId, $currentTime]);
                     
                     $message = 'Contact created successfully!';
                     $messageType = 'success';

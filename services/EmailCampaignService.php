@@ -644,9 +644,23 @@ class EmailCampaignService {
             $sql = "SELECT r.id, r.email, r.name, r.company, cs.status, cs.sent_at, cs.opened_at, cs.clicked_at
                     FROM email_recipients r
                     LEFT JOIN campaign_sends cs ON r.id = cs.recipient_id AND cs.campaign_id = ?
-                    WHERE cs.campaign_id = ? OR cs.campaign_id IS NULL";
+                    WHERE r.campaign_id = ?";
             $stmt = $this->db->prepare($sql);
             $stmt->execute([$campaignId, $campaignId]);
+            return $stmt->fetchAll(PDO::FETCH_ASSOC);
+        } catch (Exception $e) {
+            return [];
+        }
+    }
+    
+    /**
+     * Get all recipients for a campaign (for sending to all)
+     */
+    public function getAllCampaignRecipients($campaignId) {
+        try {
+            $sql = "SELECT id, email, name, company FROM email_recipients WHERE campaign_id = ?";
+            $stmt = $this->db->prepare($sql);
+            $stmt->execute([$campaignId]);
             return $stmt->fetchAll(PDO::FETCH_ASSOC);
         } catch (Exception $e) {
             return [];

@@ -110,6 +110,27 @@ if (isset($_SERVER['REQUEST_METHOD']) && $_SERVER['REQUEST_METHOD'] === 'POST') 
                     $messageType = 'danger';
                 }
                 break;
+                
+            case 'send_campaign_to_all':
+                $campaignId = $_POST['campaign_id'];
+                // Get all recipients for this campaign
+                $allRecipients = $campaignService->getAllCampaignRecipients($campaignId);
+                $recipientIds = array_column($allRecipients, 'id');
+                
+                if (empty($recipientIds)) {
+                    $message = 'No recipients found for this campaign.';
+                    $messageType = 'warning';
+                } else {
+                    $result = $campaignService->sendCampaign($campaignId, $recipientIds);
+                    if ($result['success']) {
+                        $message = "Campaign sent to ALL recipients successfully! Sent to {$result['sent_count']} out of {$result['total_recipients']} recipients.";
+                        $messageType = 'success';
+                    } else {
+                        $message = 'Campaign sending failed: ' . $result['message'];
+                        $messageType = 'danger';
+                    }
+                }
+                break;
             case 'delete_campaign':
                 $campaignId = $_POST['campaign_id'];
                 $result = $campaignService->deleteCampaign($campaignId);
@@ -472,6 +493,9 @@ if (isset($_GET['send_campaign_id'])) {
                     </div>
                     <div class="modal-footer">
                         <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                        <button type="button" class="btn btn-warning" onclick="sendToAllRecipients()">
+                            <i class="bi bi-send-all"></i> Send to All
+                        </button>
                         <button type="submit" class="btn btn-primary">Send Campaign</button>
                     </div>
                 </form>
@@ -671,6 +695,40 @@ if (isset($_GET['send_campaign_id'])) {
                     updateSelectedCount();
                 });
             new bootstrap.Modal(document.getElementById('sendCampaignModal')).show();
+        }
+        
+        function sendToAllRecipients() {
+            const campaignId = document.getElementById('send_campaign_id').value;
+            if (!campaignId) {
+                alert('No campaign selected.');
+                return;
+            }
+            
+            if (!confirm('Are you sure you want to send this campaign to ALL recipients? This will send emails to everyone in the campaign, including those who may have already received it.')) {
+                return;
+            }
+            
+            // Create a form to submit the send to all request
+            const form = document.createElement('form');
+            form.method = 'POST';
+            form.style.display = 'none';
+            
+            const actionInput = document.createElement('input');
+            actionInput.type = 'hidden';
+            actionInput.name = 'action';
+            actionInput.value = 'send_campaign_to_all';
+            
+            const campaignInput = document.createElement('input');
+            campaignInput.type = 'hidden';
+            campaignInput.name = 'campaign_id';
+            campaignInput.value = campaignId;
+            
+            form.appendChild(actionInput);
+            form.appendChild(campaignInput);
+            document.body.appendChild(form);
+            
+            // Submit the form
+            form.submit();
         }
 
         function deleteCampaign(campaignId) {

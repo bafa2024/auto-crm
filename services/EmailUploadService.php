@@ -266,12 +266,15 @@ class EmailUploadService {
         
         foreach ($contacts as $contact) {
             try {
-                // Check if email already exists for this campaign
+                // Normalize email to lowercase to handle case sensitivity
+                $normalizedEmail = strtolower(trim($contact['email']));
+                
+                // Check if email already exists for this campaign (case-insensitive)
                 if ($contact['campaign_id']) {
-                    $checkSql = "SELECT id FROM email_recipients WHERE email = :email AND campaign_id = :campaign_id";
+                    $checkSql = "SELECT id FROM email_recipients WHERE LOWER(email) = :email AND campaign_id = :campaign_id";
                     $stmt = $this->db->prepare($checkSql);
                     $stmt->execute([
-                        ':email' => $contact['email'],
+                        ':email' => $normalizedEmail,
                         ':campaign_id' => $contact['campaign_id']
                     ]);
                     
@@ -282,7 +285,7 @@ class EmailUploadService {
                     }
                 }
                 
-                // Insert into email_recipients table with proper datetime handling
+                // Insert into email_recipients table with normalized email
                 $currentTime = date('Y-m-d H:i:s');
                 $sql = "INSERT INTO email_recipients (campaign_id, email, name, company, dot, status, tracking_id, created_at) 
                         VALUES (:campaign_id, :email, :name, :company, :dot, 'pending', :tracking_id, :created_at)";
@@ -290,7 +293,7 @@ class EmailUploadService {
                 $stmt = $this->db->prepare($sql);
                 $stmt->execute([
                     ':campaign_id' => $contact['campaign_id'] ?? null,
-                    ':email' => $contact['email'],
+                    ':email' => $normalizedEmail, // Store normalized email
                     ':name' => $contact['name'] ?? null,
                     ':company' => $contact['company'] ?? null,
                     ':dot' => $contact['dot'] ?? null,
