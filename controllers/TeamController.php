@@ -134,4 +134,77 @@ class TeamController extends BaseController {
         $teams = $this->teamModel->findAll();
         $this->sendSuccess($teams);
     }
+
+    public function searchUsers() {
+        $q = isset($_GET['q']) ? '%' . $_GET['q'] . '%' : '';
+        if (!$q || strlen(trim($_GET['q'])) < 2) {
+            $this->sendSuccess([]);
+            return;
+        }
+        $sql = "SELECT id, first_name, last_name, email FROM users WHERE (first_name LIKE ? OR last_name LIKE ? OR email LIKE ?) LIMIT 10";
+        $stmt = $this->db->prepare($sql);
+        $stmt->execute([$q, $q, $q]);
+        $users = $stmt->fetchAll();
+        $this->sendSuccess($users);
+    }
+
+    public function editTeam($request = null) {
+        if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
+            $this->sendError('Method not allowed', 405);
+        }
+        $input = $request && isset($request->body) ? $request->body : json_decode(file_get_contents('php://input'), true);
+        $data = $this->sanitizeInput($input);
+        $required = ['id', 'name'];
+        $errors = $this->validateRequired($data, $required);
+        if (!empty($errors)) {
+            $this->sendError('Validation failed', 400, $errors);
+        }
+        $team = $this->teamModel->update($data['id'], [
+            'name' => $data['name'],
+            'description' => $data['description'] ?? ''
+        ]);
+        if ($team) {
+            $this->sendSuccess($team, 'Team updated');
+        } else {
+            $this->sendError('Failed to update team', 500);
+        }
+    }
+    public function deleteTeam($request = null) {
+        if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
+            $this->sendError('Method not allowed', 405);
+        }
+        $input = $request && isset($request->body) ? $request->body : json_decode(file_get_contents('php://input'), true);
+        $data = $this->sanitizeInput($input);
+        $required = ['id'];
+        $errors = $this->validateRequired($data, $required);
+        if (!empty($errors)) {
+            $this->sendError('Validation failed', 400, $errors);
+        }
+        $deleted = $this->teamModel->delete($data['id']);
+        if ($deleted) {
+            $this->sendSuccess([], 'Team deleted');
+        } else {
+            $this->sendError('Failed to delete team', 500);
+        }
+    }
+    public function updateMemberRole($request = null) {
+        if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
+            $this->sendError('Method not allowed', 405);
+        }
+        $input = $request && isset($request->body) ? $request->body : json_decode(file_get_contents('php://input'), true);
+        $data = $this->sanitizeInput($input);
+        $required = ['team_id', 'user_id', 'role'];
+        $errors = $this->validateRequired($data, $required);
+        if (!empty($errors)) {
+            $this->sendError('Validation failed', 400, $errors);
+        }
+        $sql = "UPDATE team_members SET role = ? WHERE team_id = ? AND user_id = ?";
+        $stmt = $this->db->prepare($sql);
+        $ok = $stmt->execute([$data['role'], $data['team_id'], $data['user_id']]);
+        if ($ok) {
+            $this->sendSuccess([], 'Role updated');
+        } else {
+            $this->sendError('Failed to update role', 500);
+        }
+    }
 } 

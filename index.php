@@ -197,9 +197,38 @@ try {
                                 $controller->setPrivilege($request);
                             }
                             break;
+                        case "edit":
+                            if ($requestMethod === "POST") {
+                                $input = json_decode(file_get_contents("php://input"), true);
+                                $request = new stdClass();
+                                $request->body = $input;
+                                $controller->editTeam($request);
+                            }
+                            break;
+                        case "delete":
+                            if ($requestMethod === "POST") {
+                                $input = json_decode(file_get_contents("php://input"), true);
+                                $request = new stdClass();
+                                $request->body = $input;
+                                $controller->deleteTeam($request);
+                            }
+                            break;
+                        case "update-member-role":
+                            if ($requestMethod === "POST") {
+                                $input = json_decode(file_get_contents("php://input"), true);
+                                $request = new stdClass();
+                                $request->body = $input;
+                                $controller->updateMemberRole($request);
+                            }
+                            break;
                         case "list":
                             if ($requestMethod === "GET") {
                                 $controller->listTeams();
+                            }
+                            break;
+                        case "search-users":
+                            if ($requestMethod === "GET") {
+                                $controller->searchUsers();
                             }
                             break;
                         default:
@@ -220,6 +249,63 @@ try {
                             } else {
                                 http_response_code(404);
                                 echo json_encode(["error" => "Teams endpoint not found"]);
+                            }
+                    }
+                    break;
+                    
+                case "employees":
+                    require_once __DIR__ . "/controllers/UserController.php";
+                    $controller = new UserController($db);
+                    switch ($pathParts[1] ?? "") {
+                        case "list":
+                            if ($requestMethod === "GET") {
+                                $controller->listEmployees();
+                            }
+                            break;
+                        case "create":
+                            if ($requestMethod === "POST") {
+                                $input = json_decode(file_get_contents("php://input"), true);
+                                $request = new stdClass();
+                                $request->body = $input;
+                                $controller->createEmployee($request);
+                            }
+                            break;
+                        case "edit":
+                            if ($requestMethod === "POST") {
+                                $input = json_decode(file_get_contents("php://input"), true);
+                                $request = new stdClass();
+                                $request->body = $input;
+                                $controller->editEmployee($request);
+                            }
+                            break;
+                        case "delete":
+                            if ($requestMethod === "POST") {
+                                $input = json_decode(file_get_contents("php://input"), true);
+                                $request = new stdClass();
+                                $request->body = $input;
+                                $controller->deleteEmployee($request);
+                            }
+                            break;
+                        default:
+                            // /api/employees/{id}/teams, add-to-team, remove-from-team
+                            if ($requestMethod === "GET" && isset($pathParts[1]) && is_numeric($pathParts[1]) && isset($pathParts[2]) && $pathParts[2] === "teams") {
+                                $userId = (int)$pathParts[1];
+                                $controller->getEmployeeTeams($userId);
+                            } elseif ($requestMethod === "POST" && isset($pathParts[1]) && is_numeric($pathParts[1]) && isset($pathParts[2]) && $pathParts[2] === "add-to-team") {
+                                $userId = (int)$pathParts[1];
+                                $input = json_decode(file_get_contents("php://input"), true);
+                                $request = new stdClass();
+                                $request->body = $input;
+                                $controller->addToTeam($userId, $request);
+                            } elseif ($requestMethod === "POST" && isset($pathParts[1]) && is_numeric($pathParts[1]) && isset($pathParts[2]) && $pathParts[2] === "remove-from-team") {
+                                $userId = (int)$pathParts[1];
+                                $input = json_decode(file_get_contents("php://input"), true);
+                                $request = new stdClass();
+                                $request->body = $input;
+                                $controller->removeFromTeam($userId, $request);
+                            } else {
+                                http_response_code(404);
+                                echo json_encode(["error" => "Employees endpoint not found"]);
                             }
                     }
                     break;

@@ -24,8 +24,8 @@ require_once __DIR__ . '/../../config/base_path.php';
                 </a>
             </li>
             <li class="nav-item">
-                <a class="sidebar-link <?php echo basename($_SERVER['PHP_SELF']) === 'team_management.php' ? 'active' : ''; ?>" href="<?php echo base_path('views/dashboard/team_management.php'); ?>">
-                    <i class="bi bi-people-gear"></i> Team Management
+                <a class="sidebar-link <?php echo basename($_SERVER['PHP_SELF']) === 'employee_management.php' ? 'active' : ''; ?>" href="<?php echo base_path('dashboard/employee_management.php'); ?>">
+                    <i class="bi bi-person-badge"></i> Employee Management
                 </a>
             </li>
             <li class="nav-item">
