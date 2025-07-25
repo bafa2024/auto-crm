@@ -88,7 +88,7 @@ class EmailService {
             return [
                 'success' => true,
                 'queued' => $queuedCount,
-                'message' => "{$queuedCount} emails queued for sending"
+                'message' => "Emails queued for sending successfully!"
             ];
             
         } catch (Exception $e) {

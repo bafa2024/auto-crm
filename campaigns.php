@@ -56,7 +56,7 @@ if (isset($_SERVER['REQUEST_METHOD']) && $_SERVER['REQUEST_METHOD'] === 'POST') 
                         if (!empty($recipientIds)) {
                             $sendResult = $campaignService->sendCampaign($result['campaign_id'], $recipientIds);
                             if ($sendResult['success']) {
-                                $message .= "<br>Immediate campaign sent to " . $sendResult['sent_count'] . " recipients.";
+                                $message .= "<br>Immediate campaign sent successfully!";
                             } else {
                                 $message .= "<br>Immediate campaign sending failed: " . $sendResult['message'];
                             }
@@ -123,7 +123,7 @@ if (isset($_SERVER['REQUEST_METHOD']) && $_SERVER['REQUEST_METHOD'] === 'POST') 
                 } else {
                     $result = $campaignService->sendCampaign($campaignId, $recipientIds);
                     if ($result['success']) {
-                        $message = "Campaign sent to ALL recipients successfully! Sent to {$result['sent_count']} out of {$result['total_recipients']} recipients.";
+                        $message = "Campaign sent to ALL recipients successfully!";
                         $messageType = 'success';
                     } else {
                         $message = 'Campaign sending failed: ' . $result['message'];

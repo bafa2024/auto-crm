@@ -240,7 +240,7 @@ class EmailCampaignService {
                 'sent_count' => $sentCount,
                 'total_recipients' => count($recipients),
                 'errors' => $errors,
-                'message' => "Sent to $sentCount out of " . count($recipients) . " recipients"
+                'message' => "Campaign sent successfully!"
             ];
             
         } catch (Exception $e) {
