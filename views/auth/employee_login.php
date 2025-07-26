@@ -133,6 +133,7 @@ document.addEventListener("DOMContentLoaded", function() {
                 `;
             }
         } catch (error) {
+            console.error("OTP error:", error);
             messagesContainer.innerHTML = `
                 <div class="alert alert-danger">
                     Network error. Please try again.
@@ -195,6 +196,7 @@ document.addEventListener("DOMContentLoaded", function() {
                 `;
             }
         } catch (error) {
+            console.error("OTP error:", error);
             messagesContainer.innerHTML = `
                 <div class="alert alert-danger">
                     Network error. Please try again.

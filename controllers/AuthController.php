@@ -333,18 +333,28 @@ class AuthController extends BaseController {
         }
         
         // Generate and send OTP
-        require_once __DIR__ . "/../models/OTP.php";
-        require_once __DIR__ . "/../services/EmailService.php";
-        
-        $otpModel = new OTP($this->db);
-        $database = new \stdClass();
-        $database->getConnection = function() { return $this->db; };
-        $emailService = new EmailService($database);
-        
-        $otp_code = $otpModel->generateOTP($email);
-        
-        if (!$otp_code) {
-            $this->sendError("Failed to generate OTP", 500);
+        try {
+            require_once __DIR__ . "/../models/OTP.php";
+            require_once __DIR__ . "/../services/EmailService.php";
+            
+            // Check database connection
+            if (!$this->db) {
+                $this->sendError("Database connection error", 500);
+            }
+            
+            $otpModel = new OTP($this->db);
+            $database = new \stdClass();
+            $database->getConnection = function() { return $this->db; };
+            $emailService = new EmailService($database);
+            
+            $otp_code = $otpModel->generateOTP($email);
+            
+            if (!$otp_code) {
+                $this->sendError("Failed to generate OTP", 500);
+            }
+        } catch (Exception $e) {
+            error_log("OTP Generation error: " . $e->getMessage());
+            $this->sendError("Failed to generate OTP: " . $e->getMessage(), 500);
         }
         
         // Send OTP email
@@ -397,19 +407,27 @@ class AuthController extends BaseController {
             $this->sendError("Email and OTP are required");
         }
         
+        // Log for debugging
+        error_log("OTP Verification attempt - Email: $email, OTP: $otp");
+        
         // Verify OTP
-        require_once __DIR__ . "/../models/OTP.php";
-        $otpModel = new OTP($this->db);
-        
-        if (!$otpModel->verifyOTP($email, $otp)) {
-            $this->sendError("Invalid or expired OTP", 401);
-        }
-        
-        // Get user details
-        $user = $this->userModel->findBy("email", $email);
-        
-        if (!$user || $user["status"] !== "active") {
-            $this->sendError("Account not found or inactive", 404);
+        try {
+            require_once __DIR__ . "/../models/OTP.php";
+            $otpModel = new OTP($this->db);
+            
+            if (!$otpModel->verifyOTP($email, $otp)) {
+                $this->sendError("Invalid or expired OTP", 401);
+            }
+            
+            // Get user details
+            $user = $this->userModel->findBy("email", $email);
+            
+            if (!$user || $user["status"] !== "active") {
+                $this->sendError("Account not found or inactive", 404);
+            }
+        } catch (Exception $e) {
+            error_log("OTP Verification error: " . $e->getMessage());
+            $this->sendError("Verification failed: " . $e->getMessage(), 500);
         }
         
         // Start session
