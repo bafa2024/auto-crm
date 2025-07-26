@@ -9,7 +9,9 @@
       "Bash(composer:*)",
       "Bash(start http://localhost/acrm/dashboard/employee_management.php)",
       "Bash(git commit:*)",
-      "Bash(git push:*)"
+      "Bash(git push:*)",
+      "Bash(C:/xampp/php/php.exe:*)",
+      "Bash(rm:*)"
     ],
     "deny": []
   }

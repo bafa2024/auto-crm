@@ -236,6 +236,24 @@ try {
                             }
                             break;
                             
+                        case "employee-send-otp":
+                            if ($requestMethod === "POST") {
+                                $input = json_decode(file_get_contents("php://input"), true);
+                                $request = new stdClass();
+                                $request->body = $input;
+                                $controller->employeeSendOTP($request);
+                            }
+                            break;
+                            
+                        case "employee-verify-otp":
+                            if ($requestMethod === "POST") {
+                                $input = json_decode(file_get_contents("php://input"), true);
+                                $request = new stdClass();
+                                $request->body = $input;
+                                $controller->employeeVerifyOTP($request);
+                            }
+                            break;
+                            
                         case "admin-login-as-employee":
                             if ($requestMethod === "POST") {
                                 $input = json_decode(file_get_contents("php://input"), true);

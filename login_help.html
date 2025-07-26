@@ -1,0 +1,92 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Employee Login Help</title>
+    <style>
+        body { font-family: Arial, sans-serif; padding: 20px; }
+        .container { max-width: 800px; margin: 0 auto; }
+        .credentials { background: #f0f0f0; padding: 15px; border-radius: 5px; margin: 10px 0; }
+        code { background: #e0e0e0; padding: 2px 5px; border-radius: 3px; }
+        .test-btn { background: #007bff; color: white; padding: 10px 20px; border: none; border-radius: 5px; cursor: pointer; }
+        .test-btn:hover { background: #0056b3; }
+        #result { margin-top: 20px; padding: 15px; border-radius: 5px; }
+        .success { background: #d4edda; color: #155724; }
+        .error { background: #f8d7da; color: #721c24; }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>Employee Login Help</h1>
+        
+        <h2>Test Credentials</h2>
+        <div class="credentials">
+            <p><strong>Email:</strong> <code>test@employee.com</code></p>
+            <p><strong>Password:</strong> <code>password123</code></p>
+            <p><strong>Role:</strong> Agent</p>
+        </div>
+        
+        <h2>Quick Test</h2>
+        <button class="test-btn" onclick="quickTest()">Test Login API</button>
+        <div id="result"></div>
+        
+        <h2>Troubleshooting Steps</h2>
+        <ol>
+            <li>Open browser console (F12) to see detailed logs</li>
+            <li>Go to <a href="/employee/login">/employee/login</a></li>
+            <li>Enter the test credentials exactly as shown above</li>
+            <li>Check console for API URL and response details</li>
+        </ol>
+        
+        <h2>Manual API Test</h2>
+        <p>You can also test the API directly using curl or Postman:</p>
+        <pre>
+POST /api/auth/employee-login
+Content-Type: application/json
+
+{
+    "email": "test@employee.com",
+    "password": "password123"
+}
+        </pre>
+    </div>
+    
+    <script>
+    async function quickTest() {
+        const resultDiv = document.getElementById('result');
+        resultDiv.innerHTML = 'Testing...';
+        resultDiv.className = '';
+        
+        try {
+            const response = await fetch('/api/auth/employee-login', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    email: 'test@employee.com',
+                    password: 'password123'
+                })
+            });
+            
+            const text = await response.text();
+            console.log('Response:', text);
+            
+            try {
+                const data = JSON.parse(text);
+                if (data.success) {
+                    resultDiv.innerHTML = '✅ Login successful! The API is working correctly.';
+                    resultDiv.className = 'success';
+                } else {
+                    resultDiv.innerHTML = '❌ Login failed: ' + (data.message || 'Unknown error');
+                    resultDiv.className = 'error';
+                }
+            } catch (e) {
+                resultDiv.innerHTML = '❌ Invalid response: ' + text;
+                resultDiv.className = 'error';
+            }
+        } catch (error) {
+            resultDiv.innerHTML = '❌ Network error: ' + error.message;
+            resultDiv.className = 'error';
+        }
+    }
+    </script>
+</body>
+</html>

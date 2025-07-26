@@ -279,6 +279,160 @@ class AuthController extends BaseController {
         $this->sendSuccess([], "Logged out successfully");
     }
     
+    public function employeeSendOTP($request = null) {
+        // Set CORS headers
+        header("Access-Control-Allow-Origin: *");
+        header("Access-Control-Allow-Methods: POST, OPTIONS");
+        header("Access-Control-Allow-Headers: Content-Type, Authorization");
+        
+        if ($_SERVER["REQUEST_METHOD"] === "OPTIONS") {
+            http_response_code(200);
+            exit;
+        }
+        
+        if ($_SERVER["REQUEST_METHOD"] !== "POST") {
+            $this->sendError("Method not allowed", 405);
+        }
+        
+        // Get input data
+        if ($request && isset($request->body)) {
+            $input = $request->body;
+        } else {
+            $input = json_decode(file_get_contents("php://input"), true);
+        }
+        
+        if (!$input) {
+            $this->sendError("Invalid JSON data", 400);
+        }
+        
+        $email = $this->sanitizeInput($input["email"] ?? "");
+        
+        if (empty($email)) {
+            $this->sendError("Email is required");
+        }
+        
+        if (!filter_var($email, FILTER_VALIDATE_EMAIL)) {
+            $this->sendError("Invalid email format");
+        }
+        
+        // Check if user exists and is an employee
+        $user = $this->userModel->findBy("email", $email);
+        
+        if (!$user) {
+            $this->sendError("Email not found", 404);
+        }
+        
+        // Check if user is an employee (agent or manager)
+        if (!in_array($user["role"], ['agent', 'manager'])) {
+            $this->sendError("This login is for employees only", 403);
+        }
+        
+        // Check if user is active
+        if ($user["status"] !== "active") {
+            $this->sendError("Account is inactive", 403);
+        }
+        
+        // Generate and send OTP
+        require_once __DIR__ . "/../models/OTP.php";
+        require_once __DIR__ . "/../services/EmailService.php";
+        
+        $otpModel = new OTP($this->db);
+        $database = new \stdClass();
+        $database->getConnection = function() { return $this->db; };
+        $emailService = new EmailService($database);
+        
+        $otp_code = $otpModel->generateOTP($email);
+        
+        if (!$otp_code) {
+            $this->sendError("Failed to generate OTP", 500);
+        }
+        
+        // Send OTP email
+        $emailSent = $emailService->sendOTPEmail(
+            $email, 
+            $otp_code, 
+            $user["first_name"] . " " . $user["last_name"]
+        );
+        
+        if (!$emailSent) {
+            $this->sendError("Failed to send OTP email", 500);
+        }
+        
+        $this->sendSuccess([
+            "email" => $email,
+            "message" => "OTP sent to your email"
+        ], "OTP sent successfully");
+    }
+    
+    public function employeeVerifyOTP($request = null) {
+        // Set CORS headers
+        header("Access-Control-Allow-Origin: *");
+        header("Access-Control-Allow-Methods: POST, OPTIONS");
+        header("Access-Control-Allow-Headers: Content-Type, Authorization");
+        
+        if ($_SERVER["REQUEST_METHOD"] === "OPTIONS") {
+            http_response_code(200);
+            exit;
+        }
+        
+        if ($_SERVER["REQUEST_METHOD"] !== "POST") {
+            $this->sendError("Method not allowed", 405);
+        }
+        
+        // Get input data
+        if ($request && isset($request->body)) {
+            $input = $request->body;
+        } else {
+            $input = json_decode(file_get_contents("php://input"), true);
+        }
+        
+        if (!$input) {
+            $this->sendError("Invalid JSON data", 400);
+        }
+        
+        $email = $this->sanitizeInput($input["email"] ?? "");
+        $otp = $this->sanitizeInput($input["otp"] ?? "");
+        
+        if (empty($email) || empty($otp)) {
+            $this->sendError("Email and OTP are required");
+        }
+        
+        // Verify OTP
+        require_once __DIR__ . "/../models/OTP.php";
+        $otpModel = new OTP($this->db);
+        
+        if (!$otpModel->verifyOTP($email, $otp)) {
+            $this->sendError("Invalid or expired OTP", 401);
+        }
+        
+        // Get user details
+        $user = $this->userModel->findBy("email", $email);
+        
+        if (!$user || $user["status"] !== "active") {
+            $this->sendError("Account not found or inactive", 404);
+        }
+        
+        // Start session
+        if (session_status() === PHP_SESSION_NONE) {
+            session_start();
+        }
+        
+        $_SESSION["user_id"] = $user["id"];
+        $_SESSION["user_email"] = $user["email"];
+        $_SESSION["user_name"] = $user["first_name"] . " " . $user["last_name"];
+        $_SESSION["user_role"] = $user["role"];
+        $_SESSION["login_time"] = time();
+        $_SESSION["login_method"] = "otp";
+        
+        $basePath = $this->getBasePath();
+        
+        $this->sendSuccess([
+            "user" => $user,
+            "session_id" => session_id(),
+            "redirect" => $basePath . "/employee/dashboard"
+        ], "Login successful");
+    }
+    
     public function adminLoginAsEmployee($request = null) {
         // Set CORS headers
         header("Access-Control-Allow-Origin: *");

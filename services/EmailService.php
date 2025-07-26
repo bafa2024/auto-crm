@@ -415,4 +415,74 @@ class EmailService {
             return false;
         }
     }
+    
+    /**
+     * Send OTP email for employee login
+     */
+    public function sendOTPEmail($email, $otp_code, $name = '') {
+        $subject = "Your Login OTP - AutoDial Pro";
+        
+        $htmlContent = "
+        <!DOCTYPE html>
+        <html>
+        <head>
+            <style>
+                body { font-family: Arial, sans-serif; line-height: 1.6; color: #333; }
+                .container { max-width: 600px; margin: 0 auto; padding: 20px; }
+                .header { background-color: #5B5FDE; color: white; padding: 20px; text-align: center; border-radius: 5px 5px 0 0; }
+                .content { background-color: #f4f4f4; padding: 30px; border-radius: 0 0 5px 5px; }
+                .otp-box { background-color: white; padding: 20px; margin: 20px 0; text-align: center; border-radius: 5px; border: 2px solid #5B5FDE; }
+                .otp-code { font-size: 32px; font-weight: bold; color: #5B5FDE; letter-spacing: 8px; }
+                .footer { margin-top: 20px; text-align: center; color: #666; font-size: 12px; }
+            </style>
+        </head>
+        <body>
+            <div class='container'>
+                <div class='header'>
+                    <h2>AutoDial Pro - Employee Portal</h2>
+                </div>
+                <div class='content'>
+                    <p>Hello" . ($name ? " $name" : "") . ",</p>
+                    <p>Your One-Time Password (OTP) for login is:</p>
+                    <div class='otp-box'>
+                        <div class='otp-code'>$otp_code</div>
+                    </div>
+                    <p><strong>This OTP is valid for 10 minutes.</strong></p>
+                    <p>If you didn't request this OTP, please ignore this email.</p>
+                    <div class='footer'>
+                        <p>This is an automated message. Please do not reply to this email.</p>
+                        <p>&copy; " . date('Y') . " AutoDial Pro. All rights reserved.</p>
+                    </div>
+                </div>
+            </div>
+        </body>
+        </html>
+        ";
+        
+        // For development/testing, log the OTP
+        if (($_ENV['APP_ENV'] ?? 'development') === 'development') {
+            error_log("OTP Email - To: $email, OTP: $otp_code");
+            
+            // Save to file for easy testing
+            $logFile = __DIR__ . '/../logs/otp_emails.log';
+            $logDir = dirname($logFile);
+            if (!is_dir($logDir)) {
+                mkdir($logDir, 0755, true);
+            }
+            
+            $logEntry = date('Y-m-d H:i:s') . " - To: $email\nOTP Code: $otp_code\n" . str_repeat('-', 50) . "\n";
+            file_put_contents($logFile, $logEntry, FILE_APPEND);
+            
+            return true;
+        }
+        
+        // Use the existing email sending method
+        return $this->sendSimpleEmail(
+            $email,
+            $subject,
+            $htmlContent,
+            'AutoDial Pro',
+            $this->config['smtp_username'] ?? 'noreply@autocrm.com'
+        );
+    }
 } 
