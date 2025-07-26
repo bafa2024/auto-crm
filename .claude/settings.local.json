@@ -6,7 +6,10 @@
       "Bash(python:*)",
       "Bash(dir:*)",
       "Bash(composer show:*)",
-      "Bash(composer:*)"
+      "Bash(composer:*)",
+      "Bash(start http://localhost/acrm/dashboard/employee_management.php)",
+      "Bash(git commit:*)",
+      "Bash(git push:*)"
     ],
     "deny": []
   }

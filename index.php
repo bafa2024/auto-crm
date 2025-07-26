@@ -88,6 +88,16 @@ try {
             header("Location: /");
             exit;
             
+        // Employee auth pages
+        case $requestUri === "/employee/login":
+            require_once __DIR__ . "/views/auth/employee_login.php";
+            break;
+            
+        case $requestUri === "/employee/logout":
+            session_destroy();
+            header("Location: /employee/login");
+            exit;
+            
         // Contacts page
         case $requestUri === "/contacts.php":
             if (!isset($_SESSION["user_id"])) {
@@ -123,6 +133,41 @@ try {
             } else {
                 // Dashboard sub-pages
                 $subPagePath = __DIR__ . "/views/dashboard/" . $dashboardPath;
+                
+                // Check if the path already has .php extension
+                if (!preg_match('/\.php$/', $subPagePath)) {
+                    // Try with .php extension first
+                    if (file_exists($subPagePath . '.php')) {
+                        $subPagePath .= '.php';
+                    }
+                }
+                
+                if (file_exists($subPagePath)) {
+                    require_once $subPagePath;
+                } else {
+                    http_response_code(404);
+                    require_once __DIR__ . "/views/404.php";
+                }
+            }
+            break;
+            
+        // Employee Dashboard
+        case strpos($requestUri, "/employee/dashboard") === 0:
+            if (!isset($_SESSION["user_id"]) || !in_array($_SESSION["user_role"], ['agent', 'manager'])) {
+                header("Location: /employee/login");
+                exit;
+            }
+            
+            // Handle employee dashboard sub-pages
+            $employeePath = substr($requestUri, 18); // Remove "/employee/dashboard"
+            $employeePath = ltrim($employeePath, '/');
+            
+            if (empty($employeePath)) {
+                // Main employee dashboard
+                require_once __DIR__ . "/views/employee/dashboard.php";
+            } else {
+                // Employee dashboard sub-pages
+                $subPagePath = __DIR__ . "/views/employee/" . $employeePath;
                 
                 // Check if the path already has .php extension
                 if (!preg_match('/\.php$/', $subPagePath)) {
@@ -179,6 +224,15 @@ try {
                                 $request = new stdClass();
                                 $request->body = $input;
                                 $controller->login($request);
+                            }
+                            break;
+                            
+                        case "employee-login":
+                            if ($requestMethod === "POST") {
+                                $input = json_decode(file_get_contents("php://input"), true);
+                                $request = new stdClass();
+                                $request->body = $input;
+                                $controller->employeeLogin($request);
                             }
                             break;
                             
@@ -294,6 +348,53 @@ try {
                                 http_response_code(404);
                                 echo json_encode(["error" => "Teams endpoint not found"]);
                             }
+                    }
+                    break;
+                    
+                case "employee":
+                    require_once __DIR__ . "/controllers/EmployeeController.php";
+                    $controller = new EmployeeController($db);
+                    switch ($pathParts[1] ?? "") {
+                        case "stats":
+                            if ($requestMethod === "GET") {
+                                $controller->getStats();
+                            }
+                            break;
+                        case "recent-contacts":
+                            if ($requestMethod === "GET") {
+                                $controller->getRecentContacts();
+                            }
+                            break;
+                        case "recent-activity":
+                            if ($requestMethod === "GET") {
+                                $controller->getRecentActivity();
+                            }
+                            break;
+                        case "contacts":
+                            if ($requestMethod === "GET") {
+                                if (isset($pathParts[2]) && is_numeric($pathParts[2])) {
+                                    $contactId = (int)$pathParts[2];
+                                    $controller->getContact($contactId);
+                                } else {
+                                    $controller->getContacts();
+                                }
+                            }
+                            break;
+                        case "profile":
+                            if ($requestMethod === "GET") {
+                                $controller->getProfile();
+                            } elseif ($requestMethod === "POST") {
+                                $controller->updateProfile();
+                            }
+                            break;
+                        case "change-password":
+                            if ($requestMethod === "POST") {
+                                $controller->changePassword();
+                            }
+                            break;
+                        default:
+                            http_response_code(404);
+                            echo json_encode(["error" => "Employee endpoint not found"]);
                     }
                     break;
                     

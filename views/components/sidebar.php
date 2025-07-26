@@ -9,22 +9,22 @@ require_once __DIR__ . '/../../config/base_path.php';
         </h5>
         <ul class="nav flex-column">
             <li class="nav-item">
-                <a class="sidebar-link <?php echo basename($_SERVER['PHP_SELF']) === 'dashboard' || basename($_SERVER['PHP_SELF']) === 'index.php' ? 'active' : ''; ?>" href="<?php echo base_path('dashboard'); ?>">
+                <a class="sidebar-link <?php echo (strpos($_SERVER['REQUEST_URI'], '/dashboard') !== false && strpos($_SERVER['REQUEST_URI'], '/dashboard/employee_management.php') === false) ? 'active' : ''; ?>" href="<?php echo base_path('dashboard'); ?>">
                     <i class="bi bi-speedometer2"></i> Dashboard
                 </a>
             </li>
             <li class="nav-item">
-                <a class="sidebar-link <?php echo basename($_SERVER['PHP_SELF']) === 'contacts.php' ? 'active' : ''; ?>" href="<?php echo base_path('contacts.php'); ?>">
+                <a class="sidebar-link <?php echo strpos($_SERVER['REQUEST_URI'], '/contacts.php') !== false ? 'active' : ''; ?>" href="<?php echo base_path('contacts.php'); ?>">
                     <i class="bi bi-people"></i> Contacts
                 </a>
             </li>
             <li class="nav-item">
-                <a class="sidebar-link <?php echo basename($_SERVER['PHP_SELF']) === 'campaigns.php' ? 'active' : ''; ?>" href="<?php echo base_path('campaigns.php'); ?>">
+                <a class="sidebar-link <?php echo strpos($_SERVER['REQUEST_URI'], '/campaigns.php') !== false ? 'active' : ''; ?>" href="<?php echo base_path('campaigns.php'); ?>">
                     <i class="bi bi-envelope"></i> Campaigns
                 </a>
             </li>
             <li class="nav-item">
-                <a class="sidebar-link <?php echo basename($_SERVER['PHP_SELF']) === 'employee_management.php' ? 'active' : ''; ?>" href="<?php echo base_path('dashboard/employee_management.php'); ?>">
+                <a class="sidebar-link <?php echo strpos($_SERVER['REQUEST_URI'], '/dashboard/employee_management.php') !== false ? 'active' : ''; ?>" href="<?php echo base_path('dashboard/employee_management.php'); ?>">
                     <i class="bi bi-person-badge"></i> Employee Management
                 </a>
             </li>

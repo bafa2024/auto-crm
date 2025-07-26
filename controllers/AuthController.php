@@ -92,6 +92,75 @@ class AuthController extends BaseController {
         ], "Login successful");
     }
     
+    public function employeeLogin($request = null) {
+        // Set CORS headers
+        header("Access-Control-Allow-Origin: *");
+        header("Access-Control-Allow-Methods: POST, OPTIONS");
+        header("Access-Control-Allow-Headers: Content-Type, Authorization");
+        
+        if ($_SERVER["REQUEST_METHOD"] === "OPTIONS") {
+            http_response_code(200);
+            exit;
+        }
+        
+        if ($_SERVER["REQUEST_METHOD"] !== "POST") {
+            $this->sendError("Method not allowed", 405);
+        }
+        
+        // Get input data
+        if ($request && isset($request->body)) {
+            $input = $request->body;
+        } else {
+            $input = json_decode(file_get_contents("php://input"), true);
+        }
+        
+        if (!$input) {
+            $this->sendError("Invalid JSON data", 400);
+        }
+        
+        $email = $this->sanitizeInput($input["email"] ?? "");
+        $password = $input["password"] ?? "";
+        
+        if (empty($email) || empty($password)) {
+            $this->sendError("Email and password are required");
+        }
+        
+        // Check if database is connected
+        if (!$this->db) {
+            $this->sendError("Database connection error", 500);
+        }
+        
+        $user = $this->userModel->authenticate($email, $password);
+        
+        if (!$user) {
+            $this->sendError("Invalid credentials", 401);
+        }
+        
+        // Check if user is an employee (agent or manager)
+        if (!in_array($user["role"], ['agent', 'manager'])) {
+            $this->sendError("Access denied. This login is for employees only.", 403);
+        }
+        
+        // Start session only if not already started
+        if (session_status() === PHP_SESSION_NONE) {
+            session_start();
+        }
+        
+        $_SESSION["user_id"] = $user["id"];
+        $_SESSION["user_email"] = $user["email"];
+        $_SESSION["user_name"] = $user["first_name"] . " " . $user["last_name"];
+        $_SESSION["user_role"] = $user["role"];
+        $_SESSION["login_time"] = time();
+        
+        $basePath = $this->getBasePath();
+        
+        $this->sendSuccess([
+            "user" => $user,
+            "session_id" => session_id(),
+            "redirect" => $basePath . "/employee/dashboard"
+        ], "Employee login successful");
+    }
+    
     public function register($request = null) {
         // Set CORS headers
         header("Access-Control-Allow-Origin: *");
