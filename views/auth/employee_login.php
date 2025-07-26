@@ -1,270 +1,185 @@
-<?php include __DIR__ . "/../components/header-landing.php"; ?>
-<?php include __DIR__ . "/../components/navigation.php"; ?>
+<?php
+session_start();
+// Redirect if already logged in
+if (isset($_SESSION["user_id"]) && in_array($_SESSION["user_role"], ['agent', 'manager'])) {
+    header("Location: /employee/dashboard");
+    exit();
+}
 
-<div class="container py-5">
-    <div class="row justify-content-center">
-        <div class="col-md-5">
-            <div class="card shadow">
-                <div class="card-body p-5">
-                    <div class="text-center mb-4">
-                        <h3 class="fw-bold">
-                            <i class="bi bi-person-badge text-primary"></i> Employee Portal
-                        </h3>
-                        <h4 class="mt-3">Employee Login</h4>
-                        <p class="text-muted">Sign in to your employee account</p>
+// Check for auth error from magic link
+$authError = $_SESSION['auth_error'] ?? null;
+unset($_SESSION['auth_error']);
+?>
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Employee Login - CRM</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
+    <style>
+        body {
+            background-color: #f8f9fa;
+        }
+        .login-container {
+            max-width: 400px;
+            margin: 100px auto;
+        }
+        .login-card {
+            box-shadow: 0 0.5rem 1rem rgba(0, 0, 0, 0.15);
+            border: none;
+            border-radius: 10px;
+        }
+        .login-header {
+            background-color: #6c757d;
+            color: white;
+            padding: 2rem;
+            border-radius: 10px 10px 0 0;
+            text-align: center;
+        }
+        .btn-loading {
+            display: none;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="login-container">
+            <div class="card login-card">
+                <div class="login-header">
+                    <i class="fas fa-user-tie fa-3x mb-3"></i>
+                    <h4>Employee Login</h4>
+                    <p class="mb-0">Get instant access to your dashboard</p>
+                </div>
+                <div class="card-body p-4">
+                    <?php if ($authError): ?>
+                        <div class="alert alert-danger alert-dismissible fade show" role="alert">
+                            <i class="fas fa-exclamation-circle"></i> <?php echo htmlspecialchars($authError); ?>
+                            <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+                        </div>
+                    <?php endif; ?>
+                    <div id="messagesContainer"></div>
+                    
+                    <!-- Email Form -->
+                    <form id="employeeLoginForm">
+                        <div class="mb-3">
+                            <label for="email" class="form-label">Email Address</label>
+                            <input type="email" class="form-control" id="email" name="email" required 
+                                   placeholder="Enter your employee email">
+                            <div class="form-text">We'll send a secure login link to your email</div>
+                        </div>
+                        <button type="submit" class="btn btn-primary w-100" id="sendLinkBtn">
+                            <span class="btn-text">
+                                <i class="fas fa-paper-plane me-2"></i>Send Login Link
+                            </span>
+                            <span class="btn-loading">
+                                <span class="spinner-border spinner-border-sm me-2" role="status"></span>
+                                Sending...
+                            </span>
+                        </button>
+                    </form>
+                    
+                    <!-- Success Message (hidden initially) -->
+                    <div id="successMessage" style="display: none;">
+                        <div class="text-center py-4">
+                            <i class="fas fa-check-circle text-success fa-3x mb-3"></i>
+                            <h5>Login Link Sent!</h5>
+                            <p class="text-muted">
+                                Check your email <strong id="sentEmail"></strong> for the login link.
+                                <br>The link will expire in 30 minutes.
+                            </p>
+                            <button type="button" class="btn btn-link" id="sendAnotherBtn">
+                                Send to different email
+                            </button>
+                        </div>
                     </div>
-                    
-                    <div id="employeeLoginMessages"></div>
-                    
-                    <!-- Step 1: Email Form -->
-                    <form id="employeeEmailForm">
-                        <div class="mb-3">
-                            <label class="form-label">Email Address</label>
-                            <input type="email" name="email" class="form-control" placeholder="Enter your email" required>
-                            <div class="form-text">We'll send a One-Time Password (OTP) to your email.</div>
-                        </div>
-                        <button type="submit" class="btn btn-primary w-100 mb-3" id="sendOtpBtn">
-                            <span class="btn-text">Send OTP</span>
-                            <span class="btn-loading d-none">
-                                <span class="spinner-border spinner-border-sm me-2"></span>
-                                Sending OTP...
-                            </span>
-                        </button>
-                        <div class="text-center">
-                            <p class="mb-0">Admin login? <a href="/login">Click here</a></p>
-                        </div>
-                    </form>
-                    
-                    <!-- Step 2: OTP Verification Form (Initially Hidden) -->
-                    <form id="employeeOtpForm" class="d-none">
-                        <div class="text-center mb-3">
-                            <p class="text-muted">OTP sent to: <strong id="sentToEmail"></strong></p>
-                        </div>
-                        <div class="mb-3">
-                            <label class="form-label">Enter OTP</label>
-                            <input type="text" name="otp" class="form-control text-center" maxlength="6" placeholder="000000" required style="font-size: 24px; letter-spacing: 8px;">
-                            <div class="form-text">Enter the 6-digit code sent to your email.</div>
-                        </div>
-                        <button type="submit" class="btn btn-primary w-100 mb-3" id="verifyOtpBtn">
-                            <span class="btn-text">Verify & Login</span>
-                            <span class="btn-loading d-none">
-                                <span class="spinner-border spinner-border-sm me-2"></span>
-                                Verifying...
-                            </span>
-                        </button>
-                        <button type="button" class="btn btn-link w-100" id="backToEmailBtn">
-                            <i class="bi bi-arrow-left"></i> Back to Email
-                        </button>
-                        <div class="text-center mt-3">
-                            <p class="mb-0 text-muted">Didn't receive OTP? <a href="#" id="resendOtpBtn">Resend</a></p>
-                        </div>
-                    </form>
+                </div>
+                <div class="card-footer text-center">
+                    <a href="/" class="text-decoration-none">
+                        <i class="fas fa-arrow-left"></i> Back to Home
+                    </a>
                 </div>
             </div>
         </div>
     </div>
-</div>
 
 <script>
 document.addEventListener("DOMContentLoaded", function() {
-    // Auto-detect base path for live hosting compatibility
-    const basePath = window.location.pathname.includes('/acrm/') ? '/acrm' : '';
+    const loginForm = document.getElementById("employeeLoginForm");
+    const sendLinkBtn = document.getElementById("sendLinkBtn");
+    const sendAnotherBtn = document.getElementById("sendAnotherBtn");
+    const messagesContainer = document.getElementById("messagesContainer");
+    const successMessage = document.getElementById("successMessage");
+    const sentEmail = document.getElementById("sentEmail");
     
-    // Form elements
-    const emailForm = document.getElementById("employeeEmailForm");
-    const otpForm = document.getElementById("employeeOtpForm");
-    const sendOtpBtn = document.getElementById("sendOtpBtn");
-    const verifyOtpBtn = document.getElementById("verifyOtpBtn");
-    const backToEmailBtn = document.getElementById("backToEmailBtn");
-    const resendOtpBtn = document.getElementById("resendOtpBtn");
-    const messagesContainer = document.getElementById("employeeLoginMessages");
-    const sentToEmail = document.getElementById("sentToEmail");
-    
-    let currentEmail = "";
-    
-    // Handle Send OTP
-    emailForm.addEventListener("submit", async function(e) {
+    // Handle form submission
+    loginForm.addEventListener("submit", async function(e) {
         e.preventDefault();
         
-        const btnText = sendOtpBtn.querySelector(".btn-text");
-        const btnLoading = sendOtpBtn.querySelector(".btn-loading");
+        const btnText = sendLinkBtn.querySelector(".btn-text");
+        const btnLoading = sendLinkBtn.querySelector(".btn-loading");
         
         btnText.classList.add("d-none");
         btnLoading.classList.remove("d-none");
-        sendOtpBtn.disabled = true;
+        sendLinkBtn.disabled = true;
         
         messagesContainer.innerHTML = "";
         
-        const formData = new FormData(emailForm);
-        currentEmail = formData.get("email");
+        const formData = new FormData(loginForm);
+        const email = formData.get("email");
         
         try {
-            const apiUrl = (basePath ? basePath : '') + "/api/auth/employee-send-otp";
-            console.log("Sending OTP request to:", apiUrl);
-            console.log("Email:", currentEmail);
+            // Use direct endpoint for now
+            const apiUrl = "/api-employee-send-link.php";
+            console.log("Sending login link request to:", apiUrl);
             
             const response = await fetch(apiUrl, {
                 method: "POST",
                 headers: {
                     "Content-Type": "application/json",
                 },
-                body: JSON.stringify({ email: currentEmail })
+                body: JSON.stringify({ email: email })
             });
             
             const result = await response.json();
+            console.log("Response:", result);
             
             if (response.ok && result.success) {
-                messagesContainer.innerHTML = `
-                    <div class="alert alert-success">
-                        OTP sent successfully! Check your email.
-                    </div>
-                `;
-                
-                // Show OTP form
-                sentToEmail.textContent = currentEmail;
-                emailForm.classList.add("d-none");
-                otpForm.classList.remove("d-none");
-                
-                // Focus on OTP input
-                otpForm.querySelector('input[name="otp"]').focus();
+                // Show success message
+                loginForm.style.display = "none";
+                successMessage.style.display = "block";
+                sentEmail.textContent = email;
             } else {
                 messagesContainer.innerHTML = `
                     <div class="alert alert-danger">
-                        ${result.message || "Failed to send OTP"}
+                        <i class="fas fa-exclamation-circle"></i> ${result.message || "Failed to send login link"}
                     </div>
                 `;
             }
         } catch (error) {
-            console.error("OTP error:", error);
+            console.error("Error:", error);
             messagesContainer.innerHTML = `
                 <div class="alert alert-danger">
-                    Network error. Please try again.
+                    <i class="fas fa-exclamation-circle"></i> Network error. Please try again.
                 </div>
             `;
         } finally {
             btnText.classList.remove("d-none");
             btnLoading.classList.add("d-none");
-            sendOtpBtn.disabled = false;
+            sendLinkBtn.disabled = false;
         }
     });
     
-    // Handle OTP Verification
-    otpForm.addEventListener("submit", async function(e) {
-        e.preventDefault();
-        
-        const btnText = verifyOtpBtn.querySelector(".btn-text");
-        const btnLoading = verifyOtpBtn.querySelector(".btn-loading");
-        
-        btnText.classList.add("d-none");
-        btnLoading.classList.remove("d-none");
-        verifyOtpBtn.disabled = true;
-        
+    // Handle send another
+    sendAnotherBtn.addEventListener("click", function() {
+        loginForm.style.display = "block";
+        successMessage.style.display = "none";
         messagesContainer.innerHTML = "";
-        
-        const formData = new FormData(otpForm);
-        const otp = formData.get("otp");
-        
-        try {
-            const apiUrl = (basePath ? basePath : '') + "/api/auth/employee-verify-otp";
-            console.log("Verifying OTP at:", apiUrl);
-            console.log("Email:", currentEmail, "OTP:", otp);
-            
-            const response = await fetch(apiUrl, {
-                method: "POST",
-                headers: {
-                    "Content-Type": "application/json",
-                },
-                body: JSON.stringify({ 
-                    email: currentEmail,
-                    otp: otp 
-                })
-            });
-            
-            const result = await response.json();
-            
-            if (response.ok && result.success) {
-                messagesContainer.innerHTML = `
-                    <div class="alert alert-success">
-                        Login successful! Redirecting to employee dashboard...
-                    </div>
-                `;
-                setTimeout(() => {
-                    const dashboardUrl = basePath + "/employee/dashboard";
-                    window.location.href = dashboardUrl;
-                }, 1000);
-            } else {
-                messagesContainer.innerHTML = `
-                    <div class="alert alert-danger">
-                        ${result.message || "Invalid OTP"}
-                    </div>
-                `;
-            }
-        } catch (error) {
-            console.error("OTP error:", error);
-            messagesContainer.innerHTML = `
-                <div class="alert alert-danger">
-                    Network error. Please try again.
-                </div>
-            `;
-        } finally {
-            btnText.classList.remove("d-none");
-            btnLoading.classList.add("d-none");
-            verifyOtpBtn.disabled = false;
-        }
-    });
-    
-    // Handle Back to Email
-    backToEmailBtn.addEventListener("click", function() {
-        otpForm.classList.add("d-none");
-        emailForm.classList.remove("d-none");
-        messagesContainer.innerHTML = "";
-    });
-    
-    // Handle Resend OTP
-    resendOtpBtn.addEventListener("click", async function(e) {
-        e.preventDefault();
-        
-        messagesContainer.innerHTML = `
-            <div class="alert alert-info">
-                Resending OTP...
-            </div>
-        `;
-        
-        try {
-            const apiUrl = (basePath ? basePath : '') + "/api/auth/employee-send-otp";
-            
-            const response = await fetch(apiUrl, {
-                method: "POST",
-                headers: {
-                    "Content-Type": "application/json",
-                },
-                body: JSON.stringify({ email: currentEmail })
-            });
-            
-            const result = await response.json();
-            
-            if (response.ok && result.success) {
-                messagesContainer.innerHTML = `
-                    <div class="alert alert-success">
-                        New OTP sent successfully!
-                    </div>
-                `;
-            } else {
-                messagesContainer.innerHTML = `
-                    <div class="alert alert-danger">
-                        ${result.message || "Failed to resend OTP"}
-                    </div>
-                `;
-            }
-        } catch (error) {
-            messagesContainer.innerHTML = `
-                <div class="alert alert-danger">
-                    Network error. Please try again.
-                </div>
-            `;
-        }
+        document.getElementById("email").value = "";
+        document.getElementById("email").focus();
     });
 });
 </script>
-
-<?php include __DIR__ . "/../components/footer.php"; ?> 
+</body>
+</html>
