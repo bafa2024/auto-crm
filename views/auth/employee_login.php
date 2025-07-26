@@ -130,8 +130,9 @@ document.addEventListener("DOMContentLoaded", function() {
         const email = formData.get("email");
         
         try {
-            // Use direct endpoint for now
-            const apiUrl = "/api-employee-send-link.php";
+            // Auto-detect base path
+            const basePath = window.location.pathname.includes('/acrm/') ? '/acrm' : '';
+            const apiUrl = basePath + "/api/auth/employee-send-link";
             console.log("Sending login link request to:", apiUrl);
             
             const response = await fetch(apiUrl, {

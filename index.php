@@ -268,6 +268,15 @@ try {
                             }
                             break;
                             
+                        case "employee-send-link":
+                            if ($requestMethod === "POST") {
+                                $input = json_decode(file_get_contents("php://input"), true);
+                                $request = new stdClass();
+                                $request->body = $input;
+                                $controller->employeeSendLink($request);
+                            }
+                            break;
+                            
                         default:
                             http_response_code(404);
                             echo json_encode(["error" => "Endpoint not found"]);

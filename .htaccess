@@ -10,6 +10,11 @@ RewriteRule ^(composer\.(json|lock)|\.env|\.git|\.gitignore|README\.md)$ - [F,L]
 # Block access to sensitive directories
 RewriteRule ^(config|models|controllers|services|vendor|logs|temp|backups)/.*$ - [F,L]
 
+# Allow direct access to specific API files
+RewriteCond %{REQUEST_URI} !^/api-employee-send-link\.php$
+RewriteCond %{REQUEST_URI} !^/test-magic-link\.php$
+RewriteCond %{REQUEST_URI} !^/api-test\.php$
+
 # Route all requests through index.php
 RewriteCond %{REQUEST_FILENAME} !-f
 RewriteCond %{REQUEST_FILENAME} !-d
