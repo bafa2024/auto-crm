@@ -12,13 +12,10 @@
                     <a class="btn btn-light btn-lg" href="/login">
                         <i class="bi bi-box-arrow-in-right me-2"></i>Login
                     </a>
-                    <a class="btn btn-warning btn-lg" href="/signup">
-                        <i class="bi bi-rocket-takeoff me-2"></i>Start Free Trial
-                    </a>
                 </div>
             </div>
             <div class="col-lg-6">
-                <img src="https://via.placeholder.com/600x400/ffffff/5B5FDE?text=AutoDial+Pro" class="img-fluid rounded shadow" alt="AutoDial Pro">
+                <img src="https://images.unsplash.com/photo-1560438718-eb61ede255eb?ixlib=rb-4.0.3&ixid=M3wxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8fA%3D%3D&auto=format&fit=crop&w=1000&q=80" class="img-fluid rounded shadow" alt="AutoDial Pro - Professional Call Center Solution">
             </div>
         </div>
     </div>

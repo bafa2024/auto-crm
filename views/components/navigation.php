@@ -12,20 +12,13 @@
                 <li class="nav-item">
                     <a class="nav-link" href="/#features">Features</a>
                 </li>
-                <li class="nav-item">
-                    <a class="nav-link" href="/#pricing">Pricing</a>
-                </li>
-                <li class="nav-item">
-                    <a class="nav-link" href="/#contact">Contact</a>
-                </li>
             </ul>
             <div class="ms-3">
                 <?php if (isset($_SESSION["user_id"])): ?>
                     <a class="btn btn-outline-primary me-2" href="/dashboard">Dashboard</a>
                     <a class="btn btn-primary" href="/logout">Logout</a>
                 <?php else: ?>
-                    <a class="btn btn-outline-primary me-2" href="/login">Login</a>
-                    <a class="btn btn-primary" href="/signup">Start Free Trial</a>
+                    <a class="btn btn-outline-primary" href="/login">Login</a>
                 <?php endif; ?>
             </div>
         </div>

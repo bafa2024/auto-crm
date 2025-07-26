@@ -1,4 +1,4 @@
-<?php include __DIR__ . "/../components/header.php"; ?>
+<?php include __DIR__ . "/../components/header-landing.php"; ?>
 <?php include __DIR__ . "/../components/navigation.php"; ?>
 
 <div class="container py-5">
