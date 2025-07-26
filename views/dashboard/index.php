@@ -1,12 +1,13 @@
 <?php
 // Prevent session already started error
+require_once __DIR__ . '/../../config/base_path.php';
 if (session_status() === PHP_SESSION_NONE) {
     session_start();
 }
 
 // Check if user is logged in
 if (!isset($_SESSION["user_id"])) {
-    header("Location: /login");
+    header("Location: " . base_path('login'));
     exit;
 }
 
@@ -132,10 +133,6 @@ $userEmail = $_SESSION["user_email"] ?? "user@example.com";
             </div>
         </div>
         
-        <?php if (session_status() === PHP_SESSION_NONE) session_start(); ?>
-        <?php if (isset($_SESSION['user_id'])): ?>
-            <div style="margin-bottom: 1em;"><a href="/views/dashboard/employee_management.php" class="btn btn-primary">Employee Management</a></div>
-        <?php endif; ?>
 
         <!-- Statistics Cards -->
         <div class="row mb-4">
