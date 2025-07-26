@@ -1,8 +1,9 @@
 <?php
 // views/dashboard/employee_management.php
+require_once __DIR__ . '/../../config/base_path.php';
 if (session_status() === PHP_SESSION_NONE) session_start();
 if (!isset($_SESSION['user_id'])) {
-    header('Location: /login');
+    header('Location: ' . base_path('login'));
     exit;
 }
 ?>
@@ -10,11 +11,63 @@ if (!isset($_SESSION['user_id'])) {
 <?php include __DIR__ . '/../components/sidebar.php'; ?>
 
 <style>
+.sidebar {
+    position: fixed;
+    top: 0;
+    left: 0;
+    height: 100vh;
+    width: 250px;
+    overflow-y: auto;
+    z-index: 100;
+    background: #f8f9fa;
+    border-right: 1px solid #dee2e6;
+}
 .main-content {
     margin-left: 250px;
     padding: 20px;
     min-height: 100vh;
-    background-color: #fff;
+    background-color: #ffffff;
+}
+.stat-card {
+    border: none;
+    box-shadow: 0 2px 4px rgba(0,0,0,0.08);
+    border-radius: 12px;
+    transition: transform 0.2s;
+}
+.stat-card:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+}
+.stat-icon {
+    width: 48px;
+    height: 48px;
+    border-radius: 12px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 24px;
+}
+.sidebar-link {
+    color: #495057;
+    text-decoration: none;
+    padding: 12px 20px;
+    display: flex;
+    align-items: center;
+    border-radius: 8px;
+    margin: 4px 10px;
+    transition: all 0.3s;
+}
+.sidebar-link:hover {
+    background-color: #e9ecef;
+    color: #212529;
+}
+.sidebar-link.active {
+    background-color: #5B5FDE;
+    color: white;
+}
+.sidebar-link i {
+    margin-right: 10px;
+    width: 20px;
 }
 .card {
     border: none;
@@ -70,9 +123,13 @@ if (!isset($_SESSION['user_id'])) {
     border-bottom: 1px solid #e9ecef;
     margin: 2em 0 1.5em 0;
 }
-@media (max-width: 991px) {
-    .main-content { margin-left: 0; padding: 10px; }
-    .card { margin-bottom: 1em; }
+@media (max-width: 768px) {
+    .sidebar {
+        transform: translateX(-100%);
+    }
+    .main-content {
+        margin-left: 0;
+    }
 }
 @media (max-width: 700px) { .table, .card { font-size: 0.95em; } }
 </style>
