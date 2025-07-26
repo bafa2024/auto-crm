@@ -75,7 +75,9 @@ document.addEventListener("DOMContentLoaded", function() {
         const data = Object.fromEntries(formData.entries());
         
         try {
-            const apiUrl = basePath + "/api/auth/employee-login";
+            // Fix API URL construction
+            const apiUrl = (basePath ? basePath : '') + "/api/auth/employee-login";
+            
             
             const response = await fetch(apiUrl, {
                 method: "POST",

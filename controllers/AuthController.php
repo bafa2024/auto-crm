@@ -61,6 +61,7 @@ class AuthController extends BaseController {
             $this->sendError("Email and password are required");
         }
         
+        
         // Check if database is connected
         if (!$this->db) {
             $this->sendError("Database connection error", 500);
@@ -140,6 +141,7 @@ class AuthController extends BaseController {
         if (empty($email) || empty($password)) {
             $this->sendError("Email and password are required");
         }
+        
         
         // Check if database is connected
         if (!$this->db) {
