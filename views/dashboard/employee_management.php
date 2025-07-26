@@ -200,19 +200,24 @@ function showMsg(msg, type) {
 }
 function fetchEmployees(q = '') {
     document.getElementById('employees-loading').style.display = '';
-    fetch('/api/employees/list' + (q ? ('?q=' + encodeURIComponent(q)) : ''))
+    fetch('<?php echo base_path("api/employees/list"); ?>' + (q ? ('?q=' + encodeURIComponent(q)) : ''))
         .then(r => r.json())
         .then(data => {
             document.getElementById('employees-loading').style.display = 'none';
             const tbody = document.getElementById('employees');
             tbody.innerHTML = '';
             if (data.success && Array.isArray(data.data) && data.data.length) {
+                // Clear and repopulate employees data
+                employeesData = {};
                 data.data.forEach(emp => {
+                    employeesData[emp.id] = emp;
                     const tr = document.createElement('tr');
                     tr.innerHTML = `<td>${emp.first_name} ${emp.last_name}</td><td>${emp.email}</td><td>${emp.role}</td><td>${emp.status}</td><td><span id='teams-${emp.id}'></span></td><td class='actions'>
-                        <button class='btn btn-sm btn-outline-primary' title='Edit' onclick='showEditEmployeeForm(${JSON.stringify(emp)})'><i class='bi bi-pencil'></i></button>
+                        <button class='btn btn-sm btn-outline-primary' title='Edit' onclick='editEmployee(${emp.id})'><i class='bi bi-pencil'></i></button>
                         <button class='btn btn-sm btn-outline-danger' title='Delete' onclick='deleteEmployee(${emp.id})'><i class='bi bi-trash'></i></button>
                     </td>`;
+                    // Store employee data for edit function
+                    tr.dataset.employee = JSON.stringify(emp);
                     tbody.appendChild(tr);
                     fetchEmployeeTeams(emp.id);
                 });
@@ -227,7 +232,7 @@ function fetchEmployees(q = '') {
         });
 }
 function fetchEmployeeTeams(userId) {
-    fetch(`/api/employees/${userId}/teams`)
+    fetch(`<?php echo base_path('api/employees'); ?>/${userId}/teams`)
         .then(r => r.json())
         .then(data => {
             const el = document.getElementById('teams-' + userId);
@@ -238,35 +243,154 @@ function fetchEmployeeTeams(userId) {
             }
         });
 }
-function showEditEmployeeForm(emp) {
-    const name = prompt('Edit name:', emp.first_name + ' ' + emp.last_name);
-    if (name === null) return;
-    const [first_name, ...lastArr] = name.split(' ');
-    const last_name = lastArr.join(' ');
-    const email = prompt('Edit email:', emp.email);
-    if (email === null) return;
-    const role = prompt('Edit role (user/admin):', emp.role);
-    if (role === null) return;
-    const status = prompt('Edit status (active/inactive):', emp.status);
-    if (status === null) return;
-    fetch('/api/employees/edit', {
+// Store employees data for editing
+let employeesData = {};
+
+function editEmployee(id) {
+    const emp = employeesData[id];
+    if (!emp) {
+        showMsg('Employee data not found. Please refresh the page.', 'error');
+        return;
+    }
+    
+    // Create a modal for editing
+    const modalHtml = `
+        <div class="modal fade" id="editEmployeeModal" tabindex="-1">
+            <div class="modal-dialog">
+                <div class="modal-content">
+                    <div class="modal-header">
+                        <h5 class="modal-title">Edit Employee</h5>
+                        <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                    </div>
+                    <div class="modal-body">
+                        <form id="edit-employee-form">
+                            <input type="hidden" id="edit-id" value="${emp.id}">
+                            <div class="mb-3">
+                                <label class="form-label">First Name</label>
+                                <input type="text" class="form-control" id="edit-first-name" value="${emp.first_name}" required>
+                            </div>
+                            <div class="mb-3">
+                                <label class="form-label">Last Name</label>
+                                <input type="text" class="form-control" id="edit-last-name" value="${emp.last_name}" required>
+                            </div>
+                            <div class="mb-3">
+                                <label class="form-label">Email</label>
+                                <input type="email" class="form-control" id="edit-email" value="${emp.email}" required>
+                            </div>
+                            <div class="mb-3">
+                                <label class="form-label">Role</label>
+                                <select class="form-select" id="edit-role">
+                                    <option value="user" ${emp.role === 'user' ? 'selected' : ''}>User</option>
+                                    <option value="admin" ${emp.role === 'admin' ? 'selected' : ''}>Admin</option>
+                                </select>
+                            </div>
+                            <div class="mb-3">
+                                <label class="form-label">Status</label>
+                                <select class="form-select" id="edit-status">
+                                    <option value="active" ${emp.status === 'active' ? 'selected' : ''}>Active</option>
+                                    <option value="inactive" ${emp.status === 'inactive' ? 'selected' : ''}>Inactive</option>
+                                </select>
+                            </div>
+                        </form>
+                    </div>
+                    <div class="modal-footer">
+                        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                        <button type="button" class="btn btn-primary" onclick="saveEmployeeEdit()">Save Changes</button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    `;
+    
+    // Remove existing modal if any
+    const existingModal = document.getElementById('editEmployeeModal');
+    if (existingModal) {
+        existingModal.remove();
+    }
+    
+    // Add modal to body
+    document.body.insertAdjacentHTML('beforeend', modalHtml);
+    
+    // Show modal
+    const modal = new bootstrap.Modal(document.getElementById('editEmployeeModal'));
+    modal.show();
+}
+
+function saveEmployeeEdit() {
+    const id = document.getElementById('edit-id').value;
+    const first_name = document.getElementById('edit-first-name').value;
+    const last_name = document.getElementById('edit-last-name').value;
+    const email = document.getElementById('edit-email').value;
+    const role = document.getElementById('edit-role').value;
+    const status = document.getElementById('edit-status').value;
+    
+    fetch('<?php echo base_path('api/employees/edit'); ?>', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ id: emp.id, first_name, last_name, email, role, status })
+        body: JSON.stringify({ id, first_name, last_name, email, role, status })
     })
     .then(r => r.json())
     .then(data => {
         if (data.success) {
-            showMsg('Employee updated!', 'success');
+            showMsg('Employee updated successfully!', 'success');
+            // Hide modal
+            bootstrap.Modal.getInstance(document.getElementById('editEmployeeModal')).hide();
+            // Refresh employee list
             fetchEmployees();
         } else {
             showMsg(data.message || 'Failed to update employee.', 'error');
         }
+    })
+    .catch(err => {
+        showMsg('Error updating employee: ' + err.message, 'error');
     });
 }
 function deleteEmployee(id) {
-    if (!confirm('Are you sure you want to delete this employee?')) return;
-    fetch('/api/employees/delete', {
+    const emp = employeesData[id];
+    if (!emp) {
+        showMsg('Employee data not found. Please refresh the page.', 'error');
+        return;
+    }
+    
+    // Create confirmation modal
+    const modalHtml = `
+        <div class="modal fade" id="deleteEmployeeModal" tabindex="-1">
+            <div class="modal-dialog">
+                <div class="modal-content">
+                    <div class="modal-header">
+                        <h5 class="modal-title">Confirm Delete</h5>
+                        <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                    </div>
+                    <div class="modal-body">
+                        <p>Are you sure you want to delete this employee?</p>
+                        <p><strong>${emp.first_name} ${emp.last_name}</strong> (${emp.email})</p>
+                        <p class="text-danger">This action cannot be undone.</p>
+                    </div>
+                    <div class="modal-footer">
+                        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                        <button type="button" class="btn btn-danger" onclick="confirmDeleteEmployee(${id})">Delete</button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    `;
+    
+    // Remove existing modal if any
+    const existingModal = document.getElementById('deleteEmployeeModal');
+    if (existingModal) {
+        existingModal.remove();
+    }
+    
+    // Add modal to body
+    document.body.insertAdjacentHTML('beforeend', modalHtml);
+    
+    // Show modal
+    const modal = new bootstrap.Modal(document.getElementById('deleteEmployeeModal'));
+    modal.show();
+}
+
+function confirmDeleteEmployee(id) {
+    fetch('<?php echo base_path('api/employees/delete'); ?>', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ id })
@@ -274,17 +398,23 @@ function deleteEmployee(id) {
     .then(r => r.json())
     .then(data => {
         if (data.success) {
-            showMsg('Employee deleted!', 'success');
+            showMsg('Employee deleted successfully!', 'success');
+            // Hide modal
+            bootstrap.Modal.getInstance(document.getElementById('deleteEmployeeModal')).hide();
+            // Refresh employee list
             fetchEmployees();
         } else {
             showMsg(data.message || 'Failed to delete employee.', 'error');
         }
+    })
+    .catch(err => {
+        showMsg('Error deleting employee: ' + err.message, 'error');
     });
 }
 document.getElementById('add-employee-form').onsubmit = function(e) {
     e.preventDefault();
     const form = e.target;
-    fetch('/api/employees/create', {
+    fetch('<?php echo base_path('api/employees/create'); ?>', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
