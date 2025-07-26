@@ -69,7 +69,23 @@ class AuthController extends BaseController {
         $user = $this->userModel->authenticate($email, $password);
         
         if (!$user) {
-            $this->sendError("Invalid credentials", 401);
+            // Add debug info in development mode
+            if (($_ENV['APP_DEBUG'] ?? 'true') === 'true') {
+                // Check if user exists
+                $stmt = $this->db->prepare("SELECT email, status, role FROM users WHERE email = ?");
+                $stmt->execute([$email]);
+                $existingUser = $stmt->fetch();
+                
+                if (!$existingUser) {
+                    $this->sendError("Invalid credentials - User not found", 401);
+                } elseif ($existingUser['status'] !== 'active') {
+                    $this->sendError("Invalid credentials - User inactive", 401);
+                } else {
+                    $this->sendError("Invalid credentials - Password incorrect", 401);
+                }
+            } else {
+                $this->sendError("Invalid credentials", 401);
+            }
         }
         
         // Start session only if not already started
@@ -133,7 +149,23 @@ class AuthController extends BaseController {
         $user = $this->userModel->authenticate($email, $password);
         
         if (!$user) {
-            $this->sendError("Invalid credentials", 401);
+            // Add debug info in development mode
+            if (($_ENV['APP_DEBUG'] ?? 'true') === 'true') {
+                // Check if user exists
+                $stmt = $this->db->prepare("SELECT email, status, role FROM users WHERE email = ?");
+                $stmt->execute([$email]);
+                $existingUser = $stmt->fetch();
+                
+                if (!$existingUser) {
+                    $this->sendError("Invalid credentials - User not found", 401);
+                } elseif ($existingUser['status'] !== 'active') {
+                    $this->sendError("Invalid credentials - User inactive", 401);
+                } else {
+                    $this->sendError("Invalid credentials - Password incorrect", 401);
+                }
+            } else {
+                $this->sendError("Invalid credentials", 401);
+            }
         }
         
         // Check if user is an employee (agent or manager)
