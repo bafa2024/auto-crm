@@ -18,7 +18,8 @@
                     <a class="btn btn-outline-primary me-2" href="/dashboard">Dashboard</a>
                     <a class="btn btn-primary" href="/logout">Logout</a>
                 <?php else: ?>
-                    <a class="btn btn-outline-primary" href="/login">Login</a>
+                    <a class="btn btn-outline-primary me-2" href="/login">Admin Login</a>
+                    <a class="btn btn-outline-secondary" href="/employee/login">Employee Login</a>
                 <?php endif; ?>
             </div>
         </div>

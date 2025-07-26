@@ -43,6 +43,7 @@
                         </button>
                         <div class="text-center">
                             <p class="mb-0">Don't have an account? <a href="#" id="signupLink">Sign up</a></p>
+                            <p class="mb-0 mt-2">Employee login? <a href="/employee/login">Click here</a></p>
                         </div>
                     </form>
                 </div>

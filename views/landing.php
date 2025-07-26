@@ -10,7 +10,10 @@
                 <p class="lead mb-4">Increase your team's productivity by 300% with our AI-powered auto dialer. Connect with more prospects, close more deals, and grow your business faster.</p>
                 <div class="d-flex gap-3">
                     <a class="btn btn-light btn-lg" href="/login">
-                        <i class="bi bi-box-arrow-in-right me-2"></i>Login
+                        <i class="bi bi-shield-check me-2"></i>Admin Login
+                    </a>
+                    <a class="btn btn-outline-light btn-lg" href="/employee/login">
+                        <i class="bi bi-person-badge me-2"></i>Employee Login
                     </a>
                 </div>
             </div>
@@ -51,6 +54,43 @@
                     </div>
                     <h4>CRM Integration</h4>
                     <p class="text-muted">Seamless integration with Salesforce, HubSpot, Pipedrive, and 50+ other CRM platforms.</p>
+                </div>
+            </div>
+        </div>
+    </div>
+</section>
+
+<!-- Access Types Section -->
+<section class="py-5 bg-light">
+    <div class="container">
+        <h2 class="text-center mb-5">Choose Your Access Type</h2>
+        <div class="row g-4">
+            <div class="col-md-6">
+                <div class="card h-100 border-primary">
+                    <div class="card-body text-center p-4">
+                        <div class="mb-3">
+                            <i class="bi bi-shield-check display-4 text-primary"></i>
+                        </div>
+                        <h4>Administrator Access</h4>
+                        <p class="text-muted mb-4">Full system access for managers and administrators. Create campaigns, manage employees, view all contacts, and access comprehensive reporting.</p>
+                        <a class="btn btn-primary" href="/login">
+                            <i class="bi bi-shield-check me-2"></i>Admin Login
+                        </a>
+                    </div>
+                </div>
+            </div>
+            <div class="col-md-6">
+                <div class="card h-100 border-secondary">
+                    <div class="card-body text-center p-4">
+                        <div class="mb-3">
+                            <i class="bi bi-person-badge display-4 text-secondary"></i>
+                        </div>
+                        <h4>Employee Access</h4>
+                        <p class="text-muted mb-4">Dedicated portal for sales agents and team members. View assigned contacts, update status, manage your profile, and track your performance.</p>
+                        <a class="btn btn-outline-secondary" href="/employee/login">
+                            <i class="bi bi-person-badge me-2"></i>Employee Login
+                        </a>
+                    </div>
                 </div>
             </div>
         </div>
