@@ -641,14 +641,16 @@ class EmailCampaignService {
      */
     public function getCampaignRecipientsWithStatus($campaignId) {
         try {
+            // Get ALL recipients and check if they have been sent this campaign
             $sql = "SELECT r.id, r.email, r.name, r.company, cs.status, cs.sent_at, cs.opened_at, cs.clicked_at
                     FROM email_recipients r
                     LEFT JOIN campaign_sends cs ON r.id = cs.recipient_id AND cs.campaign_id = ?
-                    WHERE r.campaign_id = ?";
+                    ORDER BY r.created_at DESC";
             $stmt = $this->db->prepare($sql);
-            $stmt->execute([$campaignId, $campaignId]);
+            $stmt->execute([$campaignId]);
             return $stmt->fetchAll(PDO::FETCH_ASSOC);
         } catch (Exception $e) {
+            error_log("Error in getCampaignRecipientsWithStatus: " . $e->getMessage());
             return [];
         }
     }
@@ -658,11 +660,17 @@ class EmailCampaignService {
      */
     public function getAllCampaignRecipients($campaignId) {
         try {
-            $sql = "SELECT id, email, name, company FROM email_recipients WHERE campaign_id = ?";
+            // Get all recipients that haven't been sent this campaign yet
+            $sql = "SELECT r.id, r.email, r.name, r.company 
+                    FROM email_recipients r
+                    LEFT JOIN campaign_sends cs ON r.id = cs.recipient_id AND cs.campaign_id = ? AND cs.status = 'sent'
+                    WHERE cs.id IS NULL
+                    ORDER BY r.created_at DESC";
             $stmt = $this->db->prepare($sql);
             $stmt->execute([$campaignId]);
             return $stmt->fetchAll(PDO::FETCH_ASSOC);
         } catch (Exception $e) {
+            error_log("Error in getAllCampaignRecipients: " . $e->getMessage());
             return [];
         }
     }

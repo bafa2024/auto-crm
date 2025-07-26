@@ -50,9 +50,9 @@ if (isset($_SERVER['REQUEST_METHOD']) && $_SERVER['REQUEST_METHOD'] === 'POST') 
                     $messageType = 'success';
                     // If immediate, send campaign now
                     if ($_POST['schedule_type'] === 'immediate') {
-                        // Get all recipient IDs
-                        $recipientStmt = $database->getConnection()->query("SELECT id FROM email_recipients");
-                        $recipientIds = $recipientStmt->fetchAll(PDO::FETCH_COLUMN);
+                        // Get all unsent recipients for this campaign
+                        $unsentRecipients = $campaignService->getAllCampaignRecipients($result['campaign_id']);
+                        $recipientIds = array_column($unsentRecipients, 'id');
                         if (!empty($recipientIds)) {
                             $sendResult = $campaignService->sendCampaign($result['campaign_id'], $recipientIds);
                             if ($sendResult['success']) {
@@ -61,7 +61,7 @@ if (isset($_SERVER['REQUEST_METHOD']) && $_SERVER['REQUEST_METHOD'] === 'POST') 
                                 $message .= "<br>Immediate campaign sending failed: " . $sendResult['message'];
                             }
                         } else {
-                            $message .= "<br>No recipients found for immediate sending.";
+                            $message .= "<br>No unsent recipients found for immediate sending.";
                         }
                     }
                 } else {
@@ -118,7 +118,7 @@ if (isset($_SERVER['REQUEST_METHOD']) && $_SERVER['REQUEST_METHOD'] === 'POST') 
                 $recipientIds = array_column($allRecipients, 'id');
                 
                 if (empty($recipientIds)) {
-                    $message = 'No recipients found for this campaign.';
+                    $message = 'No unsent recipients found for this campaign. All recipients have already received this campaign.';
                     $messageType = 'warning';
                 } else {
                     $result = $campaignService->sendCampaign($campaignId, $recipientIds);
@@ -157,22 +157,11 @@ try {
 
 // Get recipients for selection
 $recipients = [];
-if (isset($_GET['send_campaign_id'])) {
-    // If sending, filter recipients for that campaign
-    require_once 'services/EmailCampaignService.php';
-    $campaignService = new EmailCampaignService($database);
-    $allRecipients = $campaignService->getCampaignRecipientsWithStatus($_GET['send_campaign_id']);
-    // Only show recipients who have not been sent (status is null or not 'sent')
-    $recipients = array_filter($allRecipients, function($r) {
-        return empty($r['status']) || $r['status'] !== 'sent';
-    });
-} else {
-    try {
-        $stmt = $database->getConnection()->query("SELECT id, email, name, company FROM email_recipients ORDER BY created_at DESC");
-        $recipients = $stmt->fetchAll(PDO::FETCH_ASSOC);
-    } catch (Exception $e) {
-        // Ignore error if table doesn't exist
-    }
+try {
+    $stmt = $database->getConnection()->query("SELECT id, email, name, company FROM email_recipients ORDER BY created_at DESC");
+    $recipients = $stmt->fetchAll(PDO::FETCH_ASSOC);
+} catch (Exception $e) {
+    // Ignore error if table doesn't exist
 }
 ?>
 
@@ -462,7 +451,7 @@ if (isset($_GET['send_campaign_id'])) {
                         <div class="mb-3">
                             <div class="d-flex justify-content-between align-items-center mb-2">
                                 <label class="form-label mb-0">Select Recipients</label>
-                                <small class="text-muted" id="totalRecipientsCount">0 total recipients</small>
+                                <small class="text-muted" id="totalRecipientsCount">0 unsent recipients</small>
                             </div>
                             
                             <!-- Search and Select All -->
@@ -668,7 +657,7 @@ if (isset($_GET['send_campaign_id'])) {
                     const totalRecipientsCount = document.getElementById('totalRecipientsCount');
                     recipientsList.innerHTML = '';
                     let recipients = data.recipients || [];
-                    totalRecipientsCount.textContent = recipients.length + ' total recipients';
+                    totalRecipientsCount.textContent = recipients.length + ' unsent recipients';
                     // Show only first 50
                     recipients = recipients.slice(0, 50);
                     recipients.forEach(recipient => {
