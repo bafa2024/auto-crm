@@ -88,13 +88,57 @@ try {
             header("Location: /");
             exit;
             
+        // Contacts page
+        case $requestUri === "/contacts.php":
+            if (!isset($_SESSION["user_id"])) {
+                header("Location: /login");
+                exit;
+            }
+            require_once __DIR__ . "/contacts.php";
+            break;
+            
+        // Campaigns page
+        case $requestUri === "/campaigns.php":
+            if (!isset($_SESSION["user_id"])) {
+                header("Location: /login");
+                exit;
+            }
+            require_once __DIR__ . "/campaigns.php";
+            break;
+            
         // Dashboard
         case strpos($requestUri, "/dashboard") === 0:
             if (!isset($_SESSION["user_id"])) {
                 header("Location: /login");
                 exit;
             }
-            require_once __DIR__ . "/views/dashboard/index.php";
+            
+            // Handle dashboard sub-pages
+            $dashboardPath = substr($requestUri, 10); // Remove "/dashboard"
+            $dashboardPath = ltrim($dashboardPath, '/');
+            
+            if (empty($dashboardPath)) {
+                // Main dashboard
+                require_once __DIR__ . "/views/dashboard/index.php";
+            } else {
+                // Dashboard sub-pages
+                $subPagePath = __DIR__ . "/views/dashboard/" . $dashboardPath;
+                
+                // Check if the path already has .php extension
+                if (!preg_match('/\.php$/', $subPagePath)) {
+                    // Try with .php extension first
+                    if (file_exists($subPagePath . '.php')) {
+                        $subPagePath .= '.php';
+                    }
+                }
+                
+                if (file_exists($subPagePath)) {
+                    require_once $subPagePath;
+                } else {
+                    http_response_code(404);
+                    require_once __DIR__ . "/views/404.php";
+                }
+            }
             break;
             
         // API endpoints
