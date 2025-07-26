@@ -236,6 +236,15 @@ try {
                             }
                             break;
                             
+                        case "admin-login-as-employee":
+                            if ($requestMethod === "POST") {
+                                $input = json_decode(file_get_contents("php://input"), true);
+                                $request = new stdClass();
+                                $request->body = $input;
+                                $controller->adminLoginAsEmployee($request);
+                            }
+                            break;
+                            
                         default:
                             http_response_code(404);
                             echo json_encode(["error" => "Endpoint not found"]);

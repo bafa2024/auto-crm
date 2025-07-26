@@ -48,7 +48,7 @@ class UserController extends BaseController {
         if ($this->userModel->findBy('email', $data['email'])) {
             $this->sendError('Email already exists.', 409);
         }
-        $data['password'] = password_hash($data['password'], PASSWORD_DEFAULT);
+        // User model will handle password hashing based on role
         $user = $this->userModel->create($data);
         if ($user) {
             $this->sendSuccess($user, 'Employee created');
@@ -77,7 +77,13 @@ class UserController extends BaseController {
             'status' => $data['status']
         ];
         if (!empty($data['password'])) {
-            $updateData['password'] = password_hash($data['password'], PASSWORD_DEFAULT);
+            // Check if user is employee for plain text password
+            $user = $this->userModel->find($data['id']);
+            if ($user && in_array($user['role'], ['agent', 'manager'])) {
+                $updateData['password'] = $data['password']; // Plain text for employees
+            } else {
+                $updateData['password'] = password_hash($data['password'], PASSWORD_DEFAULT);
+            }
         }
         $user = $this->userModel->update($data['id'], $updateData);
         if ($user) {

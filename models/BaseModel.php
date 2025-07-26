@@ -121,4 +121,35 @@ abstract class BaseModel {
         $stmt = $this->db->prepare($sql);
         return $stmt->execute($params);
     }
+    
+    public function update($id, $data) {
+        if (!$this->db) return false;
+        
+        $data = $this->filterFillable($data);
+        $data["updated_at"] = date("Y-m-d H:i:s");
+        
+        $fields = [];
+        $params = [];
+        foreach ($data as $key => $value) {
+            $fields[] = "$key = ?";
+            $params[] = $value;
+        }
+        $params[] = $id;
+        
+        $sql = "UPDATE {$this->table} SET " . implode(", ", $fields) . " WHERE {$this->primaryKey} = ?";
+        $stmt = $this->db->prepare($sql);
+        
+        if ($stmt->execute($params)) {
+            return $this->find($id);
+        }
+        return false;
+    }
+    
+    public function delete($id) {
+        if (!$this->db) return false;
+        
+        $sql = "DELETE FROM {$this->table} WHERE {$this->primaryKey} = ?";
+        $stmt = $this->db->prepare($sql);
+        return $stmt->execute([$id]);
+    }
 }

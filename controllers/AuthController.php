@@ -278,4 +278,87 @@ class AuthController extends BaseController {
         
         $this->sendSuccess([], "Logged out successfully");
     }
+    
+    public function adminLoginAsEmployee($request = null) {
+        // Set CORS headers
+        header("Access-Control-Allow-Origin: *");
+        header("Access-Control-Allow-Methods: POST, OPTIONS");
+        header("Access-Control-Allow-Headers: Content-Type, Authorization");
+        
+        if ($_SERVER["REQUEST_METHOD"] === "OPTIONS") {
+            http_response_code(200);
+            exit;
+        }
+        
+        if ($_SERVER["REQUEST_METHOD"] !== "POST") {
+            $this->sendError("Method not allowed", 405);
+        }
+        
+        // Check if current user is admin
+        if (session_status() === PHP_SESSION_NONE) {
+            session_start();
+        }
+        
+        if (!isset($_SESSION["user_id"]) || $_SESSION["user_role"] !== "admin") {
+            $this->sendError("Unauthorized. Admin access required.", 403);
+        }
+        
+        // Get input data
+        if ($request && isset($request->body)) {
+            $input = $request->body;
+        } else {
+            $input = json_decode(file_get_contents("php://input"), true);
+        }
+        
+        if (!$input) {
+            $this->sendError("Invalid JSON data", 400);
+        }
+        
+        $employeeId = intval($input["employee_id"] ?? 0);
+        
+        if (!$employeeId) {
+            $this->sendError("Employee ID is required", 400);
+        }
+        
+        // Check if database is connected
+        if (!$this->db) {
+            $this->sendError("Database connection error", 500);
+        }
+        
+        // Get employee details
+        $user = $this->userModel->find($employeeId);
+        
+        if (!$user) {
+            $this->sendError("Employee not found", 404);
+        }
+        
+        // Check if user is an employee
+        if (!in_array($user["role"], ['agent', 'manager'])) {
+            $this->sendError("Can only login as employees (agents or managers)", 403);
+        }
+        
+        // Check if user is active
+        if ($user["status"] !== "active") {
+            $this->sendError("Employee account is inactive", 403);
+        }
+        
+        // Clear current session and create new employee session
+        session_destroy();
+        session_start();
+        
+        $_SESSION["user_id"] = $user["id"];
+        $_SESSION["user_email"] = $user["email"];
+        $_SESSION["user_name"] = $user["first_name"] . " " . $user["last_name"];
+        $_SESSION["user_role"] = $user["role"];
+        $_SESSION["login_time"] = time();
+        $_SESSION["admin_login_as_employee"] = true; // Flag to indicate admin logged in as employee
+        
+        $basePath = $this->getBasePath();
+        
+        $this->sendSuccess([
+            "user" => $this->userModel->hideFields($user),
+            "session_id" => session_id(),
+            "redirect" => $basePath . "/employee/dashboard"
+        ], "Logged in as employee successfully");
+    }
 }
