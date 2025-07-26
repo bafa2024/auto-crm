@@ -68,7 +68,13 @@ require_once __DIR__ . '/../../version.php';
             </a>
             
             <!-- Version Badge -->
-            <?php echo VersionManager::getVersionBadge(); ?>
+            <?php 
+            // Don't show version badge on landing page
+            $currentUri = $_SERVER["REQUEST_URI"] ?? "/";
+            if ($currentUri !== "/" && $currentUri !== "/index.php") {
+                echo VersionManager::getVersionBadge(); 
+            }
+            ?>
         </div>
         
         <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbarNav" aria-label="Toggle navigation">
