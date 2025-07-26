@@ -200,7 +200,9 @@ function showMsg(msg, type) {
 }
 function fetchEmployees(q = '') {
     document.getElementById('employees-loading').style.display = '';
-    fetch('<?php echo base_path("api/employees/list"); ?>' + (q ? ('?q=' + encodeURIComponent(q)) : ''))
+    const url = '<?php echo base_path("api/employees/list"); ?>' + (q ? ('?q=' + encodeURIComponent(q)) : '');
+    console.log('Fetching from:', url);
+    fetch(url)
         .then(r => r.json())
         .then(data => {
             document.getElementById('employees-loading').style.display = 'none';
@@ -317,19 +319,36 @@ function editEmployee(id) {
 }
 
 function saveEmployeeEdit() {
-    const id = document.getElementById('edit-id').value;
+    const id = parseInt(document.getElementById('edit-id').value);
     const first_name = document.getElementById('edit-first-name').value;
     const last_name = document.getElementById('edit-last-name').value;
     const email = document.getElementById('edit-email').value;
     const role = document.getElementById('edit-role').value;
     const status = document.getElementById('edit-status').value;
     
-    fetch('<?php echo base_path('api/employees/edit'); ?>', {
+    const editUrl = '<?php echo base_path('api/employees/edit'); ?>';
+    console.log('Edit URL:', editUrl);
+    console.log('Edit data:', { id, first_name, last_name, email, role, status });
+    
+    fetch(editUrl, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ id, first_name, last_name, email, role, status })
     })
-    .then(r => r.json())
+    .then(r => {
+        if (!r.ok) {
+            throw new Error('Network response was not ok: ' + r.status);
+        }
+        return r.text(); // Get response as text first
+    })
+    .then(text => {
+        try {
+            return JSON.parse(text); // Try to parse as JSON
+        } catch (e) {
+            console.error('Response text:', text);
+            throw new Error('Invalid JSON response');
+        }
+    })
     .then(data => {
         if (data.success) {
             showMsg('Employee updated successfully!', 'success');
@@ -342,6 +361,7 @@ function saveEmployeeEdit() {
         }
     })
     .catch(err => {
+        console.error('Error details:', err);
         showMsg('Error updating employee: ' + err.message, 'error');
     });
 }
@@ -390,12 +410,29 @@ function deleteEmployee(id) {
 }
 
 function confirmDeleteEmployee(id) {
-    fetch('<?php echo base_path('api/employees/delete'); ?>', {
+    const deleteUrl = '<?php echo base_path('api/employees/delete'); ?>';
+    console.log('Delete URL:', deleteUrl);
+    console.log('Delete data:', { id: parseInt(id) });
+    
+    fetch(deleteUrl, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ id })
+        body: JSON.stringify({ id: parseInt(id) })
     })
-    .then(r => r.json())
+    .then(r => {
+        if (!r.ok) {
+            throw new Error('Network response was not ok: ' + r.status);
+        }
+        return r.text(); // Get response as text first
+    })
+    .then(text => {
+        try {
+            return JSON.parse(text); // Try to parse as JSON
+        } catch (e) {
+            console.error('Response text:', text);
+            throw new Error('Invalid JSON response');
+        }
+    })
     .then(data => {
         if (data.success) {
             showMsg('Employee deleted successfully!', 'success');
@@ -408,6 +445,7 @@ function confirmDeleteEmployee(id) {
         }
     })
     .catch(err => {
+        console.error('Error details:', err);
         showMsg('Error deleting employee: ' + err.message, 'error');
     });
 }
