@@ -151,6 +151,11 @@ try {
             }
             break;
             
+        // Employee Auth (Magic Link)
+        case strpos($requestUri, "/employee/auth") === 0:
+            require_once __DIR__ . "/views/employee/auth.php";
+            break;
+            
         // Employee Dashboard
         case strpos($requestUri, "/employee/dashboard") === 0:
             if (!isset($_SESSION["user_id"]) || !in_array($_SESSION["user_role"], ['agent', 'manager'])) {

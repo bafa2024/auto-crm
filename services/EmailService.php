@@ -485,4 +485,61 @@ class EmailService {
             $this->config['smtp_username'] ?? 'noreply@autocrm.com'
         );
     }
+    
+    public function sendLoginLink($email, $loginUrl, $name = '') {
+        // In development mode, log to file instead of sending email
+        if (($_ENV['APP_ENV'] ?? 'development') === 'development') {
+            $logDir = dirname(__DIR__) . '/logs';
+            if (!is_dir($logDir)) {
+                mkdir($logDir, 0777, true);
+            }
+            
+            $logFile = $logDir . '/login_links.log';
+            $logEntry = date('Y-m-d H:i:s') . " - To: {$email}, URL: {$loginUrl}\n";
+            file_put_contents($logFile, $logEntry, FILE_APPEND);
+            
+            return true;
+        }
+        
+        $subject = "Your Login Link - CRM";
+        $displayName = $name ?: 'Employee';
+        
+        $body = "
+        <html>
+        <head>
+            <style>
+                body { font-family: Arial, sans-serif; line-height: 1.6; color: #333; }
+                .container { max-width: 600px; margin: 0 auto; padding: 20px; }
+                .header { background-color: #6c757d; color: white; padding: 20px; text-align: center; }
+                .content { background-color: #f8f9fa; padding: 30px; }
+                .button { display: inline-block; padding: 12px 30px; background-color: #007bff; color: white; text-decoration: none; border-radius: 5px; margin: 20px 0; }
+                .footer { text-align: center; padding: 20px; color: #6c757d; font-size: 14px; }
+            </style>
+        </head>
+        <body>
+            <div class='container'>
+                <div class='header'>
+                    <h2>Employee Dashboard Access</h2>
+                </div>
+                <div class='content'>
+                    <p>Hello {$displayName},</p>
+                    <p>Click the button below to access your employee dashboard:</p>
+                    <p style='text-align: center;'>
+                        <a href='{$loginUrl}' class='button'>Access Dashboard</a>
+                    </p>
+                    <p>Or copy and paste this link in your browser:</p>
+                    <p style='word-break: break-all; background-color: #e9ecef; padding: 10px;'>{$loginUrl}</p>
+                    <p><strong>This link will expire in 30 minutes for security reasons.</strong></p>
+                    <p>If you didn't request this login, please ignore this email.</p>
+                </div>
+                <div class='footer'>
+                    <p>This is an automated message, please do not reply.</p>
+                </div>
+            </div>
+        </body>
+        </html>
+        ";
+        
+        return $this->send($email, $subject, $body);
+    }
 } 
