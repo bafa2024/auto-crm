@@ -100,6 +100,8 @@ document.addEventListener("DOMContentLoaded", function() {
         
         try {
             const apiUrl = (basePath ? basePath : '') + "/api/auth/employee-send-otp";
+            console.log("Sending OTP request to:", apiUrl);
+            console.log("Email:", currentEmail);
             
             const response = await fetch(apiUrl, {
                 method: "POST",
@@ -164,6 +166,8 @@ document.addEventListener("DOMContentLoaded", function() {
         
         try {
             const apiUrl = (basePath ? basePath : '') + "/api/auth/employee-verify-otp";
+            console.log("Verifying OTP at:", apiUrl);
+            console.log("Email:", currentEmail, "OTP:", otp);
             
             const response = await fetch(apiUrl, {
                 method: "POST",
