@@ -199,6 +199,8 @@ try {
             } elseif (preg_match('/^edit\/(\d+)$/', $campaignPath, $matches)) {
                 $_GET['id'] = $matches[1];
                 require_once __DIR__ . "/views/employee/campaign-edit.php";
+            } elseif ($campaignPath === 'analytics') {
+                require_once __DIR__ . "/views/employee/campaign-analytics.php";
             } else {
                 http_response_code(404);
                 require_once __DIR__ . "/views/404.php";
@@ -351,6 +353,10 @@ try {
                     elseif (isset($pathParts[1]) && is_numeric($pathParts[1]) && isset($pathParts[2]) && $pathParts[2] === "stats" && $requestMethod === "GET") {
                         $controller->getCampaignStats((int)$pathParts[1]);
                     }
+                    // Handle /api/campaigns/send-test (POST) - send test email
+                    elseif (isset($pathParts[1]) && $pathParts[1] === "send-test" && $requestMethod === "POST") {
+                        $controller->sendTestEmail();
+                    }
                     else {
                         http_response_code(404);
                         echo json_encode(["error" => "Campaign endpoint not found"]);
@@ -369,6 +375,21 @@ try {
                         } elseif (isset($pathParts[2]) && $pathParts[2] === "click" && isset($pathParts[3])) {
                             // /api/email/track/click/{trackingId}
                             $controller->trackClick($pathParts[3]);
+                        } else {
+                            http_response_code(404);
+                        }
+                    } 
+                    // Email webhook endpoints
+                    elseif (isset($pathParts[1]) && $pathParts[1] === "webhook") {
+                        require_once __DIR__ . "/controllers/EmailWebhookController.php";
+                        $controller = new EmailWebhookController($db);
+                        
+                        if (isset($pathParts[2]) && $pathParts[2] === "bounce" && $requestMethod === "POST") {
+                            // /api/email/webhook/bounce
+                            $controller->handleBounce();
+                        } elseif (isset($pathParts[2]) && $pathParts[2] === "complaint" && $requestMethod === "POST") {
+                            // /api/email/webhook/complaint
+                            $controller->handleComplaint();
                         } else {
                             http_response_code(404);
                         }

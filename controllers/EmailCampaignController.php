@@ -304,6 +304,62 @@ class EmailCampaignController extends BaseController {
         }
     }
     
+    public function sendTestEmail() {
+        if ($_SERVER["REQUEST_METHOD"] !== "POST") {
+            $this->sendError("Method not allowed", 405);
+            return;
+        }
+        
+        // Check if user is logged in
+        if (!isset($_SESSION["user_id"])) {
+            $this->sendError("Unauthorized", 401);
+            return;
+        }
+        
+        $input = json_decode(file_get_contents("php://input"), true);
+        
+        // Validate input
+        $to = $input["to"] ?? "";
+        $subject = $input["subject"] ?? "";
+        $content = $input["content"] ?? "";
+        $fromName = $input["from_name"] ?? "";
+        $fromEmail = $input["from_email"] ?? "";
+        
+        if (empty($to) || empty($subject) || empty($content)) {
+            $this->sendError("Missing required fields", 400);
+            return;
+        }
+        
+        if (!filter_var($to, FILTER_VALIDATE_EMAIL)) {
+            $this->sendError("Invalid email address", 400);
+            return;
+        }
+        
+        try {
+            require_once __DIR__ . "/../services/EmailService.php";
+            $emailService = new EmailService($this->db);
+            
+            // Add test disclaimer
+            $content = '<div style="background-color: #f8d7da; color: #721c24; padding: 12px; margin-bottom: 20px; border: 1px solid #f5c6cb; border-radius: 4px;">
+                <strong>TEST EMAIL</strong> - This is a test email from your campaign creation interface.
+            </div>' . $content;
+            
+            // Send test email
+            $result = $emailService->send($to, "[TEST] " . $subject, $content, [
+                'from_email' => $fromEmail,
+                'from_name' => $fromName
+            ]);
+            
+            if ($result['success']) {
+                $this->sendSuccess(['sent_to' => $to], "Test email sent successfully");
+            } else {
+                $this->sendError("Failed to send test email: " . ($result['error'] ?? 'Unknown error'), 500);
+            }
+        } catch (Exception $e) {
+            $this->sendError("Error sending test email: " . $e->getMessage(), 500);
+        }
+    }
+    
     public function getCampaignStats($campaignId) {
         if ($_SERVER["REQUEST_METHOD"] !== "GET") {
             $this->sendError("Method not allowed", 405);

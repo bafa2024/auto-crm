@@ -8,6 +8,7 @@ require_once __DIR__ . "/../../config/database.php";
 require_once __DIR__ . "/../../models/EmailCampaign.php";
 require_once __DIR__ . "/../../models/Contact.php";
 require_once __DIR__ . "/../../models/EmployeePermission.php";
+require_once __DIR__ . "/../../models/EmailTemplate.php";
 
 // Check if user is logged in and is an employee
 if (!isset($_SESSION["user_id"]) || !in_array($_SESSION["user_role"], ['agent', 'manager'])) {
@@ -45,6 +46,11 @@ while ($row = $stmt->fetch()) {
     }
 }
 sort($tags);
+
+// Get email templates
+$templateModel = new EmailTemplate($db);
+$templates = $templateModel->getAvailableTemplates($_SESSION["user_id"]);
+$templateCategories = $templateModel->getCategories();
 ?>
 
 <!DOCTYPE html>
@@ -169,33 +175,68 @@ sort($tags);
                                 </div>
                             </div>
 
+                            <!-- Email Template Selection -->
+                            <div class="form-section">
+                                <h5 class="mb-3">Email Template (Optional)</h5>
+                                <div class="mb-3">
+                                    <select class="form-select" id="template-select" onchange="loadTemplate()">
+                                        <option value="">Start from scratch</option>
+                                        <?php foreach ($templateCategories as $category): ?>
+                                            <optgroup label="<?php echo htmlspecialchars($category); ?>">
+                                                <?php foreach ($templates as $template): ?>
+                                                    <?php if ($template['category'] === $category): ?>
+                                                        <option value="<?php echo $template['id']; ?>" 
+                                                                data-subject="<?php echo htmlspecialchars($template['subject']); ?>"
+                                                                data-content="<?php echo htmlspecialchars($template['content']); ?>">
+                                                            <?php echo htmlspecialchars($template['name']); ?>
+                                                        </option>
+                                                    <?php endif; ?>
+                                                <?php endforeach; ?>
+                                            </optgroup>
+                                        <?php endforeach; ?>
+                                    </select>
+                                </div>
+                            </div>
+
                             <!-- Email Content -->
                             <div class="form-section">
                                 <h5 class="mb-3">Email Content</h5>
                                 <div class="mb-3">
                                     <label for="content" class="form-label">Email Body *</label>
-                                    <div id="editor-toolbar">
-                                        <button type="button" class="btn btn-sm btn-outline-secondary" onclick="formatText('bold')">
-                                            <i class="fas fa-bold"></i>
-                                        </button>
-                                        <button type="button" class="btn btn-sm btn-outline-secondary" onclick="formatText('italic')">
-                                            <i class="fas fa-italic"></i>
-                                        </button>
-                                        <button type="button" class="btn btn-sm btn-outline-secondary" onclick="formatText('underline')">
-                                            <i class="fas fa-underline"></i>
-                                        </button>
-                                        <button type="button" class="btn btn-sm btn-outline-secondary" onclick="insertLink()">
-                                            <i class="fas fa-link"></i>
-                                        </button>
-                                        <button type="button" class="btn btn-sm btn-outline-secondary" onclick="formatText('insertUnorderedList')">
-                                            <i class="fas fa-list-ul"></i>
-                                        </button>
-                                        <button type="button" class="btn btn-sm btn-outline-secondary" onclick="formatText('insertOrderedList')">
-                                            <i class="fas fa-list-ol"></i>
-                                        </button>
-                                        <button type="button" class="btn btn-sm btn-outline-secondary" onclick="insertVariable()">
-                                            <i class="fas fa-code"></i> Variable
-                                        </button>
+                                    <div id="editor-toolbar" class="btn-toolbar mb-2">
+                                        <div class="btn-group me-2">
+                                            <button type="button" class="btn btn-sm btn-outline-secondary" onclick="formatText('bold')" title="Bold">
+                                                <i class="fas fa-bold"></i>
+                                            </button>
+                                            <button type="button" class="btn btn-sm btn-outline-secondary" onclick="formatText('italic')" title="Italic">
+                                                <i class="fas fa-italic"></i>
+                                            </button>
+                                            <button type="button" class="btn btn-sm btn-outline-secondary" onclick="formatText('underline')" title="Underline">
+                                                <i class="fas fa-underline"></i>
+                                            </button>
+                                        </div>
+                                        <div class="btn-group me-2">
+                                            <button type="button" class="btn btn-sm btn-outline-secondary" onclick="insertLink()" title="Insert Link">
+                                                <i class="fas fa-link"></i>
+                                            </button>
+                                            <button type="button" class="btn btn-sm btn-outline-secondary" onclick="formatText('insertUnorderedList')" title="Bullet List">
+                                                <i class="fas fa-list-ul"></i>
+                                            </button>
+                                            <button type="button" class="btn btn-sm btn-outline-secondary" onclick="formatText('insertOrderedList')" title="Numbered List">
+                                                <i class="fas fa-list-ol"></i>
+                                            </button>
+                                        </div>
+                                        <div class="btn-group me-2">
+                                            <button type="button" class="btn btn-sm btn-outline-secondary" onclick="insertVariable()" title="Insert Variable">
+                                                <i class="fas fa-code"></i> Variable
+                                            </button>
+                                            <button type="button" class="btn btn-sm btn-outline-secondary" onclick="previewEmail()" title="Preview">
+                                                <i class="fas fa-eye"></i> Preview
+                                            </button>
+                                            <button type="button" class="btn btn-sm btn-outline-secondary" onclick="sendTestEmail()" title="Send Test">
+                                                <i class="fas fa-paper-plane"></i> Test
+                                            </button>
+                                        </div>
                                     </div>
                                     <div contenteditable="true" id="content-editor" class="form-control" 
                                          style="min-height: 300px; max-height: 500px; overflow-y: auto;"
@@ -324,6 +365,113 @@ sort($tags);
         contentEditor.addEventListener('input', function() {
             contentTextarea.value = contentEditor.innerHTML;
         });
+        
+        // Load template
+        function loadTemplate() {
+            const select = document.getElementById('template-select');
+            const selectedOption = select.options[select.selectedIndex];
+            
+            if (selectedOption.value) {
+                const subject = selectedOption.dataset.subject;
+                const content = selectedOption.dataset.content;
+                
+                // Update subject if empty
+                const subjectField = document.getElementById('subject');
+                if (!subjectField.value || confirm('Replace current subject with template subject?')) {
+                    subjectField.value = subject;
+                }
+                
+                // Update content
+                if (!contentEditor.innerHTML || confirm('Replace current content with template content?')) {
+                    contentEditor.innerHTML = content;
+                    contentTextarea.value = content;
+                }
+            }
+        }
+        
+        // Preview email
+        function previewEmail() {
+            const subject = document.getElementById('subject').value;
+            const content = contentEditor.innerHTML;
+            const fromName = document.getElementById('from_name').value;
+            const fromEmail = document.getElementById('from_email').value;
+            
+            // Create preview modal
+            const modal = document.createElement('div');
+            modal.className = 'modal fade';
+            modal.id = 'previewModal';
+            modal.innerHTML = `
+                <div class="modal-dialog modal-lg">
+                    <div class="modal-content">
+                        <div class="modal-header">
+                            <h5 class="modal-title">Email Preview</h5>
+                            <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                        </div>
+                        <div class="modal-body">
+                            <div class="mb-3">
+                                <strong>From:</strong> ${fromName} &lt;${fromEmail}&gt;<br>
+                                <strong>Subject:</strong> ${subject}
+                            </div>
+                            <hr>
+                            <div class="email-preview" style="border: 1px solid #ddd; padding: 20px; background: #fff;">
+                                ${content.replace(/{{first_name}}/g, 'John')
+                                        .replace(/{{last_name}}/g, 'Doe')
+                                        .replace(/{{email}}/g, 'john.doe@example.com')
+                                        .replace(/{{company}}/g, 'Example Company')
+                                        .replace(/{{phone}}/g, '+1 234 567 8900')}
+                            </div>
+                        </div>
+                        <div class="modal-footer">
+                            <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Close</button>
+                        </div>
+                    </div>
+                </div>
+            `;
+            
+            document.body.appendChild(modal);
+            const bsModal = new bootstrap.Modal(modal);
+            bsModal.show();
+            
+            modal.addEventListener('hidden.bs.modal', () => {
+                modal.remove();
+            });
+        }
+        
+        // Send test email
+        async function sendTestEmail() {
+            const testEmail = prompt('Enter email address to send test to:');
+            if (!testEmail || !testEmail.includes('@')) {
+                return;
+            }
+            
+            const data = {
+                to: testEmail,
+                subject: document.getElementById('subject').value,
+                content: contentEditor.innerHTML,
+                from_name: document.getElementById('from_name').value,
+                from_email: document.getElementById('from_email').value
+            };
+            
+            try {
+                const response = await fetch(`${basePath}/api/campaigns/send-test`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify(data)
+                });
+                
+                const result = await response.json();
+                
+                if (result.success) {
+                    alert('Test email sent successfully to ' + testEmail);
+                } else {
+                    alert(result.message || 'Failed to send test email');
+                }
+            } catch (error) {
+                alert('Network error. Please try again.');
+            }
+        }
         
         // Toggle schedule section
         document.querySelectorAll('input[name="send_type"]').forEach(radio => {
