@@ -1,5 +1,9 @@
 <?php
-session_start();
+// Start session only if not already started
+if (session_status() === PHP_SESSION_NONE) {
+    session_start();
+}
+
 require_once __DIR__ . "/../../config/database.php";
 require_once __DIR__ . "/../../models/EmailCampaign.php";
 require_once __DIR__ . "/../../models/Contact.php";
@@ -50,7 +54,8 @@ $stmt->execute([$userId]);
 $recentCampaigns = $stmt->fetchAll();
 
 // Get total contacts available
-$totalContacts = $contactModel->count();
+$stmt = $db->query("SELECT COUNT(*) as total FROM contacts");
+$totalContacts = $stmt->fetch()['total'];
 ?>
 
 <!DOCTYPE html>

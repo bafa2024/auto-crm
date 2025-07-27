@@ -1,5 +1,9 @@
 <?php
-session_start();
+// Start session only if not already started
+if (session_status() === PHP_SESSION_NONE) {
+    session_start();
+}
+
 require_once __DIR__ . "/../../config/database.php";
 require_once __DIR__ . "/../../models/EmailCampaign.php";
 require_once __DIR__ . "/../../models/Contact.php";
@@ -13,8 +17,9 @@ if (!isset($_SESSION["user_id"]) || !in_array($_SESSION["user_role"], ['agent', 
 $database = new Database();
 $db = $database->getConnection();
 
-$contactModel = new Contact($db);
-$totalContacts = $contactModel->count();
+// Get total contacts
+$stmt = $db->query("SELECT COUNT(*) as total FROM contacts");
+$totalContacts = $stmt->fetch()['total'];
 
 // Get contact groups/tags for targeting
 $stmt = $db->query("SELECT DISTINCT tags FROM contacts WHERE tags IS NOT NULL AND tags != ''");
