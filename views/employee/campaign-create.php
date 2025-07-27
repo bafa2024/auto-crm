@@ -7,6 +7,7 @@ if (session_status() === PHP_SESSION_NONE) {
 require_once __DIR__ . "/../../config/database.php";
 require_once __DIR__ . "/../../models/EmailCampaign.php";
 require_once __DIR__ . "/../../models/Contact.php";
+require_once __DIR__ . "/../../models/EmployeePermission.php";
 
 // Check if user is logged in and is an employee
 if (!isset($_SESSION["user_id"]) || !in_array($_SESSION["user_role"], ['agent', 'manager'])) {
@@ -16,6 +17,16 @@ if (!isset($_SESSION["user_id"]) || !in_array($_SESSION["user_role"], ['agent', 
 
 $database = new Database();
 $db = $database->getConnection();
+
+// Check if user has permission to create campaigns
+$permissionModel = new EmployeePermission($db);
+$permissions = $permissionModel->getUserPermissions($_SESSION["user_id"]);
+
+if (!$permissions['can_create_campaigns']) {
+    $_SESSION['error'] = "You don't have permission to create campaigns.";
+    header("Location: /employee/campaigns");
+    exit();
+}
 
 // Get total contacts
 $stmt = $db->query("SELECT COUNT(*) as total FROM contacts");

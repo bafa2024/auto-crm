@@ -521,6 +521,15 @@ try {
                                 $request = new stdClass();
                                 $request->body = $input;
                                 $controller->removeFromTeam($userId, $request);
+                            } elseif ($requestMethod === "GET" && isset($pathParts[1]) && is_numeric($pathParts[1]) && isset($pathParts[2]) && $pathParts[2] === "permissions") {
+                                $userId = (int)$pathParts[1];
+                                $controller->getEmployeePermissions($userId);
+                            } elseif ($requestMethod === "PUT" && isset($pathParts[1]) && is_numeric($pathParts[1]) && isset($pathParts[2]) && $pathParts[2] === "permissions") {
+                                $userId = (int)$pathParts[1];
+                                $input = json_decode(file_get_contents("php://input"), true);
+                                $request = new stdClass();
+                                $request->body = $input;
+                                $controller->updateEmployeePermissions($userId, $request);
                             } else {
                                 http_response_code(404);
                                 echo json_encode(["error" => "Employees endpoint not found"]);

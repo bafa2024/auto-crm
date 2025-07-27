@@ -20,6 +20,11 @@ $db = $database->getConnection();
 $campaignModel = new EmailCampaign($db);
 $contactModel = new Contact($db);
 
+// Get user permissions
+require_once __DIR__ . "/../../models/EmployeePermission.php";
+$permissionModel = new EmployeePermission($db);
+$permissions = $permissionModel->getUserPermissions($_SESSION["user_id"]);
+
 // Get statistics for the employee
 $userId = $_SESSION["user_id"];
 
@@ -293,6 +298,7 @@ $totalContacts = $stmt->fetch()['total'];
 
                 <!-- Quick Actions -->
                 <div class="row mt-4">
+                    <?php if ($permissions['can_create_campaigns']): ?>
                     <div class="col-md-6">
                         <div class="card">
                             <div class="card-body text-center">
@@ -303,6 +309,9 @@ $totalContacts = $stmt->fetch()['total'];
                             </div>
                         </div>
                     </div>
+                    <?php endif; ?>
+                    
+                    <?php if ($permissions['can_upload_contacts']): ?>
                     <div class="col-md-6">
                         <div class="card">
                             <div class="card-body text-center">
@@ -313,6 +322,15 @@ $totalContacts = $stmt->fetch()['total'];
                             </div>
                         </div>
                     </div>
+                    <?php endif; ?>
+                    
+                    <?php if (!$permissions['can_create_campaigns'] && !$permissions['can_upload_contacts']): ?>
+                    <div class="col-12">
+                        <div class="alert alert-info">
+                            <i class="fas fa-info-circle"></i> You currently don't have permissions for quick actions. Please contact your administrator.
+                        </div>
+                    </div>
+                    <?php endif; ?>
                 </div>
             </main>
         </div>

@@ -19,6 +19,11 @@ $db = $database->getConnection();
 $campaignModel = new EmailCampaign($db);
 $userId = $_SESSION["user_id"];
 
+// Get user permissions
+require_once __DIR__ . "/../../models/EmployeePermission.php";
+$permissionModel = new EmployeePermission($db);
+$permissions = $permissionModel->getUserPermissions($userId);
+
 // Get filter parameters
 $status = $_GET['status'] ?? '';
 $search = $_GET['search'] ?? '';
@@ -140,9 +145,11 @@ $campaigns = $stmt->fetchAll();
                 <div class="d-flex justify-content-between flex-wrap flex-md-nowrap align-items-center pt-3 pb-2 mb-3 border-bottom">
                     <h1 class="h2">My Email Campaigns</h1>
                     <div class="btn-toolbar mb-2 mb-md-0">
+                        <?php if ($permissions['can_create_campaigns']): ?>
                         <a href="/employee/campaigns/create" class="btn btn-primary">
                             <i class="fas fa-plus me-2"></i>New Campaign
                         </a>
+                        <?php endif; ?>
                     </div>
                 </div>
 

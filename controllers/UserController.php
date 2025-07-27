@@ -3,17 +3,20 @@ require_once 'BaseController.php';
 require_once __DIR__ . '/../models/User.php';
 require_once __DIR__ . '/../models/TeamMember.php';
 require_once __DIR__ . '/../models/Team.php';
+require_once __DIR__ . '/../models/EmployeePermission.php';
 
 class UserController extends BaseController {
     private $userModel;
     private $teamMemberModel;
     private $teamModel;
+    private $permissionModel;
 
     public function __construct($database) {
         parent::__construct($database);
         $this->userModel = new User($database);
         $this->teamMemberModel = new TeamMember($database);
         $this->teamModel = new Team($database);
+        $this->permissionModel = new EmployeePermission($database);
     }
 
     // GET /api/employees/list?q=...
@@ -168,6 +171,47 @@ class UserController extends BaseController {
             $this->sendSuccess([], 'Removed from team');
         } else {
             $this->sendError('Failed to remove from team', 500);
+        }
+    }
+    
+    // GET /api/employees/{id}/permissions
+    public function getEmployeePermissions($userId) {
+        try {
+            // Check if user is admin
+            if (!isset($_SESSION["user_id"]) || $_SESSION["user_role"] !== "admin") {
+                $this->sendError("Unauthorized", 401);
+            }
+            
+            $permissions = $this->permissionModel->getUserPermissions($userId);
+            $this->sendSuccess($permissions, "Permissions retrieved successfully");
+        } catch (Exception $e) {
+            $this->sendError("Failed to get permissions: " . $e->getMessage());
+        }
+    }
+    
+    // PUT /api/employees/{id}/permissions
+    public function updateEmployeePermissions($userId, $request = null) {
+        try {
+            // Check if user is admin
+            if (!isset($_SESSION["user_id"]) || $_SESSION["user_role"] !== "admin") {
+                $this->sendError("Unauthorized", 401);
+            }
+            
+            $permissions = $request->body ?? json_decode(file_get_contents("php://input"), true);
+            
+            if (!$permissions) {
+                $this->sendError("Invalid permissions data");
+            }
+            
+            $result = $this->permissionModel->updateUserPermissions($userId, $permissions);
+            
+            if ($result) {
+                $this->sendSuccess([], "Permissions updated successfully");
+            } else {
+                $this->sendError("Failed to update permissions");
+            }
+        } catch (Exception $e) {
+            $this->sendError("Failed to update permissions: " . $e->getMessage());
         }
     }
 } 

@@ -177,7 +177,7 @@ if (!isset($_SESSION['user_id'])) {
                         <div class="table-responsive">
                             <table class="table table-striped table-hover">
                                 <thead>
-                                    <tr><th>Name</th><th>Email</th><th>Role</th><th>Status</th><th>Teams</th><th>Actions</th></tr>
+                                    <tr><th>Name</th><th>Email</th><th>Role</th><th>Status</th><th>Teams</th><th>Permissions</th><th>Actions</th></tr>
                                 </thead>
                                 <tbody id="employees"></tbody>
                             </table>
@@ -216,7 +216,9 @@ function fetchEmployees(q = '') {
                 data.data.forEach(emp => {
                     employeesData[emp.id] = emp;
                     const tr = document.createElement('tr');
-                    tr.innerHTML = `<td>${emp.first_name} ${emp.last_name}</td><td>${emp.email}</td><td>${emp.role}</td><td>${emp.status}</td><td><span id='teams-${emp.id}'></span></td><td class='actions'>
+                    tr.innerHTML = `<td>${emp.first_name} ${emp.last_name}</td><td>${emp.email}</td><td>${emp.role}</td><td>${emp.status}</td><td><span id='teams-${emp.id}'></span></td><td>
+                        ${(emp.role === 'agent' || emp.role === 'manager') ? `<button class='btn btn-sm btn-outline-secondary' title='Manage Permissions' onclick='managePermissions(${emp.id})'><i class='bi bi-shield-lock'></i> Permissions</button>` : '-'}
+                    </td><td class='actions'>
                         ${(emp.role === 'agent' || emp.role === 'manager') ? `<button class='btn btn-sm btn-outline-success' title='Login as ${emp.first_name}' onclick='loginAsEmployee(${emp.id})'><i class='bi bi-box-arrow-in-right'></i></button>` : ''}
                         <button class='btn btn-sm btn-outline-primary' title='Edit' onclick='editEmployee(${emp.id})'><i class='bi bi-pencil'></i></button>
                         <button class='btn btn-sm btn-outline-danger' title='Delete' onclick='deleteEmployee(${emp.id})'><i class='bi bi-trash'></i></button>
@@ -576,6 +578,137 @@ function confirmLoginAsEmployee(id) {
 
 // Initial load
 fetchEmployees();
+// Permissions management
+function managePermissions(userId) {
+    const emp = employeesData[userId];
+    if (!emp) return;
+    
+    // Fetch current permissions
+    fetch(`<?php echo base_path('api/employees'); ?>/${userId}/permissions`)
+        .then(r => r.json())
+        .then(data => {
+            const permissions = data.data || {};
+            
+            // Create modal
+            const modal = document.createElement('div');
+            modal.className = 'modal fade';
+            modal.id = 'permissionsModal';
+            modal.innerHTML = `
+                <div class="modal-dialog">
+                    <div class="modal-content">
+                        <div class="modal-header">
+                            <h5 class="modal-title">Manage Permissions - ${emp.first_name} ${emp.last_name}</h5>
+                            <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                        </div>
+                        <div class="modal-body">
+                            <p class="text-muted">Configure what this employee can do in the system.</p>
+                            
+                            <div class="form-check form-switch mb-3">
+                                <input class="form-check-input" type="checkbox" id="perm_upload" ${permissions.can_upload_contacts ? 'checked' : ''}>
+                                <label class="form-check-label" for="perm_upload">
+                                    <strong>Upload Contacts</strong><br>
+                                    <small class="text-muted">Can upload CSV/Excel files to add contacts</small>
+                                </label>
+                            </div>
+                            
+                            <div class="form-check form-switch mb-3">
+                                <input class="form-check-input" type="checkbox" id="perm_create" ${permissions.can_create_campaigns ? 'checked' : ''}>
+                                <label class="form-check-label" for="perm_create">
+                                    <strong>Create Campaigns</strong><br>
+                                    <small class="text-muted">Can create new email campaigns</small>
+                                </label>
+                            </div>
+                            
+                            <div class="form-check form-switch mb-3">
+                                <input class="form-check-input" type="checkbox" id="perm_send" ${permissions.can_send_campaigns ? 'checked' : ''}>
+                                <label class="form-check-label" for="perm_send">
+                                    <strong>Send Campaigns</strong><br>
+                                    <small class="text-muted">Can send/activate email campaigns</small>
+                                </label>
+                            </div>
+                            
+                            <div class="form-check form-switch mb-3">
+                                <input class="form-check-input" type="checkbox" id="perm_edit" ${permissions.can_edit_campaigns ? 'checked' : ''}>
+                                <label class="form-check-label" for="perm_edit">
+                                    <strong>Edit Campaigns</strong><br>
+                                    <small class="text-muted">Can modify existing campaigns</small>
+                                </label>
+                            </div>
+                            
+                            <div class="form-check form-switch mb-3">
+                                <input class="form-check-input" type="checkbox" id="perm_delete" ${permissions.can_delete_campaigns ? 'checked' : ''}>
+                                <label class="form-check-label" for="perm_delete">
+                                    <strong>Delete Campaigns</strong><br>
+                                    <small class="text-muted">Can permanently delete campaigns</small>
+                                </label>
+                            </div>
+                            
+                            <div class="form-check form-switch mb-3">
+                                <input class="form-check-input" type="checkbox" id="perm_export" ${permissions.can_export_contacts ? 'checked' : ''}>
+                                <label class="form-check-label" for="perm_export">
+                                    <strong>Export Contacts</strong><br>
+                                    <small class="text-muted">Can download contact lists</small>
+                                </label>
+                            </div>
+                            
+                            <div class="form-check form-switch mb-3">
+                                <input class="form-check-input" type="checkbox" id="perm_view_all" ${permissions.can_view_all_campaigns ? 'checked' : ''}>
+                                <label class="form-check-label" for="perm_view_all">
+                                    <strong>View All Campaigns</strong><br>
+                                    <small class="text-muted">Can see campaigns created by other employees</small>
+                                </label>
+                            </div>
+                        </div>
+                        <div class="modal-footer">
+                            <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                            <button type="button" class="btn btn-primary" onclick="savePermissions(${userId})">Save Permissions</button>
+                        </div>
+                    </div>
+                </div>
+            `;
+            
+            document.body.appendChild(modal);
+            const bsModal = new bootstrap.Modal(modal);
+            bsModal.show();
+            
+            modal.addEventListener('hidden.bs.modal', () => {
+                modal.remove();
+            });
+        })
+        .catch(() => {
+            showMsg('Failed to load permissions.', 'error');
+        });
+}
+
+function savePermissions(userId) {
+    const permissions = {
+        can_upload_contacts: document.getElementById('perm_upload').checked,
+        can_create_campaigns: document.getElementById('perm_create').checked,
+        can_send_campaigns: document.getElementById('perm_send').checked,
+        can_edit_campaigns: document.getElementById('perm_edit').checked,
+        can_delete_campaigns: document.getElementById('perm_delete').checked,
+        can_export_contacts: document.getElementById('perm_export').checked,
+        can_view_all_campaigns: document.getElementById('perm_view_all').checked
+    };
+    
+    fetch(`<?php echo base_path('api/employees'); ?>/${userId}/permissions`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(permissions)
+    })
+    .then(r => r.json())
+    .then(data => {
+        if (data.success) {
+            showMsg('Permissions updated successfully!', 'success');
+            bootstrap.Modal.getInstance(document.getElementById('permissionsModal')).hide();
+        } else {
+            showMsg(data.message || 'Failed to update permissions.', 'error');
+        }
+    })
+    .catch(() => {
+        showMsg('Failed to update permissions.', 'error');
+    });
+}
 </script>
 
 <?php include __DIR__ . '/../components/footer.php'; ?> 
