@@ -94,8 +94,11 @@ try {
             break;
             
         case $requestUri === "/employee/logout":
+            if (session_status() === PHP_SESSION_NONE) {
+                session_start();
+            }
             session_destroy();
-            header("Location: /employee/login");
+            header("Location: /");
             exit;
             
         // Contacts page

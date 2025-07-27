@@ -111,7 +111,7 @@ sort($tags);
                             </a>
                         </li>
                         <li class="nav-item">
-                            <a class="nav-link text-danger" href="/api/auth/logout">
+                            <a class="nav-link text-danger" href="/employee/logout">
                                 <i class="fas fa-sign-out-alt me-2"></i> Logout
                             </a>
                         </li>

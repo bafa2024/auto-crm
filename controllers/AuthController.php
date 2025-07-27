@@ -274,9 +274,19 @@ class AuthController extends BaseController {
             session_start();
         }
         
+        // Store the user role before destroying session
+        $wasEmployee = isset($_SESSION["user_role"]) && in_array($_SESSION["user_role"], ['agent', 'manager']);
+        
         session_destroy();
         
-        $this->sendSuccess([], "Logged out successfully");
+        // If it's an API request, send JSON response
+        if (strpos($_SERVER['HTTP_ACCEPT'] ?? '', 'application/json') !== false) {
+            $this->sendSuccess([], "Logged out successfully");
+        } else {
+            // For direct navigation, redirect to landing page
+            header("Location: /");
+            exit();
+        }
     }
     
     public function employeeSendOTP($request = null) {
