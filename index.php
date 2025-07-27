@@ -223,6 +223,14 @@ try {
             require_once __DIR__ . "/views/employee/profile.php";
             break;
             
+        // Unsubscribe page
+        case strpos($requestUri, "/unsubscribe/") === 0:
+            require_once __DIR__ . "/controllers/EmailTrackingController.php";
+            $controller = new EmailTrackingController($db);
+            $token = substr($requestUri, 13); // Remove "/unsubscribe/"
+            $controller->unsubscribe($token);
+            break;
+            
         // API endpoints
         case strpos($requestUri, "/api/") === 0:
             header("Content-Type: application/json");
@@ -335,9 +343,37 @@ try {
                     elseif (isset($pathParts[1]) && is_numeric($pathParts[1]) && !isset($pathParts[2]) && $requestMethod === "DELETE") {
                         $controller->deleteCampaign((int)$pathParts[1]);
                     }
+                    // Handle /api/campaigns/{id}/send (POST) - manually send campaign
+                    elseif (isset($pathParts[1]) && is_numeric($pathParts[1]) && isset($pathParts[2]) && $pathParts[2] === "send" && $requestMethod === "POST") {
+                        $controller->sendCampaign((int)$pathParts[1]);
+                    }
+                    // Handle /api/campaigns/{id}/stats (GET) - get campaign statistics
+                    elseif (isset($pathParts[1]) && is_numeric($pathParts[1]) && isset($pathParts[2]) && $pathParts[2] === "stats" && $requestMethod === "GET") {
+                        $controller->getCampaignStats((int)$pathParts[1]);
+                    }
                     else {
                         http_response_code(404);
                         echo json_encode(["error" => "Campaign endpoint not found"]);
+                    }
+                    break;
+                    
+                case "email":
+                    // Email tracking endpoints
+                    if (isset($pathParts[1]) && $pathParts[1] === "track") {
+                        require_once __DIR__ . "/controllers/EmailTrackingController.php";
+                        $controller = new EmailTrackingController($db);
+                        
+                        if (isset($pathParts[2]) && $pathParts[2] === "open" && isset($pathParts[3])) {
+                            // /api/email/track/open/{trackingId}
+                            $controller->trackOpen($pathParts[3]);
+                        } elseif (isset($pathParts[2]) && $pathParts[2] === "click" && isset($pathParts[3])) {
+                            // /api/email/track/click/{trackingId}
+                            $controller->trackClick($pathParts[3]);
+                        } else {
+                            http_response_code(404);
+                        }
+                    } else {
+                        http_response_code(404);
                     }
                     break;
                     

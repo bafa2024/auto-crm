@@ -1,545 +1,318 @@
 <?php
-// For production, you would use PHPMailer
-// composer require phpmailer/phpmailer
+use PHPMailer\PHPMailer\PHPMailer;
+use PHPMailer\PHPMailer\SMTP;
+use PHPMailer\PHPMailer\Exception;
 
 class EmailService {
-    private $db;
     private $config;
+    private $db;
     
-    public function __construct($database) {
-        $this->db = $database->getConnection();
-        $this->loadConfig();
-    }
-    
-    private function loadConfig() {
-        // Load email configuration from database settings
-        try {
-            $stmt = $this->db->prepare("SELECT setting_key, setting_value FROM system_settings WHERE setting_key LIKE 'smtp_%'");
-            $stmt->execute();
-            $settings = $stmt->fetchAll();
-            
-            $this->config = [];
-            foreach ($settings as $setting) {
-                $this->config[$setting['setting_key']] = $setting['setting_value'];
-            }
-        } catch (Exception $e) {
-            // If system_settings table doesn't exist, use default config
-            $this->config = [
-                'smtp_host' => 'localhost',
-                'smtp_port' => '587',
-                'smtp_username' => 'noreply@regrowup.ca',
-                'smtp_password' => '',
-                'smtp_encryption' => 'tls'
-            ];
+    public function __construct($db) {
+        $this->db = $db;
+        $this->config = include __DIR__ . '/../config/email.php';
+        
+        // Check if PHPMailer is available, if not use built-in mail()
+        if (!class_exists('PHPMailer\PHPMailer\PHPMailer')) {
+            $this->config['driver'] = 'mail';
         }
     }
     
-    public function queueCampaignEmails($campaignId) {
+    /**
+     * Send a single email
+     */
+    public function send($to, $subject, $body, $options = []) {
         try {
-            // Get campaign details
-            $campaignModel = new EmailCampaign($this->db);
-            $campaign = $campaignModel->find($campaignId);
+            if ($this->config['driver'] === 'smtp' && class_exists('PHPMailer\PHPMailer\PHPMailer')) {
+                return $this->sendViaSMTP($to, $subject, $body, $options);
+            } else {
+                return $this->sendViaMail($to, $subject, $body, $options);
+            }
+        } catch (Exception $e) {
+            error_log("Email send error: " . $e->getMessage());
+            return ['success' => false, 'error' => $e->getMessage()];
+        }
+    }
+    
+    /**
+     * Send email via PHPMailer SMTP
+     */
+    private function sendViaSMTP($to, $subject, $body, $options = []) {
+        $mail = new PHPMailer(true);
+        
+        try {
+            // Server settings
+            $mail->isSMTP();
+            $mail->Host = $this->config['smtp']['host'];
+            $mail->SMTPAuth = true;
+            $mail->Username = $this->config['smtp']['username'];
+            $mail->Password = $this->config['smtp']['password'];
+            $mail->SMTPSecure = $this->config['smtp']['encryption'];
+            $mail->Port = $this->config['smtp']['port'];
             
-            if (!$campaign) {
-                return ['success' => false, 'message' => 'Campaign not found'];
+            // Recipients
+            $mail->setFrom(
+                $options['from_email'] ?? $this->config['smtp']['from']['address'],
+                $options['from_name'] ?? $this->config['smtp']['from']['name']
+            );
+            
+            if (is_array($to)) {
+                $mail->addAddress($to['email'], $to['name'] ?? '');
+            } else {
+                $mail->addAddress($to);
             }
             
-            // Get recipients
-            $recipients = $campaignModel->getRecipients($campaignId, 'pending');
+            if (!empty($options['reply_to'])) {
+                $mail->addReplyTo($options['reply_to']);
+            }
+            
+            // Content
+            $mail->isHTML(true);
+            $mail->Subject = $subject;
+            
+            // Add tracking pixel if enabled
+            if ($this->config['track_opens'] && !empty($options['tracking_id'])) {
+                $body = $this->addTrackingPixel($body, $options['tracking_id']);
+            }
+            
+            // Replace click links with tracking links
+            if ($this->config['track_clicks'] && !empty($options['tracking_id'])) {
+                $body = $this->replaceLinksWithTracking($body, $options['tracking_id']);
+            }
+            
+            $mail->Body = $body;
+            $mail->AltBody = strip_tags($body);
+            
+            // Add unsubscribe header
+            if (!empty($options['unsubscribe_url'])) {
+                $mail->addCustomHeader('List-Unsubscribe', '<' . $options['unsubscribe_url'] . '>');
+            }
+            
+            $mail->send();
+            return ['success' => true];
+            
+        } catch (Exception $e) {
+            return ['success' => false, 'error' => $mail->ErrorInfo];
+        }
+    }
+    
+    /**
+     * Send email via PHP mail() function
+     */
+    private function sendViaMail($to, $subject, $body, $options = []) {
+        $headers = [];
+        $headers[] = 'MIME-Version: 1.0';
+        $headers[] = 'Content-type: text/html; charset=UTF-8';
+        
+        $from_email = $options['from_email'] ?? $this->config['smtp']['from']['address'];
+        $from_name = $options['from_name'] ?? $this->config['smtp']['from']['name'];
+        $headers[] = "From: $from_name <$from_email>";
+        
+        if (!empty($options['reply_to'])) {
+            $headers[] = "Reply-To: " . $options['reply_to'];
+        }
+        
+        if (!empty($options['unsubscribe_url'])) {
+            $headers[] = "List-Unsubscribe: <" . $options['unsubscribe_url'] . ">";
+        }
+        
+        // Add tracking if enabled
+        if ($this->config['track_opens'] && !empty($options['tracking_id'])) {
+            $body = $this->addTrackingPixel($body, $options['tracking_id']);
+        }
+        
+        if ($this->config['track_clicks'] && !empty($options['tracking_id'])) {
+            $body = $this->replaceLinksWithTracking($body, $options['tracking_id']);
+        }
+        
+        $to_email = is_array($to) ? $to['email'] : $to;
+        
+        if (mail($to_email, $subject, $body, implode("\r\n", $headers))) {
+            return ['success' => true];
+        } else {
+            return ['success' => false, 'error' => 'Failed to send email'];
+        }
+    }
+    
+    /**
+     * Add tracking pixel to email body
+     */
+    private function addTrackingPixel($body, $trackingId) {
+        $pixelUrl = $this->config['tracking_domain'] . "/api/email/track/open/" . $trackingId;
+        $pixel = '<img src="' . $pixelUrl . '" width="1" height="1" style="display:none;" />';
+        
+        // Add before closing body tag
+        if (stripos($body, '</body>') !== false) {
+            $body = str_ireplace('</body>', $pixel . '</body>', $body);
+        } else {
+            $body .= $pixel;
+        }
+        
+        return $body;
+    }
+    
+    /**
+     * Replace links with tracking links
+     */
+    private function replaceLinksWithTracking($body, $trackingId) {
+        $pattern = '/<a\s+(?:[^>]*?\s+)?href=(["\'])(.*?)\1/i';
+        
+        return preg_replace_callback($pattern, function($matches) use ($trackingId) {
+            $url = $matches[2];
+            
+            // Skip if already a tracking link or mailto/tel
+            if (strpos($url, '/api/email/track/click/') !== false || 
+                strpos($url, 'mailto:') === 0 || 
+                strpos($url, 'tel:') === 0) {
+                return $matches[0];
+            }
+            
+            $trackUrl = $this->config['tracking_domain'] . "/api/email/track/click/" . $trackingId . "?url=" . urlencode($url);
+            return str_replace($matches[2], $trackUrl, $matches[0]);
+        }, $body);
+    }
+    
+    /**
+     * Process campaign and send emails
+     */
+    public function processCampaign($campaignId) {
+        // Get campaign details
+        $stmt = $this->db->prepare("
+            SELECT * FROM email_campaigns WHERE id = ? AND status = 'active'
+        ");
+        $stmt->execute([$campaignId]);
+        $campaign = $stmt->fetch();
+        
+        if (!$campaign) {
+            return ['success' => false, 'error' => 'Campaign not found or not active'];
+        }
+        
+        // Update campaign status to sending
+        $this->db->prepare("UPDATE email_campaigns SET status = 'sending' WHERE id = ?")
+                 ->execute([$campaignId]);
+        
+        // Get pending recipients
+        $stmt = $this->db->prepare("
+            SELECT er.*, c.first_name, c.last_name, c.email as contact_email, c.company, c.phone
+            FROM email_recipients er
+            LEFT JOIN contacts c ON er.contact_id = c.id
+            WHERE er.campaign_id = ? AND er.status = 'pending'
+            LIMIT ?
+        ");
+        
+        $totalSent = 0;
+        $totalFailed = 0;
+        
+        do {
+            $stmt->execute([$campaignId, $this->config['batch_size']]);
+            $recipients = $stmt->fetchAll();
             
             if (empty($recipients)) {
-                return ['success' => false, 'message' => 'No recipients found'];
+                break;
             }
-            
-            // Queue emails
-            $queuedCount = 0;
-            $stmt = $this->db->prepare("
-                INSERT INTO email_queue 
-                (campaign_id, contact_id, recipient_email, subject, content, sender_name, sender_email, reply_to_email, tracking_id, created_at, updated_at)
-                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, NOW(), NOW())
-            ");
             
             foreach ($recipients as $recipient) {
-                $content = $this->parseTemplate($campaign['content'], [
-                    'first_name' => $recipient['first_name'],
-                    'last_name' => $recipient['last_name'],
-                    'email' => $recipient['email'],
-                    'company' => $recipient['company'],
-                    'sender_name' => $campaign['sender_name']
+                // Prepare email content with variable replacement
+                $emailContent = $this->replaceVariables($campaign['content'], $recipient);
+                $subject = $this->replaceVariables($campaign['subject'], $recipient);
+                
+                // Prepare recipient info
+                $to = [
+                    'email' => $recipient['email'] ?? $recipient['contact_email'],
+                    'name' => trim(($recipient['first_name'] ?? '') . ' ' . ($recipient['last_name'] ?? ''))
+                ];
+                
+                // Generate unsubscribe URL
+                $unsubscribeToken = $this->generateUnsubscribeToken($recipient['email'], $campaignId);
+                $unsubscribeUrl = $this->config['tracking_domain'] . "/unsubscribe/" . $unsubscribeToken;
+                
+                // Send email
+                $result = $this->send($to, $subject, $emailContent, [
+                    'from_email' => $campaign['sender_email'] ?? $campaign['from_email'],
+                    'from_name' => $campaign['sender_name'] ?? $campaign['from_name'],
+                    'reply_to' => $campaign['reply_to_email'] ?? null,
+                    'tracking_id' => $recipient['tracking_id'],
+                    'unsubscribe_url' => $unsubscribeUrl
                 ]);
                 
-                $trackingId = $recipient['tracking_id'] ?? uniqid('track_');
-                
-                $stmt->execute([
-                    $campaignId,
-                    $recipient['contact_id'],
-                    $recipient['email'],
-                    $campaign['subject'],
-                    $content,
-                    $campaign['sender_name'],
-                    $campaign['sender_email'],
-                    $campaign['reply_to_email'],
-                    $trackingId
-                ]);
-                
-                $queuedCount++;
-            }
-            
-            return [
-                'success' => true,
-                'queued' => $queuedCount,
-                'message' => "Emails queued for sending successfully!"
-            ];
-            
-        } catch (Exception $e) {
-            return [
-                'success' => false,
-                'message' => 'Failed to queue emails: ' . $e->getMessage()
-            ];
-        }
-    }
-    
-    public function processEmailQueue($batchSize = 50) {
-        try {
-            // Get pending emails from queue
-            $stmt = $this->db->prepare("
-                SELECT * FROM email_queue 
-                WHERE status = 'pending' 
-                AND scheduled_at <= NOW() 
-                AND attempts < max_attempts
-                ORDER BY priority DESC, created_at ASC
-                LIMIT ?
-            ");
-            $stmt->execute([$batchSize]);
-            $emails = $stmt->fetchAll();
-            
-            $sent = 0;
-            $failed = 0;
-            
-            foreach ($emails as $email) {
-                if ($this->sendEmail($email)) {
-                    $this->updateEmailStatus($email['id'], 'sent');
-                    $this->updateRecipientStatus($email['campaign_id'], $email['contact_id'], 'sent');
-                    $sent++;
+                // Update recipient status
+                if ($result['success']) {
+                    $this->db->prepare("
+                        UPDATE email_recipients 
+                        SET status = 'sent', sent_at = NOW() 
+                        WHERE id = ?
+                    ")->execute([$recipient['id']]);
+                    $totalSent++;
                 } else {
-                    $this->updateEmailStatus($email['id'], 'failed', 'Failed to send email');
-                    $failed++;
+                    $this->db->prepare("
+                        UPDATE email_recipients 
+                        SET status = 'failed', error_message = ? 
+                        WHERE id = ?
+                    ")->execute([$result['error'] ?? 'Unknown error', $recipient['id']]);
+                    $totalFailed++;
+                }
+                
+                // Delay between emails
+                if ($this->config['delay_between_emails'] > 0) {
+                    sleep($this->config['delay_between_emails']);
                 }
             }
             
-            return [
-                'success' => true,
-                'processed' => count($emails),
-                'sent' => $sent,
-                'failed' => $failed
-            ];
-            
-        } catch (Exception $e) {
-            return [
-                'success' => false,
-                'message' => 'Failed to process email queue: ' . $e->getMessage()
-            ];
-        }
-    }
-    
-    private function sendEmail($emailData) {
-        try {
-            // In production, you would use PHPMailer or similar
-            // For now, we'll simulate sending
-            
-            // Simulate sending delay
-            usleep(100000); // 0.1 second delay
-            
-            // Add tracking pixel to content
-            $trackingPixel = "<img src='" . APP_URL . "/api/track/open/{$emailData['tracking_id']}' width='1' height='1' style='display:none;' />";
-            $content = $emailData['content'] . $trackingPixel;
-            
-            // In a real implementation:
-            /*
-            use PHPMailer\PHPMailer\PHPMailer;
-            use PHPMailer\PHPMailer\SMTP;
-            
-            $mail = new PHPMailer(true);
-            $mail->isSMTP();
-            $mail->Host = $this->config['smtp_host'];
-            $mail->SMTPAuth = true;
-            $mail->Username = $this->config['smtp_username'];
-            $mail->Password = $this->config['smtp_password'];
-            $mail->SMTPSecure = $this->config['smtp_encryption'];
-            $mail->Port = $this->config['smtp_port'];
-            
-            $mail->setFrom($emailData['sender_email'], $emailData['sender_name']);
-            $mail->addAddress($emailData['recipient_email']);
-            $mail->addReplyTo($emailData['reply_to_email']);
-            
-            $mail->isHTML(true);
-            $mail->Subject = $emailData['subject'];
-            $mail->Body = $content;
-            
-            return $mail->send();
-            */
-            
-            // For demo purposes, simulate success rate
-            return (rand(1, 100) <= 95); // 95% success rate
-            
-        } catch (Exception $e) {
-            error_log("Email sending failed: " . $e->getMessage());
-            return false;
-        }
-    }
-    
-    private function updateEmailStatus($emailId, $status, $errorMessage = null) {
-        $sql = "UPDATE email_queue SET status = ?, updated_at = NOW()";
-        $params = [$status];
-        
-        if ($status === 'sent') {
-            $sql .= ", sent_at = NOW()";
-        } elseif ($status === 'failed') {
-            $sql .= ", attempts = attempts + 1";
-            if ($errorMessage) {
-                $sql .= ", error_message = ?";
-                $params[] = $errorMessage;
+            // Delay between batches
+            if (count($recipients) == $this->config['batch_size'] && $this->config['delay_between_batches'] > 0) {
+                sleep($this->config['delay_between_batches']);
             }
-        }
+            
+        } while (!empty($recipients));
         
-        $sql .= " WHERE id = ?";
-        $params[] = $emailId;
-        
-        $stmt = $this->db->prepare($sql);
-        $stmt->execute($params);
-    }
-    
-    private function updateRecipientStatus($campaignId, $contactId, $status) {
-        $sql = "UPDATE campaign_recipients SET status = ?, updated_at = NOW()";
-        $params = [$status];
-        
-        if ($status === 'sent') {
-            $sql .= ", sent_at = NOW()";
-        } elseif ($status === 'opened') {
-            $sql .= ", opened_at = NOW()";
-        } elseif ($status === 'clicked') {
-            $sql .= ", clicked_at = NOW()";
-        }
-        
-        $sql .= " WHERE campaign_id = ? AND contact_id = ?";
-        $params[] = $campaignId;
-        $params[] = $contactId;
-        
-        $stmt = $this->db->prepare($sql);
-        $stmt->execute($params);
-        
-        // Update campaign stats
+        // Update campaign statistics
         $this->updateCampaignStats($campaignId);
+        
+        // Update campaign status
+        $status = ($totalFailed == 0 && $totalSent > 0) ? 'completed' : 'completed_with_errors';
+        $this->db->prepare("UPDATE email_campaigns SET status = ? WHERE id = ?")
+                 ->execute([$status, $campaignId]);
+        
+        return [
+            'success' => true,
+            'sent' => $totalSent,
+            'failed' => $totalFailed
+        ];
     }
     
+    /**
+     * Replace variables in content
+     */
+    private function replaceVariables($content, $recipient) {
+        $variables = [
+            '{{first_name}}' => $recipient['first_name'] ?? '',
+            '{{last_name}}' => $recipient['last_name'] ?? '',
+            '{{email}}' => $recipient['email'] ?? $recipient['contact_email'] ?? '',
+            '{{company}}' => $recipient['company'] ?? '',
+            '{{phone}}' => $recipient['phone'] ?? '',
+            '{{full_name}}' => trim(($recipient['first_name'] ?? '') . ' ' . ($recipient['last_name'] ?? ''))
+        ];
+        
+        return str_replace(array_keys($variables), array_values($variables), $content);
+    }
+    
+    /**
+     * Generate unsubscribe token
+     */
+    private function generateUnsubscribeToken($email, $campaignId) {
+        return base64_encode($email . '|' . $campaignId . '|' . time());
+    }
+    
+    /**
+     * Update campaign statistics
+     */
     private function updateCampaignStats($campaignId) {
         $stmt = $this->db->prepare("
-            UPDATE email_campaigns SET
-                sent_count = (SELECT COUNT(*) FROM campaign_recipients WHERE campaign_id = ? AND status IN ('sent', 'opened', 'clicked')),
-                opened_count = (SELECT COUNT(*) FROM campaign_recipients WHERE campaign_id = ? AND status IN ('opened', 'clicked')),
-                clicked_count = (SELECT COUNT(*) FROM campaign_recipients WHERE campaign_id = ? AND status = 'clicked'),
-                replied_count = (SELECT COUNT(*) FROM campaign_recipients WHERE campaign_id = ? AND status = 'replied'),
-                bounced_count = (SELECT COUNT(*) FROM campaign_recipients WHERE campaign_id = ? AND status = 'bounced'),
-                unsubscribed_count = (SELECT COUNT(*) FROM campaign_recipients WHERE campaign_id = ? AND status = 'unsubscribed'),
-                updated_at = NOW()
+            UPDATE email_campaigns 
+            SET 
+                sent_count = (SELECT COUNT(*) FROM email_recipients WHERE campaign_id = ? AND status = 'sent'),
+                total_recipients = (SELECT COUNT(*) FROM email_recipients WHERE campaign_id = ?)
             WHERE id = ?
         ");
-        
-        $stmt->execute([$campaignId, $campaignId, $campaignId, $campaignId, $campaignId, $campaignId, $campaignId]);
+        $stmt->execute([$campaignId, $campaignId, $campaignId]);
     }
-    
-    private function parseTemplate($content, $variables) {
-        foreach ($variables as $key => $value) {
-            $content = str_replace("{{" . $key . "}}", $value, $content);
-        }
-        return $content;
-    }
-    
-    public function trackEmailOpen($trackingId) {
-        $stmt = $this->db->prepare("
-            SELECT cr.campaign_id, cr.contact_id 
-            FROM campaign_recipients cr 
-            WHERE cr.tracking_id = ? AND cr.status = 'sent'
-        ");
-        $stmt->execute([$trackingId]);
-        $recipient = $stmt->fetch();
-        
-        if ($recipient) {
-            $this->updateRecipientStatus($recipient['campaign_id'], $recipient['contact_id'], 'opened');
-            return true;
-        }
-        
-        return false;
-    }
-    
-    public function trackEmailClick($trackingId, $url) {
-        $stmt = $this->db->prepare("
-            SELECT cr.campaign_id, cr.contact_id 
-            FROM campaign_recipients cr 
-            WHERE cr.tracking_id = ?
-        ");
-        $stmt->execute([$trackingId]);
-        $recipient = $stmt->fetch();
-        
-        if ($recipient) {
-            $this->updateRecipientStatus($recipient['campaign_id'], $recipient['contact_id'], 'clicked');
-            
-            // Log click
-            $stmt = $this->db->prepare("
-                INSERT INTO email_clicks (campaign_id, contact_id, tracking_id, url, clicked_at)
-                VALUES (?, ?, ?, ?, NOW())
-            ");
-            $stmt->execute([$recipient['campaign_id'], $recipient['contact_id'], $trackingId, $url]);
-            
-            return true;
-        }
-        
-        return false;
-    }
-    
-    public function unsubscribe($trackingId) {
-        $stmt = $this->db->prepare("
-            SELECT cr.campaign_id, cr.contact_id 
-            FROM campaign_recipients cr 
-            WHERE cr.tracking_id = ?
-        ");
-        $stmt->execute([$trackingId]);
-        $recipient = $stmt->fetch();
-        
-        if ($recipient) {
-            $this->updateRecipientStatus($recipient['campaign_id'], $recipient['contact_id'], 'unsubscribed');
-            
-            // Add to DNC list
-            $stmt = $this->db->prepare("
-                UPDATE contacts SET dnc_status = 1 WHERE id = ?
-            ");
-            $stmt->execute([$recipient['contact_id']]);
-            
-            return true;
-        }
-        
-        return false;
-    }
-    
-    public function sendTestEmail($campaignId, $testEmail) {
-        try {
-            $campaignModel = new EmailCampaign($this->db);
-            $campaign = $campaignModel->find($campaignId);
-            
-            if (!$campaign) {
-                return ['success' => false, 'message' => 'Campaign not found'];
-            }
-            
-            $content = $this->parseTemplate($campaign['content'], [
-                'first_name' => 'Test',
-                'last_name' => 'User',
-                'email' => $testEmail,
-                'company' => 'Test Company',
-                'sender_name' => $campaign['sender_name']
-            ]);
-            
-            $emailData = [
-                'id' => 0,
-                'campaign_id' => $campaignId,
-                'contact_id' => 0,
-                'recipient_email' => $testEmail,
-                'subject' => '[TEST] ' . $campaign['subject'],
-                'content' => $content,
-                'sender_name' => $campaign['sender_name'],
-                'sender_email' => $campaign['sender_email'],
-                'reply_to_email' => $campaign['reply_to_email'],
-                'tracking_id' => 'test_' . uniqid()
-            ];
-            
-            if ($this->sendEmail($emailData)) {
-                return ['success' => true, 'message' => 'Test email sent successfully'];
-            } else {
-                return ['success' => false, 'message' => 'Failed to send test email'];
-            }
-            
-        } catch (Exception $e) {
-            return ['success' => false, 'message' => 'Error: ' . $e->getMessage()];
-        }
-    }
-    
-    public function getEmailStats($campaignId = null) {
-        $whereClause = $campaignId ? "WHERE campaign_id = ?" : "";
-        $params = $campaignId ? [$campaignId] : [];
-        
-        $stmt = $this->db->prepare("
-            SELECT 
-                COUNT(*) as total_emails,
-                SUM(CASE WHEN status = 'sent' THEN 1 ELSE 0 END) as sent_emails,
-                SUM(CASE WHEN status = 'failed' THEN 1 ELSE 0 END) as failed_emails,
-                SUM(CASE WHEN status = 'pending' THEN 1 ELSE 0 END) as pending_emails
-            FROM email_queue
-            {$whereClause}
-        ");
-        $stmt->execute($params);
-        
-        return $stmt->fetch();
-    }
-    
-    /**
-     * Simple email sending method for ScheduledCampaignService
-     */
-    public function sendSimpleEmail($to, $subject, $content, $senderName, $senderEmail) {
-        try {
-            // Use PHPMailer for real sending
-            require_once __DIR__ . '/../vendor/autoload.php';
-            $mail = new \PHPMailer\PHPMailer\PHPMailer(true);
-            $mail->isSMTP();
-            $mail->Host = $this->config['smtp_host'] ?? 'smtp.hostinger.com';
-            $mail->SMTPAuth = true;
-            $mail->Username = $this->config['smtp_username'] ?? 'noreply@regrowup.ca';
-            $mail->Password = $this->config['smtp_password'] ?? '';
-            $mail->SMTPSecure = $this->config['smtp_encryption'] ?? 'tls';
-            $mail->Port = $this->config['smtp_port'] ?? 587;
-            $mail->setFrom($senderEmail, $senderName);
-            $mail->addAddress($to);
-            $mail->addReplyTo($senderEmail, $senderName);
-            // List-Unsubscribe header
-            $unsubscribeUrl = 'https://regrowup.ca/unsubscribe.php?email=' . urlencode($to);
-            $mail->addCustomHeader('List-Unsubscribe', '<' . $unsubscribeUrl . '>');
-            // HTML and plain text
-            $mail->isHTML(true);
-            $mail->Subject = $subject;
-            $mail->Body = $content;
-            $mail->AltBody = strip_tags($content);
-            // Send
-            $mail->send();
-            error_log("PHPMailer: Email sent to: $to, Subject: $subject, From: $senderName <$senderEmail>");
-            return true;
-        } catch (\Exception $e) {
-            error_log("PHPMailer: Email sending failed: " . $e->getMessage());
-            return false;
-        }
-    }
-    
-    /**
-     * Send OTP email for employee login
-     */
-    public function sendOTPEmail($email, $otp_code, $name = '') {
-        $subject = "Your Login OTP - AutoDial Pro";
-        
-        $htmlContent = "
-        <!DOCTYPE html>
-        <html>
-        <head>
-            <style>
-                body { font-family: Arial, sans-serif; line-height: 1.6; color: #333; }
-                .container { max-width: 600px; margin: 0 auto; padding: 20px; }
-                .header { background-color: #5B5FDE; color: white; padding: 20px; text-align: center; border-radius: 5px 5px 0 0; }
-                .content { background-color: #f4f4f4; padding: 30px; border-radius: 0 0 5px 5px; }
-                .otp-box { background-color: white; padding: 20px; margin: 20px 0; text-align: center; border-radius: 5px; border: 2px solid #5B5FDE; }
-                .otp-code { font-size: 32px; font-weight: bold; color: #5B5FDE; letter-spacing: 8px; }
-                .footer { margin-top: 20px; text-align: center; color: #666; font-size: 12px; }
-            </style>
-        </head>
-        <body>
-            <div class='container'>
-                <div class='header'>
-                    <h2>AutoDial Pro - Employee Portal</h2>
-                </div>
-                <div class='content'>
-                    <p>Hello" . ($name ? " $name" : "") . ",</p>
-                    <p>Your One-Time Password (OTP) for login is:</p>
-                    <div class='otp-box'>
-                        <div class='otp-code'>$otp_code</div>
-                    </div>
-                    <p><strong>This OTP is valid for 10 minutes.</strong></p>
-                    <p>If you didn't request this OTP, please ignore this email.</p>
-                    <div class='footer'>
-                        <p>This is an automated message. Please do not reply to this email.</p>
-                        <p>&copy; " . date('Y') . " AutoDial Pro. All rights reserved.</p>
-                    </div>
-                </div>
-            </div>
-        </body>
-        </html>
-        ";
-        
-        // For development/testing, log the OTP
-        if (($_ENV['APP_ENV'] ?? 'development') === 'development') {
-            error_log("OTP Email - To: $email, OTP: $otp_code");
-            
-            // Save to file for easy testing
-            $logFile = __DIR__ . '/../logs/otp_emails.log';
-            $logDir = dirname($logFile);
-            if (!is_dir($logDir)) {
-                mkdir($logDir, 0755, true);
-            }
-            
-            $logEntry = date('Y-m-d H:i:s') . " - To: $email\nOTP Code: $otp_code\n" . str_repeat('-', 50) . "\n";
-            file_put_contents($logFile, $logEntry, FILE_APPEND);
-            
-            return true;
-        }
-        
-        // Use the existing email sending method
-        return $this->sendSimpleEmail(
-            $email,
-            $subject,
-            $htmlContent,
-            'AutoDial Pro',
-            $this->config['smtp_username'] ?? 'noreply@autocrm.com'
-        );
-    }
-    
-    public function sendLoginLink($email, $loginUrl, $name = '') {
-        // In development mode, log to file instead of sending email
-        if (($_ENV['APP_ENV'] ?? 'development') === 'development') {
-            $logDir = dirname(__DIR__) . '/logs';
-            if (!is_dir($logDir)) {
-                mkdir($logDir, 0777, true);
-            }
-            
-            $logFile = $logDir . '/login_links.log';
-            $logEntry = date('Y-m-d H:i:s') . " - To: {$email}, URL: {$loginUrl}\n";
-            file_put_contents($logFile, $logEntry, FILE_APPEND);
-            
-            return true;
-        }
-        
-        $subject = "Your Login Link - CRM";
-        $displayName = $name ?: 'Employee';
-        
-        $body = "
-        <html>
-        <head>
-            <style>
-                body { font-family: Arial, sans-serif; line-height: 1.6; color: #333; }
-                .container { max-width: 600px; margin: 0 auto; padding: 20px; }
-                .header { background-color: #6c757d; color: white; padding: 20px; text-align: center; }
-                .content { background-color: #f8f9fa; padding: 30px; }
-                .button { display: inline-block; padding: 12px 30px; background-color: #007bff; color: white; text-decoration: none; border-radius: 5px; margin: 20px 0; }
-                .footer { text-align: center; padding: 20px; color: #6c757d; font-size: 14px; }
-            </style>
-        </head>
-        <body>
-            <div class='container'>
-                <div class='header'>
-                    <h2>Employee Dashboard Access</h2>
-                </div>
-                <div class='content'>
-                    <p>Hello {$displayName},</p>
-                    <p>Click the button below to access your employee dashboard:</p>
-                    <p style='text-align: center;'>
-                        <a href='{$loginUrl}' class='button'>Access Dashboard</a>
-                    </p>
-                    <p>Or copy and paste this link in your browser:</p>
-                    <p style='word-break: break-all; background-color: #e9ecef; padding: 10px;'>{$loginUrl}</p>
-                    <p><strong>This link will expire in 30 minutes for security reasons.</strong></p>
-                    <p>If you didn't request this login, please ignore this email.</p>
-                </div>
-                <div class='footer'>
-                    <p>This is an automated message, please do not reply.</p>
-                </div>
-            </div>
-        </body>
-        </html>
-        ";
-        
-        return $this->send($email, $subject, $body);
-    }
-} 
+}

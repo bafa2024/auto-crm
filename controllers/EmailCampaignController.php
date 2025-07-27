@@ -237,6 +237,155 @@ class EmailCampaignController extends BaseController {
         $stmt->execute([$toCampaignId, $fromCampaignId]);
     }
     
+    public function sendCampaign($campaignId) {
+        if ($_SERVER["REQUEST_METHOD"] !== "POST") {
+            $this->sendError("Method not allowed", 405);
+            return;
+        }
+        
+        // Check if user is logged in
+        if (!isset($_SESSION["user_id"])) {
+            $this->sendError("Unauthorized", 401);
+            return;
+        }
+        
+        // Check permission
+        require_once __DIR__ . "/../models/EmployeePermission.php";
+        $permissionModel = new EmployeePermission($this->db);
+        $permissions = $permissionModel->getUserPermissions($_SESSION["user_id"]);
+        
+        if (!$permissions['can_send_campaigns']) {
+            $this->sendError("You don't have permission to send campaigns", 403);
+            return;
+        }
+        
+        try {
+            // Verify ownership
+            $campaign = $this->campaignModel->findById($campaignId);
+            if (!$campaign || $campaign["created_by"] != $_SESSION["user_id"]) {
+                $this->sendError("Campaign not found or unauthorized", 404);
+                return;
+            }
+            
+            // Check if campaign can be sent
+            if (!in_array($campaign["status"], ["draft", "scheduled", "paused"])) {
+                $this->sendError("Campaign cannot be sent in current status", 400);
+                return;
+            }
+            
+            // Update status to active to trigger sending
+            $updated = $this->campaignModel->update($campaignId, ["status" => "active"]);
+            
+            if ($updated) {
+                // Process campaign immediately if requested
+                $immediate = json_decode(file_get_contents("php://input"), true)['immediate'] ?? false;
+                
+                if ($immediate) {
+                    require_once __DIR__ . "/../services/EmailService.php";
+                    $emailService = new EmailService($this->db);
+                    $result = $emailService->processCampaign($campaignId);
+                    
+                    $this->sendSuccess([
+                        "id" => $campaignId,
+                        "status" => "sending",
+                        "result" => $result
+                    ], "Campaign is being sent");
+                } else {
+                    $this->sendSuccess([
+                        "id" => $campaignId,
+                        "status" => "active"
+                    ], "Campaign activated and will be processed by the scheduler");
+                }
+            } else {
+                $this->sendError("Failed to activate campaign", 500);
+            }
+        } catch (Exception $e) {
+            $this->sendError("Error sending campaign: " . $e->getMessage(), 500);
+        }
+    }
+    
+    public function getCampaignStats($campaignId) {
+        if ($_SERVER["REQUEST_METHOD"] !== "GET") {
+            $this->sendError("Method not allowed", 405);
+            return;
+        }
+        
+        // Check if user is logged in
+        if (!isset($_SESSION["user_id"])) {
+            $this->sendError("Unauthorized", 401);
+            return;
+        }
+        
+        try {
+            // Get campaign with stats
+            $stmt = $this->db->prepare("
+                SELECT 
+                    c.*,
+                    COUNT(DISTINCT r.id) as total_recipients,
+                    COUNT(DISTINCT CASE WHEN r.status = 'sent' THEN r.id END) as sent_count,
+                    COUNT(DISTINCT CASE WHEN r.opened_at IS NOT NULL THEN r.id END) as opened_count,
+                    COUNT(DISTINCT CASE WHEN r.clicked_at IS NOT NULL THEN r.id END) as clicked_count,
+                    COUNT(DISTINCT CASE WHEN r.bounced_at IS NOT NULL THEN r.id END) as bounced_count,
+                    COUNT(DISTINCT CASE WHEN r.unsubscribed_at IS NOT NULL THEN r.id END) as unsubscribed_count,
+                    COUNT(DISTINCT CASE WHEN r.status = 'failed' THEN r.id END) as failed_count
+                FROM email_campaigns c
+                LEFT JOIN email_recipients r ON c.id = r.campaign_id
+                WHERE c.id = ? AND c.created_by = ?
+                GROUP BY c.id
+            ");
+            $stmt->execute([$campaignId, $_SESSION["user_id"]]);
+            $campaign = $stmt->fetch();
+            
+            if (!$campaign) {
+                $this->sendError("Campaign not found or unauthorized", 404);
+                return;
+            }
+            
+            // Calculate rates
+            $campaign['open_rate'] = $campaign['sent_count'] > 0 
+                ? round(($campaign['opened_count'] / $campaign['sent_count']) * 100, 2) 
+                : 0;
+                
+            $campaign['click_rate'] = $campaign['sent_count'] > 0 
+                ? round(($campaign['clicked_count'] / $campaign['sent_count']) * 100, 2) 
+                : 0;
+                
+            $campaign['bounce_rate'] = $campaign['sent_count'] > 0 
+                ? round(($campaign['bounced_count'] / $campaign['sent_count']) * 100, 2) 
+                : 0;
+                
+            $campaign['unsubscribe_rate'] = $campaign['sent_count'] > 0 
+                ? round(($campaign['unsubscribed_count'] / $campaign['sent_count']) * 100, 2) 
+                : 0;
+            
+            // Get recent activity
+            $stmt = $this->db->prepare("
+                SELECT 
+                    'opened' as action,
+                    r.email,
+                    r.opened_at as action_time
+                FROM email_recipients r
+                WHERE r.campaign_id = ? AND r.opened_at IS NOT NULL
+                UNION ALL
+                SELECT 
+                    'clicked' as action,
+                    r.email,
+                    r.clicked_at as action_time
+                FROM email_recipients r
+                WHERE r.campaign_id = ? AND r.clicked_at IS NOT NULL
+                ORDER BY action_time DESC
+                LIMIT 20
+            ");
+            $stmt->execute([$campaignId, $campaignId]);
+            $campaign['recent_activity'] = $stmt->fetchAll();
+            
+            $this->sendSuccess($campaign);
+            
+        } catch (Exception $e) {
+            $this->sendError("Error getting campaign stats: " . $e->getMessage(), 500);
+        }
+    }
+    
     private function handleFileUpload($file, $campaignId = null) {
         require_once __DIR__ . "/../services/EmailUploadService.php";
         

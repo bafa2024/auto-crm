@@ -174,10 +174,35 @@ sort($tags);
                                 <h5 class="mb-3">Email Content</h5>
                                 <div class="mb-3">
                                     <label for="content" class="form-label">Email Body *</label>
-                                    <textarea class="form-control" id="content" name="content" rows="10" required 
-                                              placeholder="Write your email content here..."></textarea>
+                                    <div id="editor-toolbar">
+                                        <button type="button" class="btn btn-sm btn-outline-secondary" onclick="formatText('bold')">
+                                            <i class="fas fa-bold"></i>
+                                        </button>
+                                        <button type="button" class="btn btn-sm btn-outline-secondary" onclick="formatText('italic')">
+                                            <i class="fas fa-italic"></i>
+                                        </button>
+                                        <button type="button" class="btn btn-sm btn-outline-secondary" onclick="formatText('underline')">
+                                            <i class="fas fa-underline"></i>
+                                        </button>
+                                        <button type="button" class="btn btn-sm btn-outline-secondary" onclick="insertLink()">
+                                            <i class="fas fa-link"></i>
+                                        </button>
+                                        <button type="button" class="btn btn-sm btn-outline-secondary" onclick="formatText('insertUnorderedList')">
+                                            <i class="fas fa-list-ul"></i>
+                                        </button>
+                                        <button type="button" class="btn btn-sm btn-outline-secondary" onclick="formatText('insertOrderedList')">
+                                            <i class="fas fa-list-ol"></i>
+                                        </button>
+                                        <button type="button" class="btn btn-sm btn-outline-secondary" onclick="insertVariable()">
+                                            <i class="fas fa-code"></i> Variable
+                                        </button>
+                                    </div>
+                                    <div contenteditable="true" id="content-editor" class="form-control" 
+                                         style="min-height: 300px; max-height: 500px; overflow-y: auto;"
+                                         placeholder="Write your email content here..."></div>
+                                    <textarea class="form-control d-none" id="content" name="content" required></textarea>
                                     <div class="form-text">
-                                        You can use these variables: {{first_name}}, {{last_name}}, {{email}}
+                                        You can use these variables: {{first_name}}, {{last_name}}, {{email}}, {{company}}, {{phone}}
                                     </div>
                                 </div>
                             </div>
@@ -269,6 +294,37 @@ sort($tags);
 
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/js/bootstrap.bundle.min.js"></script>
     <script>
+        // Rich text editor functions
+        function formatText(command) {
+            document.execCommand(command, false, null);
+            document.getElementById('content-editor').focus();
+        }
+        
+        function insertLink() {
+            const url = prompt('Enter URL:');
+            if (url) {
+                document.execCommand('createLink', false, url);
+                document.getElementById('content-editor').focus();
+            }
+        }
+        
+        function insertVariable() {
+            const variables = ['{{first_name}}', '{{last_name}}', '{{email}}', '{{company}}', '{{phone}}'];
+            const variable = prompt('Choose variable:\n' + variables.join('\n'));
+            if (variable && variables.includes(variable)) {
+                document.execCommand('insertText', false, variable);
+                document.getElementById('content-editor').focus();
+            }
+        }
+        
+        // Sync content editor with textarea
+        const contentEditor = document.getElementById('content-editor');
+        const contentTextarea = document.getElementById('content');
+        
+        contentEditor.addEventListener('input', function() {
+            contentTextarea.value = contentEditor.innerHTML;
+        });
+        
         // Toggle schedule section
         document.querySelectorAll('input[name="send_type"]').forEach(radio => {
             radio.addEventListener('change', function() {
