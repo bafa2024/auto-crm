@@ -156,39 +156,68 @@ try {
             require_once __DIR__ . "/views/employee/auth.php";
             break;
             
-        // Employee Dashboard
-        case strpos($requestUri, "/employee/dashboard") === 0:
+        // Employee Dashboard - Redirect to email dashboard
+        case $requestUri === "/employee/dashboard":
+            if (!isset($_SESSION["user_id"]) || !in_array($_SESSION["user_role"], ['agent', 'manager'])) {
+                header("Location: /employee/login");
+                exit;
+            }
+            // Redirect to email dashboard for employees
+            header("Location: /employee/email-dashboard");
+            exit;
+            break;
+            
+        // Employee Email Dashboard
+        case $requestUri === "/employee/email-dashboard":
+            if (!isset($_SESSION["user_id"]) || !in_array($_SESSION["user_role"], ['agent', 'manager'])) {
+                header("Location: /employee/login");
+                exit;
+            }
+            require_once __DIR__ . "/views/employee/email-dashboard.php";
+            break;
+            
+        // Employee Campaigns
+        case strpos($requestUri, "/employee/campaigns") === 0:
             if (!isset($_SESSION["user_id"]) || !in_array($_SESSION["user_role"], ['agent', 'manager'])) {
                 header("Location: /employee/login");
                 exit;
             }
             
-            // Handle employee dashboard sub-pages
-            $employeePath = substr($requestUri, 18); // Remove "/employee/dashboard"
-            $employeePath = ltrim($employeePath, '/');
+            $campaignPath = substr($requestUri, 19); // Remove "/employee/campaigns"
+            $campaignPath = ltrim($campaignPath, '/');
             
-            if (empty($employeePath)) {
-                // Main employee dashboard
-                require_once __DIR__ . "/views/employee/dashboard.php";
+            if (empty($campaignPath)) {
+                require_once __DIR__ . "/views/employee/campaigns.php";
+            } elseif ($campaignPath === 'create') {
+                require_once __DIR__ . "/views/employee/campaign-create.php";
+            } elseif (preg_match('/^view\/(\d+)$/', $campaignPath, $matches)) {
+                $_GET['id'] = $matches[1];
+                require_once __DIR__ . "/views/employee/campaign-view.php";
+            } elseif (preg_match('/^edit\/(\d+)$/', $campaignPath, $matches)) {
+                $_GET['id'] = $matches[1];
+                require_once __DIR__ . "/views/employee/campaign-edit.php";
             } else {
-                // Employee dashboard sub-pages
-                $subPagePath = __DIR__ . "/views/employee/" . $employeePath;
-                
-                // Check if the path already has .php extension
-                if (!preg_match('/\.php$/', $subPagePath)) {
-                    // Try with .php extension first
-                    if (file_exists($subPagePath . '.php')) {
-                        $subPagePath .= '.php';
-                    }
-                }
-                
-                if (file_exists($subPagePath)) {
-                    require_once $subPagePath;
-                } else {
-                    http_response_code(404);
-                    require_once __DIR__ . "/views/404.php";
-                }
+                http_response_code(404);
+                require_once __DIR__ . "/views/404.php";
             }
+            break;
+            
+        // Employee Contacts
+        case $requestUri === "/employee/contacts":
+            if (!isset($_SESSION["user_id"]) || !in_array($_SESSION["user_role"], ['agent', 'manager'])) {
+                header("Location: /employee/login");
+                exit;
+            }
+            require_once __DIR__ . "/views/employee/contacts.php";
+            break;
+            
+        // Employee Profile
+        case $requestUri === "/employee/profile":
+            if (!isset($_SESSION["user_id"]) || !in_array($_SESSION["user_role"], ['agent', 'manager'])) {
+                header("Location: /employee/login");
+                exit;
+            }
+            require_once __DIR__ . "/views/employee/profile.php";
             break;
             
         // API endpoints

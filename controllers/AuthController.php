@@ -191,7 +191,7 @@ class AuthController extends BaseController {
         $this->sendSuccess([
             "user" => $user,
             "session_id" => session_id(),
-            "redirect" => $basePath . "/employee/dashboard"
+            "redirect" => $basePath . "/employee/email-dashboard"
         ], "Employee login successful");
     }
     
@@ -447,7 +447,7 @@ class AuthController extends BaseController {
         $this->sendSuccess([
             "user" => $user,
             "session_id" => session_id(),
-            "redirect" => $basePath . "/employee/dashboard"
+            "redirect" => $basePath . "/employee/email-dashboard"
         ], "Login successful");
     }
     
@@ -530,7 +530,7 @@ class AuthController extends BaseController {
         $this->sendSuccess([
             "user" => $this->userModel->hideFields($user),
             "session_id" => session_id(),
-            "redirect" => $basePath . "/employee/dashboard"
+            "redirect" => $basePath . "/employee/email-dashboard"
         ], "Logged in as employee successfully");
     }
     

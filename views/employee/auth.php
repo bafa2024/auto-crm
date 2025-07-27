@@ -46,6 +46,6 @@ $_SESSION["user_role"] = $user["role"];
 $_SESSION["login_time"] = time();
 $_SESSION["login_method"] = "magic_link";
 
-// Redirect to dashboard
-header("Location: /employee/dashboard");
+// Redirect to email dashboard for employees
+header("Location: /employee/email-dashboard");
 exit();
