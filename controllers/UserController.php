@@ -24,16 +24,31 @@ class UserController extends BaseController {
         $q = isset($_GET['q']) ? trim($_GET['q']) : '';
         $sql = "SELECT id, first_name, last_name, email, role, status FROM users";
         $params = [];
+        
+        // Base condition to show all users (or filter by role if needed)
+        $conditions = [];
+        
         if ($q) {
-            $sql .= " WHERE first_name LIKE ? OR last_name LIKE ? OR email LIKE ? OR role LIKE ? OR status LIKE ?";
+            $conditions[] = "(first_name LIKE ? OR last_name LIKE ? OR email LIKE ? OR role LIKE ? OR status LIKE ?)";
             $qLike = "%$q%";
             $params = [$qLike, $qLike, $qLike, $qLike, $qLike];
         }
+        
+        if (!empty($conditions)) {
+            $sql .= " WHERE " . implode(" AND ", $conditions);
+        }
+        
         $sql .= " ORDER BY id DESC";
-        $stmt = $this->db->prepare($sql);
-        $stmt->execute($params);
-        $users = $stmt->fetchAll();
-        $this->sendSuccess($users);
+        
+        try {
+            $stmt = $this->db->prepare($sql);
+            $stmt->execute($params);
+            $users = $stmt->fetchAll();
+            $this->sendSuccess($users);
+        } catch (Exception $e) {
+            error_log("Error fetching employees: " . $e->getMessage());
+            $this->sendError("Failed to fetch employees", 500);
+        }
     }
 
     // POST /api/employees/create

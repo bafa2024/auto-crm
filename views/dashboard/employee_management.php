@@ -185,9 +185,14 @@ function fetchEmployees(q = '') {
     document.getElementById('employees-loading').style.display = '';
     const url = '<?php echo base_path("api/employees/list"); ?>' + (q ? ('?q=' + encodeURIComponent(q)) : '');
     console.log('Fetching from:', url);
+    console.log('Full URL:', window.location.origin + url);
     fetch(url)
-        .then(r => r.json())
+        .then(r => {
+            console.log('Response status:', r.status);
+            return r.json();
+        })
         .then(data => {
+            console.log('Response data:', data);
             document.getElementById('employees-loading').style.display = 'none';
             const tbody = document.getElementById('employees');
             tbody.innerHTML = '';
@@ -207,16 +212,18 @@ function fetchEmployees(q = '') {
                     // Store employee data for edit function
                     tr.dataset.employee = JSON.stringify(emp);
                     tbody.appendChild(tr);
-                    fetchEmployeeTeams(emp.id);
+                    // Delay fetching teams to avoid too many concurrent requests
+                    setTimeout(() => fetchEmployeeTeams(emp.id), 100);
                 });
                 document.getElementById('employees-empty').style.display = 'none';
             } else {
                 document.getElementById('employees-empty').style.display = '';
             }
         })
-        .catch(() => {
+        .catch((err) => {
             document.getElementById('employees-loading').style.display = 'none';
-            showMsg('Failed to load employees.', 'error');
+            console.error('Error fetching employees:', err);
+            showMsg('Failed to load employees: ' + err.message, 'error');
         });
 }
 function fetchEmployeeTeams(userId) {
@@ -224,11 +231,16 @@ function fetchEmployeeTeams(userId) {
         .then(r => r.json())
         .then(data => {
             const el = document.getElementById('teams-' + userId);
-            if (data.success && Array.isArray(data.data)) {
+            if (el && data.success && Array.isArray(data.data)) {
                 el.innerHTML = data.data.map(t => t.name).join(', ');
-            } else {
+            } else if (el) {
                 el.innerHTML = '';
             }
+        })
+        .catch(err => {
+            console.error('Error fetching teams for user ' + userId + ':', err);
+            const el = document.getElementById('teams-' + userId);
+            if (el) el.innerHTML = '';
         });
 }
 // Store employees data for editing
@@ -437,32 +449,7 @@ function confirmDeleteEmployee(id) {
         showMsg('Error deleting employee: ' + err.message, 'error');
     });
 }
-document.getElementById('add-employee-form').onsubmit = function(e) {
-    e.preventDefault();
-    const form = e.target;
-    fetch('<?php echo base_path('api/employees/create'); ?>', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-            first_name: form.first_name.value,
-            last_name: form.last_name.value,
-            email: form.email.value,
-            password: form.password.value,
-            role: form.role.value,
-            status: form.status.value
-        })
-    })
-    .then(r => r.json())
-    .then(data => {
-        if (data.success) {
-            showMsg('Employee added!', 'success');
-            form.reset();
-            fetchEmployees();
-        } else {
-            showMsg(data.message || 'Failed to add employee.', 'error');
-        }
-    });
-};
+// Removed old form handler since we're using modal now
 document.getElementById('search').oninput = function(e) {
     fetchEmployees(e.target.value);
 };
@@ -558,7 +545,9 @@ function confirmLoginAsEmployee(id) {
 }
 
 // Initial load
-fetchEmployees();
+document.addEventListener('DOMContentLoaded', function() {
+    fetchEmployees();
+});
 // Permissions management
 function managePermissions(userId) {
     const emp = employeesData[userId];
