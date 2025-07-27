@@ -165,88 +165,175 @@ class EmailCampaignService {
             
             error_log("Campaign found: " . json_encode($campaign));
             
-            // Get recipients
-            $recipients = $this->getRecipients($recipientIds);
-            error_log("Recipients found: " . count($recipients));
-            
-            if (empty($recipients)) {
-                error_log("No recipients found for IDs: " . json_encode($recipientIds));
-                return [
-                    'success' => false,
-                    'message' => 'No recipients selected or found'
-                ];
-            }
-            
             // Create campaign_sends table if it doesn't exist
             $this->createCampaignSendsTable();
             
-            $sentCount = 0;
-            $errors = [];
+            // Initialize batch service
+            require_once __DIR__ . '/BatchService.php';
+            $batchService = new BatchService($this->database);
             
-            // Batch processing: split recipients into chunks of 50
-            $recipientChunks = array_chunk($recipients, 50);
-            foreach ($recipientChunks as $batchIndex => $batch) {
-                error_log("Processing batch " . ($batchIndex + 1) . " of " . count($recipientChunks));
-                foreach ($batch as $recipient) {
-                    try {
-                        $personalizedContent = $this->personalizeContent($campaign['email_content'], $recipient);
-                        $emailSent = $this->sendEmail(
-                            $recipient['email'],
-                            $campaign['subject'],
-                            $personalizedContent,
-                            $campaign['from_name'],
-                            $campaign['from_email'],
-                            $recipient
-                        );
-                        
-                        // Record the send
-                        $currentTime = date('Y-m-d H:i:s');
-                        $sql = "INSERT INTO campaign_sends (
-                            campaign_id, recipient_id, recipient_email, status, sent_at
-                        ) VALUES (
-                            :campaign_id, :recipient_id, :recipient_email, :status, :sent_at
-                        )";
-                        
-                        $stmt = $this->db->prepare($sql);
-                        $stmt->execute([
-                            ':campaign_id' => $campaignId,
-                            ':recipient_id' => $recipient['id'],
-                            ':recipient_email' => $recipient['email'],
-                            ':status' => $emailSent ? 'sent' : 'failed',
-                            ':sent_at' => $currentTime
-                        ]);
-                        
-                        if ($emailSent) {
-                            $sentCount++;
-                        } else {
-                            $errors[] = "Failed to send to {$recipient['email']}";
-                        }
-                        
-                    } catch (Exception $e) {
-                        $errors[] = "Error sending to {$recipient['email']}: " . $e->getMessage();
-                    }
-                }
-                // Optional: sleep 1 second between batches to avoid rate limits
-                if ($batchIndex < count($recipientChunks) - 1) {
-                    sleep(1);
-                }
+            // Create batches for the campaign
+            $batchResult = $batchService->createBatchesForCampaign($campaignId, $recipientIds);
+            if (!$batchResult['success']) {
+                return [
+                    'success' => false,
+                    'message' => 'Failed to create batches: ' . $batchResult['message']
+                ];
             }
             
-            // Update campaign status
-            $this->updateCampaignStatus($campaignId, 'active');
+            error_log("Created {$batchResult['batch_count']} batches for campaign");
+            
+            // Update campaign status to sending
+            $this->updateCampaignStatus($campaignId, 'sending');
+            
+            // Process first batch immediately
+            $firstBatch = $batchService->getNextPendingBatch($campaignId);
+            if ($firstBatch) {
+                $this->processBatch($firstBatch['id'], $campaign, $batchService);
+            }
             
             return [
                 'success' => true,
-                'sent_count' => $sentCount,
-                'total_recipients' => count($recipients),
-                'errors' => $errors,
-                'message' => "Campaign sent successfully!"
+                'message' => "Campaign batches created. Processing {$batchResult['batch_count']} batches with {$batchResult['total_recipients']} recipients.",
+                'batch_count' => $batchResult['batch_count'],
+                'batch_size' => $batchResult['batch_size'],
+                'total_recipients' => $batchResult['total_recipients']
             ];
             
         } catch (Exception $e) {
             return [
                 'success' => false,
                 'message' => 'Failed to send campaign: ' . $e->getMessage()
+            ];
+        }
+    }
+    
+    /**
+     * Process a single batch
+     */
+    public function processBatch($batchId, $campaign, $batchService = null) {
+        try {
+            if (!$batchService) {
+                require_once __DIR__ . '/BatchService.php';
+                $batchService = new BatchService($this->database);
+            }
+            
+            // Update batch status to processing
+            $batchService->updateBatchStatus($batchId, 'processing');
+            
+            // Get batch recipients
+            $recipients = $batchService->getBatchRecipients($batchId);
+            error_log("Processing batch $batchId with " . count($recipients) . " recipients");
+            
+            $sentCount = 0;
+            $failedCount = 0;
+            $errors = [];
+            $processedEmails = []; // Track emails in this batch to prevent duplicates
+            
+            foreach ($recipients as $recipient) {
+                try {
+                    $normalizedEmail = strtolower(trim($recipient['email']));
+                    
+                    // Skip if we've already processed this email in this batch
+                    if (in_array($normalizedEmail, $processedEmails)) {
+                        error_log("Skipping duplicate email in batch: $normalizedEmail");
+                        continue;
+                    }
+                    
+                    // Double-check that this email hasn't been sent in this campaign
+                    $checkSql = "SELECT id FROM campaign_sends 
+                                WHERE campaign_id = :campaign_id 
+                                AND LOWER(recipient_email) = :email 
+                                AND status = 'sent'";
+                    $checkStmt = $this->db->prepare($checkSql);
+                    $checkStmt->execute([
+                        ':campaign_id' => $campaign['id'],
+                        ':email' => $normalizedEmail
+                    ]);
+                    
+                    if ($checkStmt->fetch()) {
+                        error_log("Email already sent in this campaign: $normalizedEmail");
+                        continue;
+                    }
+                    
+                    $processedEmails[] = $normalizedEmail;
+                    
+                    $personalizedContent = $this->personalizeContent($campaign['email_content'], $recipient);
+                    $emailSent = $this->sendEmail(
+                        $recipient['email'],
+                        $campaign['subject'],
+                        $personalizedContent,
+                        $campaign['from_name'],
+                        $campaign['from_email'],
+                        $recipient
+                    );
+                    
+                    // Record the send
+                    $currentTime = date('Y-m-d H:i:s');
+                    $sql = "INSERT INTO campaign_sends (
+                        campaign_id, recipient_id, recipient_email, status, sent_at
+                    ) VALUES (
+                        :campaign_id, :recipient_id, :recipient_email, :status, :sent_at
+                    )";
+                    
+                    $stmt = $this->db->prepare($sql);
+                    $stmt->execute([
+                        ':campaign_id' => $campaign['id'],
+                        ':recipient_id' => $recipient['id'],
+                        ':recipient_email' => $recipient['email'],
+                        ':status' => $emailSent ? 'sent' : 'failed',
+                        ':sent_at' => $currentTime
+                    ]);
+                    
+                    if ($emailSent) {
+                        $sentCount++;
+                    } else {
+                        $failedCount++;
+                        $errors[] = "Failed to send to {$recipient['email']}";
+                    }
+                    
+                } catch (Exception $e) {
+                    $failedCount++;
+                    $errors[] = "Error sending to {$recipient['email']}: " . $e->getMessage();
+                }
+                
+                // Add small delay between emails to avoid rate limiting
+                usleep(100000); // 0.1 second delay
+            }
+            
+            // Update batch status to completed
+            $batchService->updateBatchStatus($batchId, 'completed', [
+                'sent_count' => $sentCount,
+                'failed_count' => $failedCount
+            ]);
+            
+            error_log("Batch $batchId completed: $sentCount sent, $failedCount failed");
+            
+            // Check for next batch and process it
+            $nextBatch = $batchService->getNextPendingBatch($campaign['id']);
+            if ($nextBatch) {
+                // Add delay between batches
+                sleep(2); // 2 second delay between batches
+                $this->processBatch($nextBatch['id'], $campaign, $batchService);
+            } else {
+                // All batches completed, update campaign status
+                $this->updateCampaignStatus($campaign['id'], 'completed');
+                error_log("All batches completed for campaign {$campaign['id']}");
+            }
+            
+            return [
+                'success' => true,
+                'sent_count' => $sentCount,
+                'failed_count' => $failedCount,
+                'errors' => $errors
+            ];
+            
+        } catch (Exception $e) {
+            error_log("Error processing batch $batchId: " . $e->getMessage());
+            $batchService->updateBatchStatus($batchId, 'failed');
+            return [
+                'success' => false,
+                'message' => 'Failed to process batch: ' . $e->getMessage()
             ];
         }
     }
@@ -672,6 +759,98 @@ class EmailCampaignService {
         } catch (Exception $e) {
             error_log("Error in getAllCampaignRecipients: " . $e->getMessage());
             return [];
+        }
+    }
+    
+    /**
+     * Send campaign to all recipients with batching
+     */
+    public function sendCampaignToAll($campaignId) {
+        try {
+            // Get all fresh, unique recipient IDs for the campaign
+            // This query ensures we only get one recipient per unique email address (case-insensitive)
+            // and excludes any that have already been sent
+            $sql = "SELECT r1.id 
+                    FROM email_recipients r1
+                    LEFT JOIN campaign_sends cs ON r1.id = cs.recipient_id AND cs.campaign_id = ? AND cs.status = 'sent'
+                    WHERE r1.campaign_id = ? 
+                    AND cs.id IS NULL
+                    AND r1.status = 'pending'
+                    AND r1.id = (
+                        SELECT MIN(r2.id) 
+                        FROM email_recipients r2 
+                        WHERE LOWER(r2.email) = LOWER(r1.email) 
+                        AND r2.campaign_id = r1.campaign_id
+                        AND r2.id NOT IN (
+                            SELECT recipient_id FROM campaign_sends 
+                            WHERE campaign_id = ? AND status = 'sent'
+                        )
+                    )
+                    ORDER BY r1.id";
+            $stmt = $this->db->prepare($sql);
+            $stmt->execute([$campaignId, $campaignId, $campaignId]);
+            $recipientIds = $stmt->fetchAll(PDO::FETCH_COLUMN);
+            
+            if (empty($recipientIds)) {
+                return [
+                    'success' => false,
+                    'message' => 'No fresh, unique recipients found. All unique emails have already been sent.'
+                ];
+            }
+            
+            error_log("Found " . count($recipientIds) . " fresh, unique recipients for campaign $campaignId");
+            
+            // Use the existing sendCampaign method with filtered recipient IDs
+            return $this->sendCampaign($campaignId, $recipientIds);
+            
+        } catch (Exception $e) {
+            return [
+                'success' => false,
+                'message' => 'Failed to send to all recipients: ' . $e->getMessage()
+            ];
+        }
+    }
+    
+    /**
+     * Get batch progress for a campaign
+     */
+    public function getCampaignBatchProgress($campaignId) {
+        try {
+            require_once __DIR__ . '/BatchService.php';
+            $batchService = new BatchService($this->database);
+            
+            $stats = $batchService->getCampaignBatchStats($campaignId);
+            
+            if ($stats) {
+                $progress = [
+                    'total_batches' => $stats['total_batches'],
+                    'completed_batches' => $stats['completed_batches'],
+                    'processing_batches' => $stats['processing_batches'],
+                    'pending_batches' => $stats['pending_batches'],
+                    'total_recipients' => $stats['total_recipients'],
+                    'total_sent' => $stats['total_sent'],
+                    'total_failed' => $stats['total_failed'],
+                    'progress_percentage' => $stats['total_batches'] > 0 
+                        ? round(($stats['completed_batches'] / $stats['total_batches']) * 100, 2)
+                        : 0
+                ];
+                
+                return [
+                    'success' => true,
+                    'progress' => $progress
+                ];
+            }
+            
+            return [
+                'success' => false,
+                'message' => 'No batch information found'
+            ];
+            
+        } catch (Exception $e) {
+            return [
+                'success' => false,
+                'message' => 'Failed to get batch progress: ' . $e->getMessage()
+            ];
         }
     }
 }

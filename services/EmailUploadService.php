@@ -10,9 +10,13 @@ use PhpOffice\PhpSpreadsheet\Spreadsheet;
 
 class EmailUploadService {
     private $db;
+    private $database;
     
     public function __construct($database) {
-        $this->db = $database;
+        $this->database = $database;
+        $this->db = is_object($database) && method_exists($database, 'getConnection') 
+            ? $database->getConnection() 
+            : $database;
     }
     
     /**
@@ -263,6 +267,7 @@ class EmailUploadService {
         $imported = 0;
         $failed = 0;
         $errors = [];
+        $insertedIds = [];
         
         foreach ($contacts as $contact) {
             try {
@@ -301,6 +306,7 @@ class EmailUploadService {
                     ':created_at' => $currentTime
                 ]);
                 
+                $insertedIds[] = $this->db->lastInsertId();
                 $imported++;
                 
             } catch (Exception $e) {
@@ -312,6 +318,17 @@ class EmailUploadService {
         // Update campaign recipient count if campaign_id is provided
         if (!empty($contacts[0]['campaign_id'])) {
             $this->updateCampaignRecipientCount($contacts[0]['campaign_id']);
+            
+            // Create batches for the newly imported recipients
+            if (!empty($insertedIds)) {
+                require_once __DIR__ . '/BatchService.php';
+                $batchService = new BatchService($this->database);
+                $batchResult = $batchService->createBatchesForCampaign($contacts[0]['campaign_id'], $insertedIds);
+                
+                if ($batchResult['success']) {
+                    error_log("Created {$batchResult['batch_count']} batches for campaign {$contacts[0]['campaign_id']}");
+                }
+            }
         }
         
         return [

@@ -361,7 +361,7 @@ try {
                     <h5 class="modal-title">Create New Campaign</h5>
                     <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
                 </div>
-                <form id="createCampaignForm" method="POST">
+                <form id="createCampaignForm">
                     <input type="hidden" name="action" value="create_campaign">
                     <div class="modal-body">
                         <div class="row">
@@ -448,6 +448,12 @@ try {
                     <input type="hidden" name="action" value="send_campaign">
                     <input type="hidden" name="campaign_id" id="send_campaign_id">
                     <div class="modal-body">
+                        <div class="alert alert-info mb-3">
+                            <i class="bi bi-info-circle"></i> <strong>Automatic Duplicate Prevention:</strong><br>
+                            • Each batch contains only unique email addresses (case-insensitive)<br>
+                            • Already sent emails are automatically excluded<br>
+                            • Maximum 200 fresh, unique emails per batch
+                        </div>
                         <div class="mb-3">
                             <div class="d-flex justify-content-between align-items-center mb-2">
                                 <label class="form-label mb-0">Select Recipients</label>
@@ -483,7 +489,7 @@ try {
                     <div class="modal-footer">
                         <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
                         <button type="button" class="btn btn-warning" onclick="sendToAllRecipients()">
-                            <i class="bi bi-send-all"></i> Send to All
+                            <i class="bi bi-send-all"></i> Send to All Unique Emails (Batches of 200)
                         </button>
                         <button type="submit" class="btn btn-primary">Send Campaign</button>
                     </div>
@@ -586,6 +592,49 @@ try {
         </div>
     </div>
     
+    <!-- Batch Progress Modal -->
+    <div class="modal fade" id="batchProgressModal" tabindex="-1" data-bs-backdrop="static" data-bs-keyboard="false">
+        <div class="modal-dialog">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title">Sending Campaign in Batches</h5>
+                </div>
+                <div class="modal-body">
+                    <div class="alert alert-info mb-3">
+                        <i class="bi bi-info-circle"></i> Emails are being sent in batches of 200 to ensure reliable delivery.
+                    </div>
+                    
+                    <div class="mb-3">
+                        <div class="d-flex justify-content-between mb-2">
+                            <span>Batch Progress</span>
+                            <span id="batchProgressText">0 / 0 batches</span>
+                        </div>
+                        <div class="progress" style="height: 25px;">
+                            <div id="batchProgressBar" class="progress-bar progress-bar-striped progress-bar-animated" role="progressbar" style="width: 0%;">0%</div>
+                        </div>
+                    </div>
+                    
+                    <div class="mb-3">
+                        <div class="d-flex justify-content-between mb-2">
+                            <span>Email Progress</span>
+                            <span id="emailProgressText">0 / 0 emails</span>
+                        </div>
+                        <div class="progress" style="height: 20px;">
+                            <div id="emailProgressBar" class="progress-bar bg-success" role="progressbar" style="width: 0%;">0%</div>
+                        </div>
+                    </div>
+                    
+                    <div id="batchStatus" class="text-center text-muted">
+                        <i class="bi bi-clock-history"></i> Processing...
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" onclick="window.location.reload()">Close and Refresh</button>
+                </div>
+            </div>
+        </div>
+    </div>
+    
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/js/bootstrap.bundle.min.js"></script>
     <script>
         function showSection(section) {
@@ -649,6 +698,25 @@ try {
         
         function sendCampaign(campaignId) {
             document.getElementById('send_campaign_id').value = campaignId;
+            
+            // First, get duplicate statistics
+            fetch('api/campaign_duplicates.php?campaign_id=' + campaignId)
+                .then(response => response.json())
+                .then(stats => {
+                    if (stats.success) {
+                        const s = stats.stats;
+                        const infoDiv = document.querySelector('#sendCampaignModal .alert-info');
+                        infoDiv.innerHTML = `
+                            <i class="bi bi-info-circle"></i> <strong>Campaign Statistics:</strong><br>
+                            • Total recipients: ${s.total_recipients}<br>
+                            • Unique emails: ${s.unique_emails} (${s.duplicate_count} duplicates removed)<br>
+                            • Already sent: ${s.sent_emails}<br>
+                            • <strong>Fresh unique emails ready to send: ${s.fresh_unique_emails}</strong><br>
+                            • Each batch contains max 200 unique emails
+                        `;
+                    }
+                });
+            
             // Fetch unsent recipients via AJAX
             fetch('api/get_campaign.php?id=' + campaignId + '&recipients=unsent')
                 .then(response => response.json())
@@ -693,9 +761,29 @@ try {
                 return;
             }
             
-            if (!confirm('Are you sure you want to send this campaign to ALL recipients? This will send emails to everyone in the campaign, including those who may have already received it.')) {
-                return;
-            }
+            // Get fresh count before confirming
+            fetch('api/campaign_duplicates.php?campaign_id=' + campaignId)
+                .then(response => response.json())
+                .then(stats => {
+                    if (stats.success) {
+                        const freshCount = stats.stats.fresh_unique_emails;
+                        const batchCount = Math.ceil(freshCount / 200);
+                        
+                        if (freshCount === 0) {
+                            alert('No fresh unique emails to send. All unique emails have already been sent.');
+                            return;
+                        }
+                        
+                        if (!confirm(`This will send to ${freshCount} fresh unique email addresses in ${batchCount} batch${batchCount > 1 ? 'es' : ''} of up to 200 emails each.\n\nDuplicates and already-sent emails will be automatically excluded.\n\nProceed?`)) {
+                            return;
+                        }
+                        
+                        proceedWithSendToAll();
+                    }
+                });
+        }
+        
+        function proceedWithSendToAll() {
             
             // Create a form to submit the send to all request
             const form = document.createElement('form');
@@ -722,6 +810,20 @@ try {
 
         function deleteCampaign(campaignId) {
             if (!confirm('Are you sure you want to delete this campaign? This action cannot be undone.')) return;
+            
+            // Find the delete button that was clicked and show loading state
+            const deleteButtons = document.querySelectorAll('.btn-danger');
+            let deleteBtn = null;
+            let originalText = '';
+            deleteButtons.forEach(btn => {
+                if (btn.getAttribute('onclick') && btn.getAttribute('onclick').includes(`deleteCampaign(${campaignId})`)) {
+                    deleteBtn = btn;
+                    originalText = btn.innerHTML;
+                    btn.disabled = true;
+                    btn.innerHTML = '<span class="spinner-border spinner-border-sm"></span>';
+                }
+            });
+            
             fetch(window.location.pathname, {
                 method: 'POST',
                 headers: { 'X-Requested-With': 'XMLHttpRequest' },
@@ -733,15 +835,55 @@ try {
                 const parser = new DOMParser();
                 const doc = parser.parseFromString(html, 'text/html');
                 const alert = doc.querySelector('.alert');
-                if (alert) {
-                    document.body.insertAdjacentElement('afterbegin', alert);
-                }
-                // Reload if success
+                
                 if (alert && alert.classList.contains('alert-success')) {
-                    setTimeout(() => window.location.reload(), 1200);
+                    // Find and remove the campaign card with animation
+                    const campaignCards = document.querySelectorAll('.campaign-card');
+                    campaignCards.forEach(card => {
+                        if (card.innerHTML.includes(`deleteCampaign(${campaignId})`)) {
+                            card.style.transition = 'opacity 0.3s, transform 0.3s';
+                            card.style.opacity = '0';
+                            card.style.transform = 'scale(0.9)';
+                            
+                            setTimeout(() => {
+                                card.remove();
+                                
+                                // Check if there are no more campaigns
+                                const remainingCampaigns = document.querySelectorAll('.campaign-card').length;
+                                if (remainingCampaigns === 0) {
+                                    refreshCampaignList();
+                                }
+                                
+                                // Update quick stats
+                                const totalCampaignsElement = document.querySelector('.col-6 h4.text-primary');
+                                if (totalCampaignsElement) {
+                                    const currentCount = parseInt(totalCampaignsElement.textContent);
+                                    totalCampaignsElement.textContent = Math.max(0, currentCount - 1);
+                                }
+                            }, 300);
+                        }
+                    });
+                    
+                    showMainPageAlert('Campaign deleted successfully!', 'success');
+                } else {
+                    // Show error message
+                    const errorMsg = alert ? alert.textContent.trim() : 'Failed to delete campaign';
+                    showMainPageAlert(errorMsg, 'danger');
+                    
+                    // Restore button if found
+                    if (deleteBtn) {
+                        deleteBtn.disabled = false;
+                        deleteBtn.innerHTML = originalText;
+                    }
                 }
             })
-            .catch(() => alert('Failed to delete campaign. Please try again.'));
+            .catch(() => {
+                showMainPageAlert('Failed to delete campaign. Please try again.', 'danger');
+                if (deleteBtn) {
+                    deleteBtn.disabled = false;
+                    deleteBtn.innerHTML = originalText;
+                }
+            });
         }
         
         function toggleRecipient(recipientId) {
@@ -828,7 +970,19 @@ try {
         if (createCampaignForm) {
             createCampaignForm.addEventListener('submit', function(e) {
                 e.preventDefault();
+                
+                // Get submit button and show loading state
+                const submitBtn = this.querySelector('button[type="submit"]');
+                const originalText = submitBtn.innerHTML;
+                submitBtn.disabled = true;
+                submitBtn.innerHTML = '<span class="spinner-border spinner-border-sm me-2"></span>Creating Campaign...';
+                
+                // Remove any existing alerts
+                const existingAlerts = document.querySelectorAll('#createCampaignModal .alert');
+                existingAlerts.forEach(a => a.remove());
+                
                 const formData = new FormData(createCampaignForm);
+                
                 fetch(window.location.pathname, {
                     method: 'POST',
                     body: formData
@@ -839,26 +993,162 @@ try {
                     const parser = new DOMParser();
                     const doc = parser.parseFromString(html, 'text/html');
                     const alert = doc.querySelector('.alert');
+                    
                     if (alert) {
-                        // Show alert in modal or above form
+                        // Show alert in modal
                         const modalBody = createCampaignForm.closest('.modal-content').querySelector('.modal-body');
-                        let existingAlert = modalBody.querySelector('.alert');
-                        if (existingAlert) existingAlert.remove();
                         modalBody.insertAdjacentElement('afterbegin', alert);
                     }
-                    // Optionally, close modal and refresh campaign list if success
+                    
+                    // If success, refresh campaign list without full page reload
                     if (alert && alert.classList.contains('alert-success')) {
+                        // Clear form
+                        createCampaignForm.reset();
+                        
+                        // Refresh campaign list via AJAX
+                        refreshCampaignList();
+                        
+                        // Close modal after a short delay
                         setTimeout(() => {
                             const modal = bootstrap.Modal.getInstance(document.getElementById('createCampaignModal'));
                             if (modal) modal.hide();
-                            window.location.reload(); // Or use AJAX to refresh campaign list only
+                            
+                            // Show success message on main page
+                            showMainPageAlert('Campaign created successfully!', 'success');
                         }, 1500);
                     }
+                    
+                    // Re-enable submit button
+                    submitBtn.disabled = false;
+                    submitBtn.innerHTML = originalText;
                 })
                 .catch(err => {
-                    alert('Failed to create campaign. Please try again.');
+                    console.error('Error:', err);
+                    showModalAlert('Failed to create campaign. Please try again.', 'danger');
+                    submitBtn.disabled = false;
+                    submitBtn.innerHTML = originalText;
                 });
             });
+        }
+        
+        // Function to refresh campaign list without page reload
+        function refreshCampaignList() {
+            fetch('api/get_campaigns.php')
+                .then(response => response.json())
+                .then(data => {
+                    if (data.success && data.campaigns) {
+                        const campaignContainer = document.querySelector('.col-md-8 .card-body');
+                        if (!campaignContainer) return;
+                        
+                        if (data.campaigns.length === 0) {
+                            campaignContainer.innerHTML = `
+                                <div class="text-center py-4">
+                                    <i class="bi bi-envelope display-1 text-muted"></i>
+                                    <h5 class="mt-3">No campaigns yet</h5>
+                                    <p class="text-muted">Create your first email campaign to get started</p>
+                                    <button class="btn btn-primary" data-bs-toggle="modal" data-bs-target="#createCampaignModal">
+                                        <i class="bi bi-plus-circle"></i> Create Campaign
+                                    </button>
+                                </div>
+                            `;
+                        } else {
+                            let html = '';
+                            data.campaigns.forEach(campaign => {
+                                const statusClass = campaign.status === 'active' ? 'success' : 
+                                                  (campaign.status === 'draft' ? 'warning' : 'secondary');
+                                const createdDate = new Date(campaign.created_at).toLocaleDateString('en-US', 
+                                    { month: 'short', day: 'numeric', year: 'numeric' });
+                                
+                                html += `
+                                    <div class="campaign-card">
+                                        <div class="d-flex justify-content-between align-items-start">
+                                            <div>
+                                                <h6 class="mb-1">${escapeHtml(campaign.name)}</h6>
+                                                <p class="text-muted mb-2">${escapeHtml(campaign.subject)}</p>
+                                                <div class="d-flex gap-3">
+                                                    <span class="badge bg-${statusClass}">
+                                                        ${campaign.status.charAt(0).toUpperCase() + campaign.status.slice(1)}
+                                                    </span>
+                                                    <small class="text-muted">Created: ${createdDate}</small>
+                                                </div>
+                                            </div>
+                                            <div class="btn-group">
+                                                <button class="btn btn-sm btn-outline-primary" onclick="editCampaign(${campaign.id})">
+                                                    <i class="bi bi-pencil"></i> Edit
+                                                </button>
+                                                <button class="btn btn-sm btn-primary" onclick="sendCampaign(${campaign.id})">
+                                                    <i class="bi bi-send"></i> Send
+                                                </button>
+                                                <button class="btn btn-sm btn-danger" onclick="deleteCampaign(${campaign.id})">
+                                                    <i class="bi bi-trash"></i> Delete
+                                                </button>
+                                                <a class="btn btn-sm btn-info" href="campaign_progress.php?id=${campaign.id}">
+                                                    <i class="bi bi-graph-up"></i> View Progress
+                                                </a>
+                                            </div>
+                                        </div>
+                                    </div>
+                                `;
+                            });
+                            campaignContainer.innerHTML = html;
+                        }
+                        
+                        // Update quick stats
+                        const totalCampaignsElement = document.querySelector('.col-6 h4.text-primary');
+                        if (totalCampaignsElement) {
+                            totalCampaignsElement.textContent = data.campaigns.length;
+                        }
+                    }
+                })
+                .catch(err => console.error('Error refreshing campaigns:', err));
+        }
+        
+        // Helper function to escape HTML
+        function escapeHtml(text) {
+            const map = {
+                '&': '&amp;',
+                '<': '&lt;',
+                '>': '&gt;',
+                '"': '&quot;',
+                "'": '&#039;'
+            };
+            return text ? text.replace(/[&<>"']/g, m => map[m]) : '';
+        }
+        
+        // Helper function to show alerts in modal
+        function showModalAlert(message, type = 'info') {
+            const alert = document.createElement('div');
+            alert.className = `alert alert-${type} alert-dismissible fade show`;
+            alert.innerHTML = `
+                ${message}
+                <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+            `;
+            
+            const modalBody = document.querySelector('#createCampaignModal .modal-body');
+            if (modalBody) {
+                modalBody.insertAdjacentElement('afterbegin', alert);
+            }
+        }
+        
+        // Helper function to show alerts on main page
+        function showMainPageAlert(message, type = 'info') {
+            const alert = document.createElement('div');
+            alert.className = `alert alert-${type} alert-dismissible fade show`;
+            alert.innerHTML = `
+                ${message}
+                <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+            `;
+            
+            const mainContent = document.querySelector('.main-content .container-fluid');
+            if (mainContent) {
+                // Insert after the header
+                const header = mainContent.querySelector('.d-flex.justify-content-between');
+                if (header && header.nextSibling) {
+                    header.parentNode.insertBefore(alert, header.nextSibling);
+                } else {
+                    mainContent.insertAdjacentElement('afterbegin', alert);
+                }
+            }
         }
 
         // Add JS to log the number of checked recipient_ids before form submission
@@ -867,7 +1157,96 @@ try {
             sendCampaignForm.addEventListener('submit', function(e) {
                 const checked = document.querySelectorAll('input[name="recipient_ids[]"]:checked');
                 console.log('DEBUG: Submitting with ' + checked.length + ' recipient_ids');
+                
+                // Show batch progress if sending to many recipients
+                if (checked.length > 200) {
+                    e.preventDefault();
+                    sendWithBatchProgress();
+                }
             });
+        }
+        
+        // Batch progress monitoring
+        let batchProgressInterval = null;
+        
+        function sendWithBatchProgress() {
+            const form = document.getElementById('sendCampaignForm');
+            const formData = new FormData(form);
+            
+            // Show progress modal
+            const sendModal = bootstrap.Modal.getInstance(document.getElementById('sendCampaignModal'));
+            sendModal.hide();
+            
+            const progressModal = new bootstrap.Modal(document.getElementById('batchProgressModal'));
+            progressModal.show();
+            
+            // Submit form via AJAX
+            fetch(form.action || window.location.href, {
+                method: 'POST',
+                body: formData
+            })
+            .then(response => response.text())
+            .then(html => {
+                // Start monitoring progress
+                const campaignId = document.getElementById('send_campaign_id').value;
+                startBatchProgressMonitoring(campaignId);
+            })
+            .catch(error => {
+                console.error('Error:', error);
+                alert('Failed to send campaign. Please try again.');
+                window.location.reload();
+            });
+        }
+        
+        function startBatchProgressMonitoring(campaignId) {
+            // Clear any existing interval
+            if (batchProgressInterval) {
+                clearInterval(batchProgressInterval);
+            }
+            
+            // Check progress every 2 seconds
+            batchProgressInterval = setInterval(() => {
+                fetch(`api/batch_progress.php?campaign_id=${campaignId}`)
+                .then(response => response.json())
+                .then(data => {
+                    if (data.success && data.progress) {
+                        updateBatchProgress(data.progress);
+                        
+                        // Stop monitoring if completed
+                        if (data.progress.progress_percentage >= 100) {
+                            clearInterval(batchProgressInterval);
+                            document.getElementById('batchStatus').innerHTML = 
+                                '<i class="bi bi-check-circle text-success"></i> Campaign sent successfully!';
+                        }
+                    }
+                })
+                .catch(error => {
+                    console.error('Error checking progress:', error);
+                });
+            }, 2000);
+        }
+        
+        function updateBatchProgress(progress) {
+            // Update batch progress
+            document.getElementById('batchProgressText').textContent = 
+                `${progress.completed_batches} / ${progress.total_batches} batches`;
+            document.getElementById('batchProgressBar').style.width = progress.progress_percentage + '%';
+            document.getElementById('batchProgressBar').textContent = Math.round(progress.progress_percentage) + '%';
+            
+            // Update email progress
+            const emailPercentage = progress.total_recipients > 0 
+                ? Math.round((progress.total_sent / progress.total_recipients) * 100) 
+                : 0;
+            document.getElementById('emailProgressText').textContent = 
+                `${progress.total_sent} / ${progress.total_recipients} emails`;
+            document.getElementById('emailProgressBar').style.width = emailPercentage + '%';
+            document.getElementById('emailProgressBar').textContent = emailPercentage + '%';
+            
+            // Update status
+            if (progress.processing_batches > 0) {
+                document.getElementById('batchStatus').innerHTML = 
+                    '<i class="bi bi-clock-history"></i> Processing batch...';
+            }
         }
     </script>
 </body>
