@@ -5,7 +5,8 @@ class EmailCampaign extends BaseModel {
     protected $table = "email_campaigns";
     protected $fillable = [
         "name", "subject", "content", "sender_name", "sender_email", "reply_to_email",
-        "campaign_type", "status", "scheduled_at", "created_by"
+        "campaign_type", "status", "scheduled_at", "created_by", "send_type", "target_type",
+        "from_name", "from_email", "email_content", "user_id"
     ];
     
     public function addRecipients($campaignId, $recipients) {

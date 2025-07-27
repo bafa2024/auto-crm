@@ -17,34 +17,52 @@ class EmailCampaignController extends BaseController {
             $this->sendError("Method not allowed", 405);
         }
         
-        // Get form data
+        // Check if user is logged in
+        if (!isset($_SESSION["user_id"])) {
+            $this->sendError("Unauthorized", 401);
+            return;
+        }
+        
+        // Get JSON data
+        $input = json_decode(file_get_contents("php://input"), true);
+        
+        // Map frontend fields to database fields
         $data = [
-            "name" => $_POST["campaign_name"] ?? "",
-            "subject" => $_POST["subject"] ?? "",
-            "sender_name" => $_POST["from_name"] ?? "",
-            "sender_email" => $_POST["from_email"] ?? "",
-            "content" => $_POST["email_content"] ?? "",
-            "created_by" => $_SESSION["user_id"] ?? 1,
-            "status" => "draft"
+            "name" => $input["name"] ?? "",
+            "subject" => $input["subject"] ?? "",
+            "sender_name" => $input["from_name"] ?? "",
+            "sender_email" => $input["from_email"] ?? "",
+            "content" => $input["content"] ?? "",
+            "created_by" => $_SESSION["user_id"],
+            "status" => $input["status"] ?? "draft",
+            "send_type" => $input["send_type"] ?? "immediate",
+            "scheduled_at" => $input["scheduled_at"] ?? null,
+            "target_type" => $input["target_type"] ?? "all",
+            // Additional fields for compatibility
+            "from_name" => $input["from_name"] ?? "",
+            "from_email" => $input["from_email"] ?? "",
+            "email_content" => $input["content"] ?? "",
+            "user_id" => $_SESSION["user_id"]
         ];
+        
+        // Validate required fields
+        if (empty($data["name"]) || empty($data["subject"]) || empty($data["sender_name"]) || empty($data["sender_email"]) || empty($data["content"])) {
+            $this->sendError("Missing required fields", 400);
+            return;
+        }
         
         try {
             $campaign = $this->campaignModel->create($data);
             
             if ($campaign) {
-                $campaignId = $campaign["id"];
-                
-                // Handle file upload after campaign creation
-                if (isset($_FILES["email_file"])) {
-                    $uploadResult = $this->handleFileUpload($_FILES["email_file"], $campaignId);
-                    if (!$uploadResult["success"]) {
-                        $this->sendError($uploadResult["message"], 400);
-                        return;
-                    }
-                    
-                    // Add upload results to response
-                    $campaign["upload_results"] = $uploadResult;
+                // Handle target recipients
+                if ($input["target_type"] === "tags" && !empty($input["target_tags"])) {
+                    // Store target tags (you may need to create a campaign_tags table)
+                    // For now, we'll store in campaign metadata or handle in recipient selection
                 }
+                
+                // Add recipients based on target type
+                $this->addRecipientsToCampaign($campaign["id"], $input["target_type"], $input["target_tags"] ?? []);
                 
                 $this->sendSuccess($campaign, "Campaign created successfully");
             } else {
@@ -53,6 +71,170 @@ class EmailCampaignController extends BaseController {
         } catch (Exception $e) {
             $this->sendError("Error creating campaign: " . $e->getMessage(), 500);
         }
+    }
+    
+    public function updateCampaignStatus($campaignId) {
+        if ($_SERVER["REQUEST_METHOD"] !== "PUT") {
+            $this->sendError("Method not allowed", 405);
+            return;
+        }
+        
+        // Check if user is logged in
+        if (!isset($_SESSION["user_id"])) {
+            $this->sendError("Unauthorized", 401);
+            return;
+        }
+        
+        $input = json_decode(file_get_contents("php://input"), true);
+        $status = $input["status"] ?? "";
+        
+        if (!in_array($status, ["active", "paused", "completed", "draft"])) {
+            $this->sendError("Invalid status", 400);
+            return;
+        }
+        
+        try {
+            // Verify ownership
+            $campaign = $this->campaignModel->findById($campaignId);
+            if (!$campaign || $campaign["created_by"] != $_SESSION["user_id"]) {
+                $this->sendError("Campaign not found or unauthorized", 404);
+                return;
+            }
+            
+            $updated = $this->campaignModel->update($campaignId, ["status" => $status]);
+            
+            if ($updated) {
+                $this->sendSuccess(["id" => $campaignId, "status" => $status], "Campaign status updated");
+            } else {
+                $this->sendError("Failed to update campaign status", 500);
+            }
+        } catch (Exception $e) {
+            $this->sendError("Error updating campaign: " . $e->getMessage(), 500);
+        }
+    }
+    
+    public function duplicateCampaign($campaignId) {
+        if ($_SERVER["REQUEST_METHOD"] !== "POST") {
+            $this->sendError("Method not allowed", 405);
+            return;
+        }
+        
+        // Check if user is logged in
+        if (!isset($_SESSION["user_id"])) {
+            $this->sendError("Unauthorized", 401);
+            return;
+        }
+        
+        try {
+            // Get original campaign
+            $original = $this->campaignModel->findById($campaignId);
+            if (!$original || $original["created_by"] != $_SESSION["user_id"]) {
+                $this->sendError("Campaign not found or unauthorized", 404);
+                return;
+            }
+            
+            // Create duplicate
+            $data = [
+                "name" => $original["name"] . " (Copy)",
+                "subject" => $original["subject"],
+                "sender_name" => $original["sender_name"],
+                "sender_email" => $original["sender_email"],
+                "content" => $original["content"],
+                "created_by" => $_SESSION["user_id"],
+                "status" => "draft",
+                "send_type" => $original["send_type"],
+                "target_type" => $original["target_type"]
+            ];
+            
+            $duplicate = $this->campaignModel->create($data);
+            
+            if ($duplicate) {
+                // Copy recipients if needed
+                $this->copyRecipients($campaignId, $duplicate["id"]);
+                
+                $this->sendSuccess($duplicate, "Campaign duplicated successfully");
+            } else {
+                $this->sendError("Failed to duplicate campaign", 500);
+            }
+        } catch (Exception $e) {
+            $this->sendError("Error duplicating campaign: " . $e->getMessage(), 500);
+        }
+    }
+    
+    public function deleteCampaign($campaignId) {
+        if ($_SERVER["REQUEST_METHOD"] !== "DELETE") {
+            $this->sendError("Method not allowed", 405);
+            return;
+        }
+        
+        // Check if user is logged in
+        if (!isset($_SESSION["user_id"])) {
+            $this->sendError("Unauthorized", 401);
+            return;
+        }
+        
+        try {
+            // Verify ownership
+            $campaign = $this->campaignModel->findById($campaignId);
+            if (!$campaign || $campaign["created_by"] != $_SESSION["user_id"]) {
+                $this->sendError("Campaign not found or unauthorized", 404);
+                return;
+            }
+            
+            // Only allow deletion of draft or paused campaigns
+            if (!in_array($campaign["status"], ["draft", "paused"])) {
+                $this->sendError("Cannot delete active or completed campaigns", 400);
+                return;
+            }
+            
+            $deleted = $this->campaignModel->delete($campaignId);
+            
+            if ($deleted) {
+                $this->sendSuccess(["id" => $campaignId], "Campaign deleted successfully");
+            } else {
+                $this->sendError("Failed to delete campaign", 500);
+            }
+        } catch (Exception $e) {
+            $this->sendError("Error deleting campaign: " . $e->getMessage(), 500);
+        }
+    }
+    
+    private function addRecipientsToCampaign($campaignId, $targetType, $targetTags = []) {
+        $db = $this->db;
+        
+        if ($targetType === "all") {
+            // Add all contacts
+            $stmt = $db->prepare("
+                INSERT INTO email_recipients (campaign_id, contact_id, email, status)
+                SELECT ?, id, email, 'pending' FROM contacts
+            ");
+            $stmt->execute([$campaignId]);
+        } elseif ($targetType === "tags" && !empty($targetTags)) {
+            // Add contacts with specific tags
+            $tagPlaceholders = str_repeat("?,", count($targetTags) - 1) . "?";
+            $stmt = $db->prepare("
+                INSERT INTO email_recipients (campaign_id, contact_id, email, status)
+                SELECT DISTINCT ?, id, email, 'pending' 
+                FROM contacts 
+                WHERE " . implode(" OR ", array_fill(0, count($targetTags), "FIND_IN_SET(?, tags)"))
+            );
+            $params = [$campaignId];
+            foreach ($targetTags as $tag) {
+                $params[] = $tag;
+            }
+            $stmt->execute($params);
+        }
+    }
+    
+    private function copyRecipients($fromCampaignId, $toCampaignId) {
+        $db = $this->db;
+        $stmt = $db->prepare("
+            INSERT INTO email_recipients (campaign_id, contact_id, email, status)
+            SELECT ?, contact_id, email, 'pending' 
+            FROM email_recipients 
+            WHERE campaign_id = ?
+        ");
+        $stmt->execute([$toCampaignId, $fromCampaignId]);
     }
     
     private function handleFileUpload($file, $campaignId = null) {

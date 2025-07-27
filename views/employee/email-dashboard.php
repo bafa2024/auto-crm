@@ -150,9 +150,11 @@ $totalContacts = $stmt->fetch()['total'];
                 <div class="d-flex justify-content-between flex-wrap flex-md-nowrap align-items-center pt-3 pb-2 mb-3 border-bottom">
                     <h1 class="h2">Email Campaign Dashboard</h1>
                     <div class="btn-toolbar mb-2 mb-md-0">
+                        <?php if ($permissions['can_create_campaigns']): ?>
                         <a href="/employee/campaigns/create" class="btn btn-primary">
                             <i class="fas fa-plus me-2"></i>New Campaign
                         </a>
+                        <?php endif; ?>
                     </div>
                 </div>
 
@@ -280,9 +282,11 @@ $totalContacts = $stmt->fetch()['total'];
                                                     <a href="/employee/campaigns/view/<?php echo $campaign['id']; ?>" class="btn btn-sm btn-info">
                                                         <i class="fas fa-eye"></i>
                                                     </a>
+                                                    <?php if ($permissions['can_edit_campaigns']): ?>
                                                     <a href="/employee/campaigns/edit/<?php echo $campaign['id']; ?>" class="btn btn-sm btn-warning">
                                                         <i class="fas fa-edit"></i>
                                                     </a>
+                                                    <?php endif; ?>
                                                 </td>
                                             </tr>
                                         <?php endforeach; ?>

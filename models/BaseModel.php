@@ -23,6 +23,11 @@ abstract class BaseModel {
         return null;
     }
     
+    // Alias for find() method
+    public function findById($id) {
+        return $this->find($id);
+    }
+    
     public function findBy($field, $value) {
         if (!$this->db) return null;
         

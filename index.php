@@ -319,16 +319,25 @@ try {
                     require_once __DIR__ . "/controllers/EmailCampaignController.php";
                     $controller = new EmailCampaignController($db);
                     
-                    switch ($pathParts[1] ?? "") {
-                        case "create":
-                            if ($requestMethod === "POST") {
-                                $controller->createCampaign();
-                            }
-                            break;
-                            
-                        default:
-                            http_response_code(404);
-                            echo json_encode(["error" => "Campaign endpoint not found"]);
+                    // Handle /api/campaigns (POST) - create campaign
+                    if (!isset($pathParts[1]) && $requestMethod === "POST") {
+                        $controller->createCampaign();
+                    }
+                    // Handle /api/campaigns/{id}/status (PUT)
+                    elseif (isset($pathParts[1]) && is_numeric($pathParts[1]) && isset($pathParts[2]) && $pathParts[2] === "status" && $requestMethod === "PUT") {
+                        $controller->updateCampaignStatus((int)$pathParts[1]);
+                    }
+                    // Handle /api/campaigns/{id}/duplicate (POST)
+                    elseif (isset($pathParts[1]) && is_numeric($pathParts[1]) && isset($pathParts[2]) && $pathParts[2] === "duplicate" && $requestMethod === "POST") {
+                        $controller->duplicateCampaign((int)$pathParts[1]);
+                    }
+                    // Handle /api/campaigns/{id} (DELETE)
+                    elseif (isset($pathParts[1]) && is_numeric($pathParts[1]) && !isset($pathParts[2]) && $requestMethod === "DELETE") {
+                        $controller->deleteCampaign((int)$pathParts[1]);
+                    }
+                    else {
+                        http_response_code(404);
+                        echo json_encode(["error" => "Campaign endpoint not found"]);
                     }
                     break;
                     

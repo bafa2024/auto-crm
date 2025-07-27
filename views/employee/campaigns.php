@@ -254,34 +254,44 @@ $campaigns = $stmt->fetchAll();
                                                         <i class="fas fa-eye"></i>
                                                     </a>
                                                     <?php if ($campaign['status'] === 'draft'): ?>
+                                                        <?php if ($permissions['can_edit_campaigns']): ?>
                                                         <a href="/employee/campaigns/edit/<?php echo $campaign['id']; ?>" 
                                                            class="btn btn-sm btn-warning" title="Edit">
                                                             <i class="fas fa-edit"></i>
                                                         </a>
+                                                        <?php endif; ?>
+                                                        <?php if ($permissions['can_send_campaigns']): ?>
                                                         <button class="btn btn-sm btn-success" 
                                                                 onclick="activateCampaign(<?php echo $campaign['id']; ?>)" 
                                                                 title="Activate">
                                                             <i class="fas fa-play"></i>
                                                         </button>
+                                                        <?php endif; ?>
                                                     <?php elseif ($campaign['status'] === 'active'): ?>
+                                                        <?php if ($permissions['can_send_campaigns']): ?>
                                                         <button class="btn btn-sm btn-warning" 
                                                                 onclick="pauseCampaign(<?php echo $campaign['id']; ?>)" 
                                                                 title="Pause">
                                                             <i class="fas fa-pause"></i>
                                                         </button>
+                                                        <?php endif; ?>
                                                     <?php elseif ($campaign['status'] === 'paused'): ?>
+                                                        <?php if ($permissions['can_send_campaigns']): ?>
                                                         <button class="btn btn-sm btn-success" 
                                                                 onclick="resumeCampaign(<?php echo $campaign['id']; ?>)" 
                                                                 title="Resume">
                                                             <i class="fas fa-play"></i>
                                                         </button>
+                                                        <?php endif; ?>
                                                     <?php endif; ?>
+                                                    <?php if ($permissions['can_create_campaigns']): ?>
                                                     <button class="btn btn-sm btn-secondary" 
                                                             onclick="duplicateCampaign(<?php echo $campaign['id']; ?>)" 
                                                             title="Duplicate">
                                                         <i class="fas fa-copy"></i>
                                                     </button>
-                                                    <?php if (in_array($campaign['status'], ['draft', 'paused'])): ?>
+                                                    <?php endif; ?>
+                                                    <?php if (in_array($campaign['status'], ['draft', 'paused']) && $permissions['can_delete_campaigns']): ?>
                                                         <button class="btn btn-sm btn-danger" 
                                                                 onclick="deleteCampaign(<?php echo $campaign['id']; ?>)" 
                                                                 title="Delete">
@@ -346,24 +356,40 @@ $campaigns = $stmt->fetchAll();
         }
         
         function activateCampaign(id) {
+            <?php if (!$permissions['can_send_campaigns']): ?>
+            alert('You do not have permission to send campaigns.');
+            return;
+            <?php endif; ?>
             if (confirm('Are you sure you want to activate this campaign?')) {
                 updateCampaignStatus(id, 'active');
             }
         }
         
         function pauseCampaign(id) {
+            <?php if (!$permissions['can_send_campaigns']): ?>
+            alert('You do not have permission to manage campaigns.');
+            return;
+            <?php endif; ?>
             if (confirm('Are you sure you want to pause this campaign?')) {
                 updateCampaignStatus(id, 'paused');
             }
         }
         
         function resumeCampaign(id) {
+            <?php if (!$permissions['can_send_campaigns']): ?>
+            alert('You do not have permission to send campaigns.');
+            return;
+            <?php endif; ?>
             if (confirm('Are you sure you want to resume this campaign?')) {
                 updateCampaignStatus(id, 'active');
             }
         }
         
         async function duplicateCampaign(id) {
+            <?php if (!$permissions['can_create_campaigns']): ?>
+            alert('You do not have permission to create campaigns.');
+            return;
+            <?php endif; ?>
             if (confirm('Are you sure you want to duplicate this campaign?')) {
                 try {
                     const response = await fetch(`${basePath}/api/campaigns/${id}/duplicate`, {
@@ -382,6 +408,10 @@ $campaigns = $stmt->fetchAll();
         }
         
         async function deleteCampaign(id) {
+            <?php if (!$permissions['can_delete_campaigns']): ?>
+            alert('You do not have permission to delete campaigns.');
+            return;
+            <?php endif; ?>
             if (confirm('Are you sure you want to delete this campaign? This action cannot be undone.')) {
                 try {
                     const response = await fetch(`${basePath}/api/campaigns/${id}`, {
