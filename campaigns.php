@@ -238,6 +238,17 @@ try {
             background-color: #e3f2fd;
             border-color: #2196f3;
         }
+        .recipient-item.border-warning {
+            border-color: #ffc107;
+            background-color: #fff8e1;
+        }
+        .recipients-list {
+            max-height: 500px;
+            overflow-y: auto;
+        }
+        .badge {
+            font-size: 0.75rem;
+        }
         @media (max-width: 768px) {
             .sidebar {
                 transform: translateX(-100%);
@@ -478,6 +489,7 @@ try {
                             <!-- Selected Count -->
                             <div class="mb-2">
                                 <small class="text-primary" id="selectedCount">0 recipients selected</small>
+                                <small class="text-muted ms-3" id="searchResultInfo" style="display: none;"></small>
                             </div>
                             
                             <!-- The recipients-list div is inside the form, so checkboxes will be submitted -->
@@ -725,28 +737,59 @@ try {
                     const totalRecipientsCount = document.getElementById('totalRecipientsCount');
                     recipientsList.innerHTML = '';
                     let recipients = data.recipients || [];
-                    totalRecipientsCount.textContent = recipients.length + ' unsent recipients';
-                    // Show only first 50
-                    recipients = recipients.slice(0, 50);
-                    recipients.forEach(recipient => {
+                    
+                    // Update count display with more detail
+                    const totalUnsent = data.total_unsent || recipients.length;
+                    const uniqueUnsent = data.unique_unsent_count || 0;
+                    totalRecipientsCount.innerHTML = `<strong>${totalUnsent}</strong> unsent recipients (<strong>${uniqueUnsent}</strong> unique emails)`;
+                    
+                    if (recipients.length === 0) {
+                        recipientsList.innerHTML = `
+                            <div class="text-center py-4">
+                                <i class="bi bi-check-circle text-success display-4"></i>
+                                <p class="mt-3 mb-0">All recipients have already been sent this campaign!</p>
+                                <small class="text-muted">No unsent recipients found.</small>
+                            </div>
+                        `;
+                        // Disable send buttons if no recipients
+                        document.querySelector('#sendCampaignForm button[type="submit"]').disabled = true;
+                        document.querySelector('#sendCampaignForm button[onclick*="sendToAllRecipients"]').disabled = true;
+                        return;
+                    }
+                    
+                    // Show only first 100 recipients
+                    const displayLimit = 100;
+                    const displayRecipients = recipients.slice(0, displayLimit);
+                    
+                    displayRecipients.forEach(recipient => {
                         const div = document.createElement('div');
                         div.className = 'recipient-item';
+                        if (recipient.send_status === 'failed') {
+                            div.className += ' border-warning';
+                        }
                         div.setAttribute('onclick', `toggleRecipient(${recipient.id})`);
                         div.setAttribute('data-search', (recipient.email + ' ' + (recipient.name || '') + ' ' + (recipient.company || '')).toLowerCase());
-                        div.innerHTML = `<div class=\"form-check\">
-                            <input class=\"form-check-input\" type=\"checkbox\" name=\"recipient_ids[]\" value=\"${recipient.id}\" id=\"recipient_${recipient.id}\" onchange=\"updateSelectedCount()\">
-                            <label class=\"form-check-label\" for=\"recipient_${recipient.id}\">
-                                <strong>${recipient.email}</strong>
-                                ${recipient.name ? `<br><small class=\"text-muted\">${recipient.name}</small>` : ''}
-                                ${recipient.company ? `<br><small class=\"text-muted\">${recipient.company}</small>` : ''}
+                        
+                        const statusBadge = recipient.send_status === 'failed' 
+                            ? '<span class="badge bg-warning ms-2">Failed</span>' 
+                            : '<span class="badge bg-info ms-2">Never Sent</span>';
+                        
+                        div.innerHTML = `<div class="form-check">
+                            <input class="form-check-input" type="checkbox" name="recipient_ids[]" value="${recipient.id}" id="recipient_${recipient.id}" onchange="updateSelectedCount()">
+                            <label class="form-check-label" for="recipient_${recipient.id}">
+                                <strong>${escapeHtml(recipient.email)}</strong>${statusBadge}
+                                ${recipient.name ? `<br><small class="text-muted">${escapeHtml(recipient.name)}</small>` : ''}
+                                ${recipient.company ? `<br><small class="text-muted">${escapeHtml(recipient.company)}</small>` : ''}
+                                ${recipient.send_status === 'failed' && recipient.sent_at ? `<br><small class="text-danger">Failed on: ${new Date(recipient.sent_at).toLocaleDateString()}</small>` : ''}
                             </label>
                         </div>`;
                         recipientsList.appendChild(div);
                     });
-                    if (data.recipients && data.recipients.length > 50) {
+                    
+                    if (recipients.length > displayLimit) {
                         const info = document.createElement('div');
-                        info.className = 'text-center mt-3';
-                        info.innerHTML = '<small class="text-muted">Showing first 50 recipients. Use search to find specific recipients.</small>';
+                        info.className = 'alert alert-info mt-3';
+                        info.innerHTML = `<i class="bi bi-info-circle"></i> Showing first ${displayLimit} of ${recipients.length} unsent recipients. Use search to find specific recipients or click "Send to All" to send to all ${uniqueUnsent} unique emails.`;
                         recipientsList.appendChild(info);
                     }
                     updateSelectedCount();
