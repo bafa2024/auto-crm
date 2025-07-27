@@ -144,34 +144,15 @@ if (!isset($_SESSION['user_id'])) {
         </div>
         <div id="msg"></div>
         <div class="row">
-            <div class="col-lg-5 mb-4">
+            <div class="col-lg-12">
                 <div class="card">
                     <div class="card-body">
-                        <div class="card-title"><i class="bi bi-person-plus"></i> Add New Employee</div>
-                        <form id="add-employee-form" autocomplete="off">
-                            <div class="mb-2"><input class="form-control" type="text" name="first_name" placeholder="First Name" required></div>
-                            <div class="mb-2"><input class="form-control" type="text" name="last_name" placeholder="Last Name" required></div>
-                            <div class="mb-2"><input class="form-control" type="email" name="email" placeholder="Email" required></div>
-                            <div class="mb-2"><input class="form-control" type="password" name="password" placeholder="Password" required></div>
-                            <div class="mb-2"><select class="form-select" name="role">
-                                <option value="agent">Agent (Employee)</option>
-                                <option value="manager">Manager (Employee)</option>
-                                <option value="user">User</option>
-                                <option value="admin">Admin</option>
-                            </select></div>
-                            <div class="mb-2"><select class="form-select" name="status">
-                                <option value="active">Active</option>
-                                <option value="inactive">Inactive</option>
-                            </select></div>
-                            <button class="btn btn-primary w-100" type="submit"><i class="bi bi-plus-circle"></i> Add Employee</button>
-                        </form>
-                    </div>
-                </div>
-            </div>
-            <div class="col-lg-7">
-                <div class="card">
-                    <div class="card-body">
-                        <div class="card-title"><i class="bi bi-people"></i> Employees</div>
+                        <div class="d-flex justify-content-between align-items-center mb-3">
+                            <div class="card-title mb-0"><i class="bi bi-people"></i> Employees</div>
+                            <button class="btn btn-primary" onclick="showAddEmployeeModal()">
+                                <i class="bi bi-plus-circle"></i> Add Employee
+                            </button>
+                        </div>
                         <input type="text" id="search" class="form-control mb-3" placeholder="Search by name, email, role, status">
                         <div id="employees-loading" class="loading" style="display:none;">Loading employees...</div>
                         <div class="table-responsive">
@@ -708,6 +689,117 @@ function savePermissions(userId) {
     .catch(() => {
         showMsg('Failed to update permissions.', 'error');
     });
+}
+
+// Add Employee Modal
+function showAddEmployeeModal() {
+    const modal = document.createElement('div');
+    modal.className = 'modal fade';
+    modal.id = 'addEmployeeModal';
+    modal.innerHTML = `
+        <div class="modal-dialog">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title"><i class="bi bi-person-plus"></i> Add New Employee</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                </div>
+                <form id="add-employee-modal-form">
+                    <div class="modal-body">
+                        <div class="mb-3">
+                            <label for="add_first_name" class="form-label">First Name <span class="text-danger">*</span></label>
+                            <input type="text" class="form-control" id="add_first_name" name="first_name" required>
+                        </div>
+                        <div class="mb-3">
+                            <label for="add_last_name" class="form-label">Last Name <span class="text-danger">*</span></label>
+                            <input type="text" class="form-control" id="add_last_name" name="last_name" required>
+                        </div>
+                        <div class="mb-3">
+                            <label for="add_email" class="form-label">Email <span class="text-danger">*</span></label>
+                            <input type="email" class="form-control" id="add_email" name="email" required>
+                        </div>
+                        <div class="mb-3">
+                            <label for="add_password" class="form-label">Password <span class="text-danger">*</span></label>
+                            <input type="password" class="form-control" id="add_password" name="password" required minlength="6">
+                            <div class="form-text">Minimum 6 characters</div>
+                        </div>
+                        <div class="mb-3">
+                            <label for="add_role" class="form-label">Role <span class="text-danger">*</span></label>
+                            <select class="form-select" id="add_role" name="role" required>
+                                <option value="">Select Role</option>
+                                <option value="agent">Agent (Employee)</option>
+                                <option value="manager">Manager (Employee)</option>
+                                <option value="user">User</option>
+                                <option value="admin">Admin</option>
+                            </select>
+                        </div>
+                        <div class="mb-3">
+                            <label for="add_status" class="form-label">Status</label>
+                            <select class="form-select" id="add_status" name="status">
+                                <option value="active">Active</option>
+                                <option value="inactive">Inactive</option>
+                            </select>
+                        </div>
+                    </div>
+                    <div class="modal-footer">
+                        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                        <button type="submit" class="btn btn-primary">
+                            <i class="bi bi-plus-circle"></i> Add Employee
+                        </button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    `;
+    
+    document.body.appendChild(modal);
+    const bsModal = new bootstrap.Modal(modal);
+    
+    // Handle form submission
+    document.getElementById('add-employee-modal-form').onsubmit = function(e) {
+        e.preventDefault();
+        const form = e.target;
+        const submitBtn = form.querySelector('button[type="submit"]');
+        const originalText = submitBtn.innerHTML;
+        
+        submitBtn.disabled = true;
+        submitBtn.innerHTML = '<span class="spinner-border spinner-border-sm me-2"></span>Adding...';
+        
+        fetch('<?php echo base_path('api/employees/create'); ?>', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+                first_name: form.first_name.value,
+                last_name: form.last_name.value,
+                email: form.email.value,
+                password: form.password.value,
+                role: form.role.value,
+                status: form.status.value
+            })
+        })
+        .then(r => r.json())
+        .then(data => {
+            if (data.success) {
+                showMsg('Employee added successfully!', 'success');
+                bsModal.hide();
+                fetchEmployees();
+            } else {
+                showMsg(data.message || 'Failed to add employee', 'error');
+                submitBtn.disabled = false;
+                submitBtn.innerHTML = originalText;
+            }
+        })
+        .catch(() => {
+            showMsg('Failed to add employee', 'error');
+            submitBtn.disabled = false;
+            submitBtn.innerHTML = originalText;
+        });
+    };
+    
+    modal.addEventListener('hidden.bs.modal', () => {
+        modal.remove();
+    });
+    
+    bsModal.show();
 }
 </script>
 
