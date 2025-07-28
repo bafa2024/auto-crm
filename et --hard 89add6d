@@ -1,0 +1,5 @@
+[33m89add6d[m Make contact management containers full width
+[33m1eace8c[m Fix contact deletion foreign key constraint error - Updated EmailRecipientController to handle batch_recipients cleanup - Added transaction safety for data integrity - Created database migration script for MySQL environments - Added comprehensive test scripts and documentation
+[33m5f77c4f[m Debug and fix 'Failed to fetch' error for contact deletion
+[33m19eb85f[m Fix contact delete functionality
+[33mfb812a6[m Add bulk delete functionality for contacts
