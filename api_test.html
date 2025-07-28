@@ -1,0 +1,66 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>API Test</title>
+</head>
+<body>
+    <h1>API Endpoint Test</h1>
+    <div id="results"></div>
+    
+    <script>
+        const results = document.getElementById('results');
+        
+        // Get current location info
+        results.innerHTML += `<p><strong>Current URL:</strong> ${window.location.href}</p>`;
+        results.innerHTML += `<p><strong>Origin:</strong> ${window.location.origin}</p>`;
+        results.innerHTML += `<p><strong>Pathname:</strong> ${window.location.pathname}</p>`;
+        
+        // Calculate base path
+        const pathParts = window.location.pathname.split('/');
+        pathParts.pop(); // Remove current file
+        const basePath = pathParts.join('/');
+        results.innerHTML += `<p><strong>Calculated base path:</strong> ${basePath}</p>`;
+        
+        // Test different API URL formats
+        const apiUrls = [
+            `${window.location.origin}${basePath}/api/recipients/1`,
+            `${basePath}/api/recipients/1`,
+            `/acrm/api/recipients/1`,
+            `api/recipients/1`,
+            `${window.location.origin}/acrm/api/recipients/1`
+        ];
+        
+        results.innerHTML += '<h2>Testing API URLs:</h2>';
+        
+        apiUrls.forEach((url, index) => {
+            results.innerHTML += `<p>Testing: <code>${url}</code></p>`;
+            
+            fetch(url, {
+                method: 'GET',
+                headers: {
+                    'Content-Type': 'application/json'
+                }
+            })
+            .then(response => {
+                results.innerHTML += `<p style="color: green;">✓ URL ${index + 1} responded with status: ${response.status}</p>`;
+                return response.text();
+            })
+            .then(text => {
+                results.innerHTML += `<pre>${text.substring(0, 200)}...</pre>`;
+            })
+            .catch(error => {
+                results.innerHTML += `<p style="color: red;">✗ URL ${index + 1} failed: ${error.message}</p>`;
+            });
+        });
+        
+        // Also test if api/index.php exists
+        fetch(`${basePath}/api/index.php`)
+            .then(response => {
+                results.innerHTML += `<p><strong>api/index.php exists:</strong> ${response.ok ? 'Yes' : 'No'} (Status: ${response.status})</p>`;
+            })
+            .catch(error => {
+                results.innerHTML += `<p><strong>api/index.php check failed:</strong> ${error.message}</p>`;
+            });
+    </script>
+</body>
+</html>

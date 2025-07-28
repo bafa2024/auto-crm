@@ -567,7 +567,24 @@ try {
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/js/bootstrap.bundle.min.js"></script>
     <script>
         // Get base path for API calls
-        const basePath = '<?php echo base_path(''); ?>';
+        const basePath = '<?php echo rtrim(base_path(''), '/'); ?>';
+        console.log('Base path:', basePath);
+        
+        // Test API connectivity
+        window.addEventListener('load', function() {
+            console.log('Testing API connectivity...');
+            fetch(`${basePath}/api/campaigns`)
+                .then(response => {
+                    console.log('API test response:', response.status);
+                    if (!response.ok) {
+                        console.error('API test failed with status:', response.status);
+                    }
+                })
+                .catch(error => {
+                    console.error('API connectivity test failed:', error);
+                    console.error('This might indicate the API endpoint is not accessible');
+                });
+        });
         
         function showSection(section) {
             alert("Section: " + section + " - Coming soon!");
@@ -613,41 +630,66 @@ try {
         function deleteContact(contactId) {
             if (confirm("Are you sure you want to delete this contact? This action cannot be undone.")) {
                 console.log('Deleting contact ID:', contactId);
-                console.log('API URL:', `${basePath}/api/recipients/${contactId}`);
                 
-                fetch(`${basePath}/api/recipients/${contactId}`, {
-                    method: 'DELETE',
-                    headers: {
-                        'Content-Type': 'application/json',
-                    }
-                })
-                .then(response => {
-                    console.log('Response status:', response.status);
-                    console.log('Response headers:', response.headers);
-                    
-                    if (!response.ok) {
-                        return response.text().then(text => {
-                            console.error('Response text:', text);
-                            throw new Error(`HTTP error! status: ${response.status}, message: ${text}`);
+                // Try different API endpoints
+                const apiUrl = `${basePath}/api/recipients/${contactId}`;
+                console.log('Trying API URL:', apiUrl);
+                
+                // First test if API is accessible
+                fetch(`${basePath}/api/test.php`)
+                    .then(response => response.json())
+                    .then(testData => {
+                        console.log('API test successful:', testData);
+                        
+                        // Now try the actual delete
+                        return fetch(apiUrl, {
+                            method: 'DELETE',
+                            headers: {
+                                'Content-Type': 'application/json',
+                            },
+                            credentials: 'same-origin' // Include cookies for session
                         });
-                    }
-                    return response.json();
-                })
-                .then(data => {
-                    console.log('Response data:', data);
-                    if (data.success) {
-                        alert('Contact deleted successfully!');
-                        // Reload the page to refresh the contact list
-                        location.reload();
-                    } else {
-                        alert('Error deleting contact: ' + (data.message || data.error || 'Unknown error'));
-                    }
-                })
-                .catch(error => {
-                    console.error('Fetch error:', error);
-                    console.error('Error details:', error.message);
-                    alert('Error deleting contact: ' + error.message);
-                });
+                    })
+                    .then(response => {
+                        console.log('Delete response status:', response.status);
+                        console.log('Delete response headers:', response.headers);
+                        
+                        if (!response.ok) {
+                            return response.text().then(text => {
+                                console.error('Response text:', text);
+                                // Check if it's HTML (likely 404 or error page)
+                                if (text.includes('<!DOCTYPE') || text.includes('<html')) {
+                                    throw new Error('API endpoint not found - received HTML instead of JSON');
+                                }
+                                throw new Error(`HTTP error! status: ${response.status}, message: ${text}`);
+                            });
+                        }
+                        return response.json();
+                    })
+                    .then(data => {
+                        console.log('Response data:', data);
+                        if (data.success) {
+                            alert('Contact deleted successfully!');
+                            // Reload the page to refresh the contact list
+                            location.reload();
+                        } else {
+                            alert('Error deleting contact: ' + (data.message || data.error || 'Unknown error'));
+                        }
+                    })
+                    .catch(error => {
+                        console.error('Fetch error:', error);
+                        console.error('Error details:', error.message);
+                        
+                        // Provide more helpful error messages
+                        if (error.message.includes('Failed to fetch')) {
+                            alert('Network error: Could not connect to the API. Please check if the server is running and the API path is correct.');
+                            console.error('API URL was:', apiUrl);
+                        } else if (error.message.includes('API endpoint not found')) {
+                            alert('API endpoint not found. The server might be misconfigured.');
+                        } else {
+                            alert('Error deleting contact: ' + error.message);
+                        }
+                    });
             }
         }
         

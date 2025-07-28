@@ -12,8 +12,9 @@ RewriteCond %{REQUEST_URI} !^/api/
 RewriteRule ^(config|models|controllers|services|vendor|logs|temp|backups)/.*$ - [F,L]
 
 # Route API requests to api/index.php
-RewriteCond %{REQUEST_URI} ^/acrm/api/
+RewriteCond %{REQUEST_URI} ^/(acrm/)?api/
 RewriteCond %{REQUEST_FILENAME} !-f
+RewriteCond %{REQUEST_FILENAME} !-d
 RewriteRule ^api/(.*)$ api/index.php [QSA,L]
 
 # Allow direct access to specific API files
