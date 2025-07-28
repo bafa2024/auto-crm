@@ -85,6 +85,11 @@ try {
         case 'track':
             handleTrackingRoutes($db, $id, $action);
             break;
+        case 'employees':
+            require_once '../controllers/UserController.php';
+            $controller = new UserController($db);
+            handleEmployeeRoutes($controller, $id, $action);
+            break;
         default:
             http_response_code(404);
             echo json_encode(['error' => 'Endpoint not found']);
@@ -300,5 +305,85 @@ function handleTrackingRoutes($db, $type, $trackingId) {
         default:
             http_response_code(404);
             echo json_encode(['error' => 'Tracking endpoint not found']);
+    }
+}
+
+function handleEmployeeRoutes($controller, $action, $subAction) {
+    switch ($action) {
+        case 'list':
+            if ($_SERVER['REQUEST_METHOD'] === 'GET') {
+                $controller->listEmployees();
+            } else {
+                http_response_code(405);
+                echo json_encode(['error' => 'Method not allowed']);
+            }
+            break;
+        case 'create':
+            if ($_SERVER['REQUEST_METHOD'] === 'POST') {
+                $input = json_decode(file_get_contents('php://input'), true);
+                $request = new stdClass();
+                $request->body = $input;
+                $controller->createEmployee($request);
+            } else {
+                http_response_code(405);
+                echo json_encode(['error' => 'Method not allowed']);
+            }
+            break;
+        case 'edit':
+            if ($_SERVER['REQUEST_METHOD'] === 'POST') {
+                $input = json_decode(file_get_contents('php://input'), true);
+                $request = new stdClass();
+                $request->body = $input;
+                $controller->editEmployee($request);
+            } else {
+                http_response_code(405);
+                echo json_encode(['error' => 'Method not allowed']);
+            }
+            break;
+        case 'delete':
+            if ($_SERVER['REQUEST_METHOD'] === 'POST') {
+                $input = json_decode(file_get_contents('php://input'), true);
+                $request = new stdClass();
+                $request->body = $input;
+                $controller->deleteEmployee($request);
+            } else {
+                http_response_code(405);
+                echo json_encode(['error' => 'Method not allowed']);
+            }
+            break;
+        default:
+            // Handle numeric IDs for /api/employees/{id}/teams etc
+            if (is_numeric($action) && $subAction) {
+                $userId = (int)$action;
+                switch ($subAction) {
+                    case 'teams':
+                        if ($_SERVER['REQUEST_METHOD'] === 'GET') {
+                            $controller->getEmployeeTeams($userId);
+                        } else {
+                            http_response_code(405);
+                            echo json_encode(['error' => 'Method not allowed']);
+                        }
+                        break;
+                    case 'permissions':
+                        if ($_SERVER['REQUEST_METHOD'] === 'GET') {
+                            $controller->getEmployeePermissions($userId);
+                        } elseif ($_SERVER['REQUEST_METHOD'] === 'PUT') {
+                            $input = json_decode(file_get_contents('php://input'), true);
+                            $request = new stdClass();
+                            $request->body = $input;
+                            $controller->updateEmployeePermissions($userId, $request);
+                        } else {
+                            http_response_code(405);
+                            echo json_encode(['error' => 'Method not allowed']);
+                        }
+                        break;
+                    default:
+                        http_response_code(404);
+                        echo json_encode(['error' => 'Employee endpoint not found']);
+                }
+            } else {
+                http_response_code(404);
+                echo json_encode(['error' => 'Employee endpoint not found']);
+            }
     }
 } 

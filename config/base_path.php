@@ -17,29 +17,29 @@ class BasePath {
             $scriptPath = $_SERVER['SCRIPT_NAME'] ?? '';
             $requestUri = $_SERVER['REQUEST_URI'] ?? '';
             
-            // Extract the project folder from the path
-            $pathParts = explode('/', trim($scriptPath, '/'));
-            
-            // Remove 'index.php' or other PHP files from the end
-            $pathParts = array_filter($pathParts, function($part) {
-                return !preg_match('/\.php$/', $part);
-            });
-            
-            // Get the project folder name (usually the last part)
-            $projectFolder = end($pathParts);
-            
-            // If we're in the root directory, use empty string
-            if (empty($projectFolder) || $projectFolder === 'htdocs') {
-                self::$basePath = '';
-            } else {
-                self::$basePath = '/' . $projectFolder;
-            }
-            
-            // Special handling for common scenarios
-            if (strpos($requestUri, '/acrm/') !== false) {
+            // Check if we're in acrm directory first
+            if (strpos($scriptPath, '/acrm/') !== false || strpos($requestUri, '/acrm/') !== false) {
                 self::$basePath = '/acrm';
-            } elseif (strpos($requestUri, '/autocrm/') !== false) {
+            } elseif (strpos($scriptPath, '/autocrm/') !== false || strpos($requestUri, '/autocrm/') !== false) {
                 self::$basePath = '/autocrm';
+            } else {
+                // Extract the project folder from the path
+                $pathParts = explode('/', trim($scriptPath, '/'));
+                
+                // Remove 'index.php' or other PHP files from the end
+                $pathParts = array_filter($pathParts, function($part) {
+                    return !preg_match('/\.php$/', $part);
+                });
+                
+                // Get the project folder name (usually the first part after removing files)
+                $projectFolder = reset($pathParts);
+                
+                // If we're in the root directory or htdocs, use empty string
+                if (empty($projectFolder) || $projectFolder === 'htdocs') {
+                    self::$basePath = '';
+                } else {
+                    self::$basePath = '/' . $projectFolder;
+                }
             }
         }
         
