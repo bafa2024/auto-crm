@@ -249,6 +249,14 @@ try {
             $apiPath = substr($requestUri, 4); // Remove /api
             $pathParts = explode("/", trim($apiPath, "/"));
             
+            // Debug logging for employee routes
+            if (strpos($apiPath, "/employees") !== false) {
+                error_log("API Debug - Original URI: " . $requestUri);
+                error_log("API Debug - API Path: " . $apiPath);
+                error_log("API Debug - Path Parts: " . json_encode($pathParts));
+                error_log("API Debug - Method: " . $requestMethod);
+            }
+            
             // Route to appropriate controller
             switch ($pathParts[0] ?? "") {
                 case "auth":
@@ -600,6 +608,13 @@ try {
                                 http_response_code(404);
                                 echo json_encode(["error" => "Employees endpoint not found"]);
                             }
+                    }
+                    break;
+                    
+                case "dashboard_stats":
+                    if ($requestMethod === "GET") {
+                        require_once __DIR__ . "/api/dashboard_stats.php";
+                        exit;
                     }
                     break;
                     

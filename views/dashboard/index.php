@@ -123,14 +123,6 @@ $userEmail = $_SESSION["user_email"] ?? "user@example.com";
                 <h1 class="h3 mb-0">AutoDial Pro Dashboard</h1>
                 <p class="text-muted">Intelligent auto dialing and CRM management</p>
             </div>
-            <div class="d-flex gap-2">
-                <button class="btn btn-outline-primary" onclick="showReports()">
-                    <i class="bi bi-graph-up"></i> Reports
-                </button>
-                <button class="btn btn-primary" onclick="startDialer()">
-                    <i class="bi bi-telephone"></i> Start Dialer
-                </button>
-            </div>
         </div>
         
 
@@ -198,9 +190,9 @@ $userEmail = $_SESSION["user_email"] ?? "user@example.com";
             </div>
         </div>
 
-        <!-- Recent Activity & Quick Actions -->
+        <!-- Recent Activity -->
         <div class="row">
-            <div class="col-md-8">
+            <div class="col-12">
                 <div class="card">
                     <div class="card-header bg-white">
                         <h5 class="mb-0">Recent Activity</h5>
@@ -241,29 +233,6 @@ $userEmail = $_SESSION["user_email"] ?? "user@example.com";
                     </div>
                 </div>
             </div>
-            <div class="col-md-4">
-                <div class="card">
-                    <div class="card-header bg-white">
-                        <h5 class="mb-0">Quick Actions</h5>
-                    </div>
-                    <div class="card-body">
-                        <div class="d-grid gap-2">
-                            <button class="btn btn-primary" onclick="startDialer()">
-                                <i class="bi bi-telephone me-2"></i>Start Auto Dialer
-                            </button>
-                            <button class="btn btn-outline-primary" onclick="addContact()">
-                                <i class="bi bi-person-plus me-2"></i>Add Contact
-                            </button>
-                            <button class="btn btn-outline-primary" onclick="createCampaign()">
-                                <i class="bi bi-envelope-plus me-2"></i>Create Campaign
-                            </button>
-                            <button class="btn btn-outline-primary" onclick="importContacts()">
-                                <i class="bi bi-upload me-2"></i>Import Contacts
-                            </button>
-                        </div>
-                    </div>
-                </div>
-            </div>
         </div>
     </div>
 </div>
@@ -272,33 +241,32 @@ $userEmail = $_SESSION["user_email"] ?? "user@example.com";
 <script>
 
 // Load dashboard statistics
-function loadStats() {
-    // This would normally fetch from API
-    document.getElementById("totalContacts").textContent = "1,234";
-    document.getElementById("callsToday").textContent = "156";
-    document.getElementById("activeCampaigns").textContent = "8";
-    document.getElementById("connectionRate").textContent = "23.5%";
-}
-
-// AutoDial Pro specific functions
-function startDialer() {
-    alert("Starting Auto Dialer... This feature will connect to your phone system.");
-}
-
-function addContact() {
-    alert("Add Contact feature coming soon!");
-}
-
-function createCampaign() {
-    alert("Create Campaign feature coming soon!");
-}
-
-function importContacts() {
-    alert("Import Contacts feature coming soon!");
-}
-
-function showReports() {
-    alert("Reports dashboard coming soon!");
+async function loadStats() {
+    try {
+        const response = await fetch('/api/dashboard_stats.php');
+        const data = await response.json();
+        
+        if (data.success) {
+            document.getElementById("totalContacts").textContent = data.stats.totalContacts.toLocaleString();
+            document.getElementById("callsToday").textContent = data.stats.callsToday.toLocaleString();
+            document.getElementById("activeCampaigns").textContent = data.stats.activeCampaigns.toLocaleString();
+            document.getElementById("connectionRate").textContent = data.stats.connectionRate;
+        } else {
+            console.error('Failed to load stats:', data.message);
+            // Fallback to default values
+            document.getElementById("totalContacts").textContent = "0";
+            document.getElementById("callsToday").textContent = "0";
+            document.getElementById("activeCampaigns").textContent = "0";
+            document.getElementById("connectionRate").textContent = "0%";
+        }
+    } catch (error) {
+        console.error('Error loading stats:', error);
+        // Fallback to default values
+        document.getElementById("totalContacts").textContent = "0";
+        document.getElementById("callsToday").textContent = "0";
+        document.getElementById("activeCampaigns").textContent = "0";
+        document.getElementById("connectionRate").textContent = "0%";
+    }
 }
 
 // Load on page ready
