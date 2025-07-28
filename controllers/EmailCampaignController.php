@@ -181,12 +181,6 @@ class EmailCampaignController extends BaseController {
                 return;
             }
             
-            // Only allow deletion of draft or paused campaigns
-            if (!in_array($campaign["status"], ["draft", "paused"])) {
-                $this->sendError("Cannot delete active or completed campaigns", 400);
-                return;
-            }
-            
             $deleted = $this->campaignModel->delete($campaignId);
             
             if ($deleted) {

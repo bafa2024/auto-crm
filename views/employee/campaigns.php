@@ -291,7 +291,7 @@ $campaigns = $stmt->fetchAll();
                                                         <i class="fas fa-copy"></i>
                                                     </button>
                                                     <?php endif; ?>
-                                                    <?php if (in_array($campaign['status'], ['draft', 'paused']) && $permissions['can_delete_campaigns']): ?>
+                                                    <?php if ($permissions['can_delete_campaigns']): ?>
                                                         <button class="btn btn-sm btn-danger" 
                                                                 onclick="deleteCampaign(<?php echo $campaign['id']; ?>)" 
                                                                 title="Delete">

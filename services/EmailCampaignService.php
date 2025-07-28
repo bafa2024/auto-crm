@@ -687,16 +687,12 @@ class EmailCampaignService {
                 ];
             }
             
-            // Check if campaign can be deleted (not sent/completed)
-            if (in_array($existingCampaign['status'], ['completed', 'sending'])) {
-                return [
-                    'success' => false,
-                    'message' => 'Cannot delete campaign that is already sent or in progress'
-                ];
-            }
-            
             // Delete campaign sends first (due to foreign key)
             $stmt = $this->db->prepare("DELETE FROM campaign_sends WHERE campaign_id = ?");
+            $stmt->execute([$campaignId]);
+            
+            // Delete email recipients for this campaign
+            $stmt = $this->db->prepare("DELETE FROM email_recipients WHERE campaign_id = ?");
             $stmt->execute([$campaignId]);
             
             // Delete the campaign
