@@ -687,7 +687,15 @@ class EmailCampaignService {
                 ];
             }
             
-            // Delete campaign sends first (due to foreign key)
+            // Delete batch_recipients first (due to foreign key)
+            $stmt = $this->db->prepare("DELETE br FROM batch_recipients br INNER JOIN email_batches eb ON br.batch_id = eb.id WHERE eb.campaign_id = ?");
+            $stmt->execute([$campaignId]);
+            
+            // Delete email batches (due to foreign key)
+            $stmt = $this->db->prepare("DELETE FROM email_batches WHERE campaign_id = ?");
+            $stmt->execute([$campaignId]);
+            
+            // Delete campaign sends (due to foreign key)
             $stmt = $this->db->prepare("DELETE FROM campaign_sends WHERE campaign_id = ?");
             $stmt->execute([$campaignId]);
             
