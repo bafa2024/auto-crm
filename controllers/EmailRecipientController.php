@@ -90,14 +90,33 @@ class EmailRecipientController extends BaseController {
             $this->sendError('Method not allowed', 405);
         }
         
-        $sql = "DELETE FROM email_recipients WHERE id = ?";
-        $stmt = $this->db->prepare($sql);
-        $result = $stmt->execute([$id]);
-        
-        if ($result) {
-            $this->sendSuccess([], 'Recipient deleted successfully');
-        } else {
-            $this->sendError('Failed to delete recipient', 500);
+        try {
+            // Start a transaction to ensure data consistency
+            $this->db->beginTransaction();
+            
+            // First, delete related records from batch_recipients table
+            $sql = "DELETE FROM batch_recipients WHERE recipient_id = ?";
+            $stmt = $this->db->prepare($sql);
+            $stmt->execute([$id]);
+            
+            // Then delete the email_recipient
+            $sql = "DELETE FROM email_recipients WHERE id = ?";
+            $stmt = $this->db->prepare($sql);
+            $result = $stmt->execute([$id]);
+            
+            if ($result) {
+                // Commit the transaction
+                $this->db->commit();
+                $this->sendSuccess([], 'Recipient deleted successfully');
+            } else {
+                // Rollback on failure
+                $this->db->rollBack();
+                $this->sendError('Failed to delete recipient', 500);
+            }
+        } catch (Exception $e) {
+            // Rollback on any exception
+            $this->db->rollBack();
+            $this->sendError('Failed to delete recipient: ' . $e->getMessage(), 500);
         }
     }
 } 
