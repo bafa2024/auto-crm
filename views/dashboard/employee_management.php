@@ -753,20 +753,53 @@ function showAddEmployeeModal() {
         submitBtn.disabled = true;
         submitBtn.innerHTML = '<span class="spinner-border spinner-border-sm me-2"></span>Adding...';
         
-        fetch('<?php echo base_path('api/employees/create'); ?>', {
+        const url = '<?php echo base_path('api/employees/create'); ?>';
+        const data = {
+            first_name: form.first_name.value.trim(),
+            last_name: form.last_name.value.trim(),
+            email: form.email.value.trim(),
+            password: form.password.value,
+            role: form.role.value,
+            status: form.status.value || 'active'
+        };
+        
+        // Validate data
+        if (!data.first_name || !data.last_name || !data.email || !data.password || !data.role) {
+            showMsg('Please fill in all required fields', 'error');
+            submitBtn.disabled = false;
+            submitBtn.innerHTML = originalText;
+            return;
+        }
+        
+        console.log('Submitting to URL:', url);
+        console.log('Data:', data);
+        
+        fetch(url, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({
-                first_name: form.first_name.value,
-                last_name: form.last_name.value,
-                email: form.email.value,
-                password: form.password.value,
-                role: form.role.value,
-                status: form.status.value
-            })
+            body: JSON.stringify(data)
         })
-        .then(r => r.json())
+        .then(r => {
+            console.log('Response status:', r.status);
+            console.log('Response ok:', r.ok);
+            if (!r.ok) {
+                return r.text().then(text => {
+                    console.error('Error response:', text);
+                    throw new Error(`HTTP error! status: ${r.status}, response: ${text}`);
+                });
+            }
+            return r.text().then(text => {
+                console.log('Raw response:', text);
+                try {
+                    return JSON.parse(text);
+                } catch (e) {
+                    console.error('JSON parse error:', e);
+                    throw new Error('Invalid JSON response: ' + text);
+                }
+            });
+        })
         .then(data => {
+            console.log('Parsed data:', data);
             if (data.success) {
                 showMsg('Employee added successfully!', 'success');
                 bsModal.hide();
@@ -777,8 +810,9 @@ function showAddEmployeeModal() {
                 submitBtn.innerHTML = originalText;
             }
         })
-        .catch(() => {
-            showMsg('Failed to add employee', 'error');
+        .catch((error) => {
+            console.error('Error adding employee:', error);
+            showMsg('Failed to add employee: ' + error.message, 'error');
             submitBtn.disabled = false;
             submitBtn.innerHTML = originalText;
         });
