@@ -334,7 +334,12 @@ try {
                 <div class="card mt-4">
                     <div class="card-header d-flex justify-content-between align-items-center">
                         <h5 class="mb-0">Recent Contacts</h5>
-                        <span class="badge bg-primary"><?php echo count($contacts); ?> contacts</span>
+                        <div class="d-flex align-items-center gap-2">
+                            <button class="btn btn-sm btn-danger" id="bulkDeleteBtn" style="display: none;" onclick="bulkDeleteContacts()">
+                                <i class="bi bi-trash"></i> Delete Selected (<span id="selectedCount">0</span>)
+                            </button>
+                            <span class="badge bg-primary"><?php echo count($contacts); ?> contacts</span>
+                        </div>
                     </div>
                     <div class="card-body">
                         <?php if (!empty($contacts)): ?>
@@ -342,6 +347,9 @@ try {
                                 <table class="table table-hover">
                                     <thead>
                                         <tr>
+                                            <th>
+                                                <input type="checkbox" class="form-check-input" id="selectAllContacts" onchange="toggleSelectAll()">
+                                            </th>
                                             <th>Name</th>
                                             <th>Email</th>
                                             <th>Company</th>
@@ -354,6 +362,9 @@ try {
                                     <tbody>
                                         <?php foreach ($contacts as $contact): ?>
                                         <tr>
+                                            <td>
+                                                <input type="checkbox" class="form-check-input contact-checkbox" value="<?php echo $contact['id']; ?>" onchange="updateSelectedCount()">
+                                            </td>
                                             <td>
                                                 <strong><?php echo htmlspecialchars($contact['name']); ?></strong>
                                             </td>
@@ -555,6 +566,9 @@ try {
     
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/js/bootstrap.bundle.min.js"></script>
     <script>
+        // Get base path for API calls
+        const basePath = '<?php echo base_path(''); ?>';
+        
         function showSection(section) {
             alert("Section: " + section + " - Coming soon!");
         }
@@ -569,7 +583,7 @@ try {
         
         function editContact(contactId) {
             // Fetch contact data and populate the edit modal
-            fetch(`api/recipients/${contactId}`)
+            fetch(`${basePath}/api/recipients/${contactId}`)
                 .then(response => response.json())
                 .then(data => {
                     if (data.success) {
@@ -598,25 +612,30 @@ try {
         
         function deleteContact(contactId) {
             if (confirm("Are you sure you want to delete this contact? This action cannot be undone.")) {
-                fetch(`api/recipients/${contactId}`, {
+                fetch(`${basePath}/api/recipients/${contactId}`, {
                     method: 'DELETE',
                     headers: {
                         'Content-Type': 'application/json',
                     }
                 })
-                .then(response => response.json())
+                .then(response => {
+                    if (!response.ok) {
+                        throw new Error(`HTTP error! status: ${response.status}`);
+                    }
+                    return response.json();
+                })
                 .then(data => {
                     if (data.success) {
                         alert('Contact deleted successfully!');
                         // Reload the page to refresh the contact list
                         location.reload();
                     } else {
-                        alert('Error deleting contact: ' + data.message);
+                        alert('Error deleting contact: ' + (data.message || data.error));
                     }
                 })
                 .catch(error => {
                     console.error('Error:', error);
-                    alert('Error deleting contact');
+                    alert('Error deleting contact: ' + error.message);
                 });
             }
         }
@@ -634,7 +653,7 @@ try {
                 data[key] = value;
             });
             
-            fetch(`api/recipients/${contactId}`, {
+            fetch(`${basePath}/api/recipients/${contactId}`, {
                 method: 'PUT',
                 headers: {
                     'Content-Type': 'application/json',
@@ -659,6 +678,87 @@ try {
                 alert('Error updating contact');
             });
         });
+        
+        // Select all functionality
+        function toggleSelectAll() {
+            const selectAllCheckbox = document.getElementById('selectAllContacts');
+            const contactCheckboxes = document.querySelectorAll('.contact-checkbox');
+            
+            contactCheckboxes.forEach(checkbox => {
+                checkbox.checked = selectAllCheckbox.checked;
+            });
+            
+            updateSelectedCount();
+        }
+        
+        // Update selected count and show/hide bulk delete button
+        function updateSelectedCount() {
+            const selectedCheckboxes = document.querySelectorAll('.contact-checkbox:checked');
+            const count = selectedCheckboxes.length;
+            
+            document.getElementById('selectedCount').textContent = count;
+            document.getElementById('bulkDeleteBtn').style.display = count > 0 ? 'inline-block' : 'none';
+            
+            // Update select all checkbox state
+            const selectAllCheckbox = document.getElementById('selectAllContacts');
+            const allCheckboxes = document.querySelectorAll('.contact-checkbox');
+            selectAllCheckbox.checked = count > 0 && count === allCheckboxes.length;
+            selectAllCheckbox.indeterminate = count > 0 && count < allCheckboxes.length;
+        }
+        
+        // Bulk delete contacts
+        function bulkDeleteContacts() {
+            const selectedCheckboxes = document.querySelectorAll('.contact-checkbox:checked');
+            const selectedIds = Array.from(selectedCheckboxes).map(cb => cb.value);
+            
+            if (selectedIds.length === 0) {
+                alert('No contacts selected');
+                return;
+            }
+            
+            const confirmMessage = selectedIds.length === 1 
+                ? 'Are you sure you want to delete this contact?' 
+                : `Are you sure you want to delete ${selectedIds.length} contacts?`;
+            
+            if (confirm(confirmMessage + ' This action cannot be undone.')) {
+                // Show loading state
+                const bulkDeleteBtn = document.getElementById('bulkDeleteBtn');
+                bulkDeleteBtn.disabled = true;
+                bulkDeleteBtn.innerHTML = '<i class="bi bi-hourglass-split"></i> Deleting...';
+                
+                // Delete all selected contacts
+                const deletePromises = selectedIds.map(id => 
+                    fetch(`${basePath}/api/recipients/${id}`, {
+                        method: 'DELETE',
+                        headers: {
+                            'Content-Type': 'application/json',
+                        }
+                    })
+                );
+                
+                Promise.all(deletePromises)
+                    .then(responses => Promise.all(responses.map(r => r.json())))
+                    .then(results => {
+                        const successCount = results.filter(r => r.success).length;
+                        const failCount = results.length - successCount;
+                        
+                        if (failCount > 0) {
+                            alert(`${successCount} contacts deleted successfully. ${failCount} failed to delete.`);
+                        } else {
+                            alert(`${successCount} contacts deleted successfully!`);
+                        }
+                        
+                        // Reload the page to refresh the contact list
+                        location.reload();
+                    })
+                    .catch(error => {
+                        console.error('Error:', error);
+                        alert('Error deleting contacts');
+                        bulkDeleteBtn.disabled = false;
+                        bulkDeleteBtn.innerHTML = `<i class="bi bi-trash"></i> Delete Selected (<span id="selectedCount">${selectedIds.length}</span>)`;
+                    });
+            }
+        }
     </script>
 </body>
 </html>

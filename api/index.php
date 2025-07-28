@@ -2,8 +2,21 @@
 require_once '../config/config.php';
 require_once '../config/database.php';
 
+// Include controllers
+require_once '../controllers/BaseController.php';
+require_once '../controllers/AuthController.php';
+require_once '../controllers/ContactController.php';
+require_once '../controllers/EmailRecipientController.php';
+require_once '../controllers/EmailCampaignController.php';
+require_once '../services/EmailService.php';
+
 // Set API mode
 define('API_MODE', true);
+
+// Start session if not already started
+if (session_status() === PHP_SESSION_NONE) {
+    session_start();
+}
 
 // CORS headers
 if (isset($_SERVER['HTTP_ORIGIN'])) {
@@ -40,9 +53,12 @@ $path = str_replace($basePath, '', parse_url($requestUri, PHP_URL_PATH));
 $pathParts = array_filter(explode('/', $path));
 
 // Basic routing
-$resource = $pathParts[0] ?? '';
-$id = $pathParts[1] ?? null;
-$action = $pathParts[2] ?? null;
+$resource = array_shift($pathParts) ?? '';
+$id = array_shift($pathParts) ?? null;
+$action = array_shift($pathParts) ?? null;
+
+// Set content type
+header('Content-Type: application/json');
 
 try {
     switch ($resource) {
@@ -76,8 +92,12 @@ try {
     }
 } catch (Exception $e) {
     http_response_code(500);
-    echo json_encode(['error' => 'Internal server error']);
-    error_log("API Error: " . $e->getMessage());
+    echo json_encode([
+        'success' => false,
+        'error' => 'Internal server error',
+        'message' => $e->getMessage()
+    ]);
+    error_log("API Error: " . $e->getMessage() . " in " . $e->getFile() . " on line " . $e->getLine());
 }
 
 function handleAuthRoutes($controller, $action) {
