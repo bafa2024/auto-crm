@@ -42,8 +42,7 @@
                             </span>
                         </button>
                         <div class="text-center">
-                            <p class="mb-0">Don't have an account? <a href="#" id="signupLink">Sign up</a></p>
-                            <p class="mb-0 mt-2">Employee login? <a href="/employee/login">Click here</a></p>
+                            <p class="mb-0">Employee login? <a href="/employee/login">Click here</a></p>
                         </div>
                     </form>
                 </div>
@@ -56,9 +55,6 @@
 document.addEventListener("DOMContentLoaded", function() {
     // Auto-detect base path for live hosting compatibility
     const basePath = window.location.pathname.includes('/acrm/') ? '/acrm' : '';
-    
-    // Set signup link href
-    document.getElementById('signupLink').href = basePath + '/signup';
     
     const loginForm = document.getElementById("loginForm");
     const loginBtn = document.getElementById("loginBtn");

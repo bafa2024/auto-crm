@@ -371,7 +371,17 @@ try {
                             <button class="btn btn-sm btn-danger" id="bulkDeleteBtn" style="display: none;" onclick="bulkDeleteContacts()">
                                 <i class="bi bi-trash"></i> Delete Selected (<span id="selectedCount">0</span>)
                             </button>
-                            <span class="badge bg-primary"><?php echo count($contacts); ?> contacts</span>
+                            <?php
+                            // Get total count of all contacts
+                            $totalCountStmt = $database->query("SELECT COUNT(*) as total FROM email_recipients");
+                            $totalContacts = $totalCountStmt->fetch(PDO::FETCH_ASSOC)['total'];
+                            ?>
+                            <?php if ($totalContacts > 0): ?>
+                            <button class="btn btn-sm btn-outline-danger" onclick="deleteAllContacts()">
+                                <i class="bi bi-trash-fill"></i> Delete All (<?php echo $totalContacts; ?>)
+                            </button>
+                            <?php endif; ?>
+                            <span class="badge bg-primary"><?php echo count($contacts); ?> contacts shown</span>
                         </div>
                     </div>
                     <div class="card-body">
@@ -829,6 +839,78 @@ try {
                         bulkDeleteBtn.disabled = false;
                         bulkDeleteBtn.innerHTML = `<i class="bi bi-trash"></i> Delete Selected (<span id="selectedCount">${selectedIds.length}</span>)`;
                     });
+            }
+        }
+        
+        // Delete all contacts
+        function deleteAllContacts() {
+            // Show a strong warning dialog
+            const warningMessage = `⚠️ WARNING: This will delete ALL contacts in the database!\n\n` +
+                                 `This action will permanently remove ALL email recipients and cannot be undone.\n\n` +
+                                 `Are you absolutely sure you want to delete ALL contacts?`;
+            
+            if (confirm(warningMessage)) {
+                // Second confirmation for safety
+                const finalConfirm = prompt('To confirm deletion of ALL contacts, please type "DELETE ALL" (case sensitive):');
+                
+                if (finalConfirm === 'DELETE ALL') {
+                    // Show loading overlay
+                    const loadingOverlay = document.createElement('div');
+                    loadingOverlay.style.cssText = `
+                        position: fixed;
+                        top: 0;
+                        left: 0;
+                        width: 100%;
+                        height: 100%;
+                        background: rgba(0,0,0,0.7);
+                        display: flex;
+                        align-items: center;
+                        justify-content: center;
+                        z-index: 9999;
+                    `;
+                    loadingOverlay.innerHTML = `
+                        <div class="bg-white p-4 rounded">
+                            <div class="spinner-border text-danger" role="status"></div>
+                            <p class="mt-2 mb-0">Deleting all contacts...</p>
+                        </div>
+                    `;
+                    document.body.appendChild(loadingOverlay);
+                    
+                    // Call the delete all API
+                    fetch(`${basePath}/api/recipients/delete-all`, {
+                        method: 'DELETE',
+                        headers: {
+                            'Content-Type': 'application/json',
+                        },
+                        credentials: 'same-origin'
+                    })
+                    .then(response => {
+                        console.log('Delete all response:', response);
+                        if (!response.ok) {
+                            return response.text().then(text => {
+                                throw new Error(`HTTP error! status: ${response.status}, message: ${text}`);
+                            });
+                        }
+                        return response.json();
+                    })
+                    .then(data => {
+                        document.body.removeChild(loadingOverlay);
+                        if (data.success) {
+                            alert(`✅ ${data.message}`);
+                            // Reload the page
+                            location.reload();
+                        } else {
+                            alert('❌ Error: ' + (data.message || 'Failed to delete all contacts'));
+                        }
+                    })
+                    .catch(error => {
+                        document.body.removeChild(loadingOverlay);
+                        console.error('Delete all error:', error);
+                        alert('❌ Error deleting all contacts: ' + error.message);
+                    });
+                } else {
+                    alert('Deletion cancelled. You must type "DELETE ALL" exactly to confirm.');
+                }
             }
         }
     </script>

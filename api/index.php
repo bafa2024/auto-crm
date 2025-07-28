@@ -171,7 +171,15 @@ function handleContactRoutes($controller, $id, $action) {
 }
 
 function handleRecipientRoutes($controller, $id, $action) {
-    if ($id && !$action) {
+    if ($id === 'delete-all' && !$action) {
+        // Delete all recipients
+        if ($_SERVER['REQUEST_METHOD'] === 'DELETE') {
+            $controller->deleteAllRecipients();
+        } else {
+            http_response_code(405);
+            echo json_encode(['error' => 'Method not allowed']);
+        }
+    } elseif ($id && !$action) {
         // Single recipient operations
         switch ($_SERVER['REQUEST_METHOD']) {
             case 'GET':

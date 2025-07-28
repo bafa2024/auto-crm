@@ -94,12 +94,27 @@ class EmailRecipientController extends BaseController {
             // Start a transaction to ensure data consistency
             $this->db->beginTransaction();
             
-            // First, delete related records from batch_recipients table
-            $sql = "DELETE FROM batch_recipients WHERE recipient_id = ?";
-            $stmt = $this->db->prepare($sql);
-            $stmt->execute([$id]);
+            // Delete related records from dependent tables first
             
-            // Then delete the email_recipient
+            // 1. Delete from campaign_sends
+            try {
+                $sql = "DELETE FROM campaign_sends WHERE recipient_id = ?";
+                $stmt = $this->db->prepare($sql);
+                $stmt->execute([$id]);
+            } catch (Exception $e) {
+                // Ignore error if table doesn't exist
+            }
+            
+            // 2. Delete from batch_recipients if it exists
+            try {
+                $sql = "DELETE FROM batch_recipients WHERE recipient_id = ?";
+                $stmt = $this->db->prepare($sql);
+                $stmt->execute([$id]);
+            } catch (Exception $e) {
+                // Ignore error if table doesn't exist
+            }
+            
+            // Finally delete the email_recipient
             $sql = "DELETE FROM email_recipients WHERE id = ?";
             $stmt = $this->db->prepare($sql);
             $result = $stmt->execute([$id]);
@@ -117,6 +132,69 @@ class EmailRecipientController extends BaseController {
             // Rollback on any exception
             $this->db->rollBack();
             $this->sendError('Failed to delete recipient: ' . $e->getMessage(), 500);
+        }
+    }
+    
+    public function deleteAllRecipients() {
+        if ($_SERVER['REQUEST_METHOD'] !== 'DELETE') {
+            $this->sendError('Method not allowed', 405);
+        }
+        
+        try {
+            // Start a transaction to ensure data consistency
+            $this->db->beginTransaction();
+            
+            // Get count of contacts before deletion
+            $countStmt = $this->db->query("SELECT COUNT(*) as total FROM email_recipients");
+            $totalCount = $countStmt->fetch(PDO::FETCH_ASSOC)['total'];
+            
+            // Delete related records from all dependent tables first
+            
+            // 1. Delete from campaign_sends (references email_recipients)
+            try {
+                $sql = "DELETE FROM campaign_sends";
+                $stmt = $this->db->prepare($sql);
+                $stmt->execute();
+            } catch (Exception $e) {
+                // Ignore if table doesn't exist
+            }
+            
+            // 2. Delete from email_clicks (has ON DELETE CASCADE but let's be explicit)
+            try {
+                $sql = "DELETE FROM email_clicks";
+                $stmt = $this->db->prepare($sql);
+                $stmt->execute();
+            } catch (Exception $e) {
+                // Ignore if table doesn't exist
+            }
+            
+            // 3. Delete from batch_recipients if it exists
+            try {
+                $sql = "DELETE FROM batch_recipients";
+                $stmt = $this->db->prepare($sql);
+                $stmt->execute();
+            } catch (Exception $e) {
+                // Ignore error if table doesn't exist
+            }
+            
+            // Finally, delete all email_recipients
+            $sql = "DELETE FROM email_recipients";
+            $stmt = $this->db->prepare($sql);
+            $result = $stmt->execute();
+            
+            if ($result) {
+                // Commit the transaction
+                $this->db->commit();
+                $this->sendSuccess(['deleted_count' => $totalCount], "Successfully deleted all {$totalCount} contacts");
+            } else {
+                // Rollback on failure
+                $this->db->rollBack();
+                $this->sendError('Failed to delete all contacts', 500);
+            }
+        } catch (Exception $e) {
+            // Rollback on any exception
+            $this->db->rollBack();
+            $this->sendError('Failed to delete all contacts: ' . $e->getMessage(), 500);
         }
     }
 } 
