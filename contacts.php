@@ -262,7 +262,7 @@ try {
                 <?php endif; ?>
                 
             <div class="row">
-                <div class="col-md-8">
+                <div class="col-12">
                 <div class="card">
                     <div class="card-body">
                         <h5 class="card-title">Upload Email Contacts</h5>
@@ -327,6 +327,39 @@ try {
                                 </tr>
                             </tbody>
                         </table>
+                    </div>
+                </div>
+                
+                <!-- Recent Uploads Summary -->
+                <div class="card mt-4">
+                    <div class="card-header">
+                        <h5 class="mb-0">Recent Uploads</h5>
+                    </div>
+                    <div class="card-body">
+                        <div class="table-responsive">
+                            <table class="table table-hover">
+                                <thead>
+                                    <tr>
+                                        <th>Campaign</th>
+                                        <th>Recipients</th>
+                                        <th>Upload Date</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    <?php if (!empty($recentUploads)): ?>
+                                        <?php foreach ($recentUploads as $upload): ?>
+                                        <tr>
+                                            <td><?php echo htmlspecialchars($upload['campaign_name'] ?? 'No Campaign'); ?></td>
+                                            <td><span class="badge bg-info"><?php echo $upload['recipient_count']; ?></span></td>
+                                            <td><?php echo date('M d, Y H:i', strtotime($upload['upload_date'])); ?></td>
+                                        </tr>
+                                        <?php endforeach; ?>
+                                    <?php else: ?>
+                                        <tr><td colspan="3" class="text-center text-muted">No uploads found.</td></tr>
+                                    <?php endif; ?>
+                                </tbody>
+                            </table>
+                        </div>
                     </div>
                 </div>
                 
@@ -412,35 +445,6 @@ try {
                                 </button>
                             </div>
                         <?php endif; ?>
-                    </div>
-                </div>
-                
-                <div class="col-md-4">
-                    <div class="card">
-                    <div class="card-body">
-                        <h5 class="card-title">Recent Uploads</h5>
-                        <table class="table">
-                            <thead>
-                                <tr>
-                                    <th>Campaign</th>
-                                    <th>Recipients</th>
-                                    <th>Upload Date</th>
-                                </tr>
-                            </thead>
-                            <tbody>
-                                <?php if (!empty($recentUploads)): ?>
-                                    <?php foreach ($recentUploads as $upload): ?>
-                                    <tr>
-                                        <td><?php echo htmlspecialchars($upload['campaign_name'] ?? 'No Campaign'); ?></td>
-                                        <td><?php echo $upload['recipient_count']; ?></td>
-                                        <td><?php echo date('Y-m-d H:i', strtotime($upload['upload_date'])); ?></td>
-                                    </tr>
-                                    <?php endforeach; ?>
-                                <?php else: ?>
-                                    <tr><td colspan="3" class="text-center text-muted">No uploads found.</td></tr>
-                                <?php endif; ?>
-                            </tbody>
-                        </table>
                     </div>
                 </div>
                 </div>
