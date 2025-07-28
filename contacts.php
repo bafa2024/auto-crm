@@ -612,6 +612,9 @@ try {
         
         function deleteContact(contactId) {
             if (confirm("Are you sure you want to delete this contact? This action cannot be undone.")) {
+                console.log('Deleting contact ID:', contactId);
+                console.log('API URL:', `${basePath}/api/recipients/${contactId}`);
+                
                 fetch(`${basePath}/api/recipients/${contactId}`, {
                     method: 'DELETE',
                     headers: {
@@ -619,22 +622,30 @@ try {
                     }
                 })
                 .then(response => {
+                    console.log('Response status:', response.status);
+                    console.log('Response headers:', response.headers);
+                    
                     if (!response.ok) {
-                        throw new Error(`HTTP error! status: ${response.status}`);
+                        return response.text().then(text => {
+                            console.error('Response text:', text);
+                            throw new Error(`HTTP error! status: ${response.status}, message: ${text}`);
+                        });
                     }
                     return response.json();
                 })
                 .then(data => {
+                    console.log('Response data:', data);
                     if (data.success) {
                         alert('Contact deleted successfully!');
                         // Reload the page to refresh the contact list
                         location.reload();
                     } else {
-                        alert('Error deleting contact: ' + (data.message || data.error));
+                        alert('Error deleting contact: ' + (data.message || data.error || 'Unknown error'));
                     }
                 })
                 .catch(error => {
-                    console.error('Error:', error);
+                    console.error('Fetch error:', error);
+                    console.error('Error details:', error.message);
                     alert('Error deleting contact: ' + error.message);
                 });
             }
@@ -737,13 +748,27 @@ try {
                 );
                 
                 Promise.all(deletePromises)
-                    .then(responses => Promise.all(responses.map(r => r.json())))
+                    .then(responses => {
+                        console.log('Bulk delete responses:', responses);
+                        return Promise.all(responses.map(r => {
+                            if (!r.ok) {
+                                return r.text().then(text => {
+                                    console.error(`Response error for status ${r.status}:`, text);
+                                    return { success: false, error: text };
+                                });
+                            }
+                            return r.json();
+                        }));
+                    })
                     .then(results => {
+                        console.log('Bulk delete results:', results);
                         const successCount = results.filter(r => r.success).length;
                         const failCount = results.length - successCount;
                         
                         if (failCount > 0) {
-                            alert(`${successCount} contacts deleted successfully. ${failCount} failed to delete.`);
+                            const errors = results.filter(r => !r.success).map(r => r.error || r.message || 'Unknown error');
+                            console.error('Failed deletions:', errors);
+                            alert(`${successCount} contacts deleted successfully. ${failCount} failed to delete.\n\nErrors: ${errors.join('\n')}`);
                         } else {
                             alert(`${successCount} contacts deleted successfully!`);
                         }
@@ -752,8 +777,9 @@ try {
                         location.reload();
                     })
                     .catch(error => {
-                        console.error('Error:', error);
-                        alert('Error deleting contacts');
+                        console.error('Bulk delete error:', error);
+                        console.error('Error details:', error.message);
+                        alert('Error deleting contacts: ' + error.message);
                         bulkDeleteBtn.disabled = false;
                         bulkDeleteBtn.innerHTML = `<i class="bi bi-trash"></i> Delete Selected (<span id="selectedCount">${selectedIds.length}</span>)`;
                     });

@@ -7,15 +7,22 @@ RewriteRule .* - [E=HTTP_AUTHORIZATION:%{HTTP:Authorization}]
 # Prevent direct access to sensitive files
 RewriteRule ^(composer\.(json|lock)|\.env|\.git|\.gitignore|README\.md)$ - [F,L]
 
-# Block access to sensitive directories
+# Block access to sensitive directories (but allow API access)
+RewriteCond %{REQUEST_URI} !^/api/
 RewriteRule ^(config|models|controllers|services|vendor|logs|temp|backups)/.*$ - [F,L]
+
+# Route API requests to api/index.php
+RewriteCond %{REQUEST_URI} ^/acrm/api/
+RewriteCond %{REQUEST_FILENAME} !-f
+RewriteRule ^api/(.*)$ api/index.php [QSA,L]
 
 # Allow direct access to specific API files
 RewriteCond %{REQUEST_URI} !^/api-employee-send-link\.php$
 RewriteCond %{REQUEST_URI} !^/test-magic-link\.php$
 RewriteCond %{REQUEST_URI} !^/api-test\.php$
+RewriteCond %{REQUEST_URI} !^/api/
 
-# Route all requests through index.php
+# Route all other requests through index.php
 RewriteCond %{REQUEST_FILENAME} !-f
 RewriteCond %{REQUEST_FILENAME} !-d
 RewriteRule ^(.*)$ index.php [QSA,L]
