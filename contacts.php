@@ -494,6 +494,64 @@ try {
             </div>
         </div>
     </div>
+
+    <!-- Edit Contact Modal -->
+    <div class="modal fade" id="editContactModal" tabindex="-1">
+        <div class="modal-dialog">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title">Edit Contact</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                </div>
+                <form id="editContactForm">
+                    <input type="hidden" id="edit_contact_id" name="contact_id">
+                    <div class="modal-body">
+                        <div class="row">
+                            <div class="col-md-6">
+                                <div class="mb-3">
+                                    <label for="edit_dot" class="form-label">DOT Number</label>
+                                    <input type="text" class="form-control" id="edit_dot" name="dot" placeholder="e.g., 170481">
+                                    <div class="form-text">Optional DOT number</div>
+                                </div>
+                            </div>
+                            <div class="col-md-6">
+                                <div class="mb-3">
+                                    <label for="edit_campaign_id" class="form-label">Campaign (Optional)</label>
+                                    <select class="form-select" id="edit_campaign_id" name="campaign_id">
+                                        <option value="">-- No Campaign --</option>
+                                        <?php foreach ($campaigns as $campaign): ?>
+                                            <option value="<?php echo $campaign['id']; ?>">
+                                                <?php echo htmlspecialchars($campaign['name']); ?>
+                                            </option>
+                                        <?php endforeach; ?>
+                                    </select>
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <div class="mb-3">
+                            <label for="edit_company_name" class="form-label">Company Name</label>
+                            <input type="text" class="form-control" id="edit_company_name" name="company_name" placeholder="e.g., BELL TRUCKING CO INC">
+                        </div>
+                        
+                        <div class="mb-3">
+                            <label for="edit_customer_name" class="form-label">Customer Name *</label>
+                            <input type="text" class="form-control" id="edit_customer_name" name="customer_name" placeholder="e.g., JUDY BELL" required>
+                        </div>
+                        
+                        <div class="mb-3">
+                            <label for="edit_email" class="form-label">Email Address *</label>
+                            <input type="email" class="form-control" id="edit_email" name="email" placeholder="e.g., judy@example.com" required>
+                        </div>
+                    </div>
+                    <div class="modal-footer">
+                        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                        <button type="submit" class="btn btn-primary">Update Contact</button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
     
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/js/bootstrap.bundle.min.js"></script>
     <script>
@@ -510,15 +568,97 @@ try {
         }
         
         function editContact(contactId) {
-            alert("Edit contact " + contactId + " - Coming soon!");
+            // Fetch contact data and populate the edit modal
+            fetch(`api/recipients/${contactId}`)
+                .then(response => response.json())
+                .then(data => {
+                    if (data.success) {
+                        const contact = data.data;
+                        
+                        // Populate the edit modal fields
+                        document.getElementById('edit_contact_id').value = contact.id;
+                        document.getElementById('edit_dot').value = contact.dot || '';
+                        document.getElementById('edit_company_name').value = contact.company || '';
+                        document.getElementById('edit_customer_name').value = contact.name || '';
+                        document.getElementById('edit_email').value = contact.email || '';
+                        document.getElementById('edit_campaign_id').value = contact.campaign_id || '';
+                        
+                        // Show the modal
+                        const editModal = new bootstrap.Modal(document.getElementById('editContactModal'));
+                        editModal.show();
+                    } else {
+                        alert('Error loading contact data: ' + data.message);
+                    }
+                })
+                .catch(error => {
+                    console.error('Error:', error);
+                    alert('Error loading contact data');
+                });
         }
         
         function deleteContact(contactId) {
-            if (confirm("Are you sure you want to delete this contact?")) {
-                // TODO: Implement delete functionality
-                alert("Delete contact " + contactId + " - Coming soon!");
+            if (confirm("Are you sure you want to delete this contact? This action cannot be undone.")) {
+                fetch(`api/recipients/${contactId}`, {
+                    method: 'DELETE',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    }
+                })
+                .then(response => response.json())
+                .then(data => {
+                    if (data.success) {
+                        alert('Contact deleted successfully!');
+                        // Reload the page to refresh the contact list
+                        location.reload();
+                    } else {
+                        alert('Error deleting contact: ' + data.message);
+                    }
+                })
+                .catch(error => {
+                    console.error('Error:', error);
+                    alert('Error deleting contact');
+                });
             }
         }
+        
+        // Handle edit contact form submission
+        document.getElementById('editContactForm').addEventListener('submit', function(e) {
+            e.preventDefault();
+            
+            const contactId = document.getElementById('edit_contact_id').value;
+            const formData = new FormData(this);
+            
+            // Convert form data to JSON
+            const data = {};
+            formData.forEach((value, key) => {
+                data[key] = value;
+            });
+            
+            fetch(`api/recipients/${contactId}`, {
+                method: 'PUT',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify(data)
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.success) {
+                    alert('Contact updated successfully!');
+                    // Close the modal
+                    const editModal = bootstrap.Modal.getInstance(document.getElementById('editContactModal'));
+                    editModal.hide();
+                    // Reload the page to refresh the contact list
+                    location.reload();
+                } else {
+                    alert('Error updating contact: ' + data.message);
+                }
+            })
+            .catch(error => {
+                console.error('Error:', error);
+                alert('Error updating contact');
+            });
+        });
     </script>
 </body>
 </html>

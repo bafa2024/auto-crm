@@ -54,6 +54,10 @@ try {
             $controller = new ContactController($db);
             handleContactRoutes($controller, $id, $action);
             break;
+        case 'recipients':
+            $controller = new EmailRecipientController($db);
+            handleRecipientRoutes($controller, $id, $action);
+            break;
         case 'campaigns':
             $controller = new EmailCampaignController($db);
             handleCampaignRoutes($controller, $id, $action);
@@ -138,6 +142,29 @@ function handleContactRoutes($controller, $id, $action) {
                 http_response_code(405);
                 echo json_encode(['error' => 'Method not allowed']);
         }
+    }
+}
+
+function handleRecipientRoutes($controller, $id, $action) {
+    if ($id && !$action) {
+        // Single recipient operations
+        switch ($_SERVER['REQUEST_METHOD']) {
+            case 'GET':
+                $controller->getRecipient($id);
+                break;
+            case 'PUT':
+                $controller->updateRecipient($id);
+                break;
+            case 'DELETE':
+                $controller->deleteRecipient($id);
+                break;
+            default:
+                http_response_code(405);
+                echo json_encode(['error' => 'Method not allowed']);
+        }
+    } else {
+        http_response_code(404);
+        echo json_encode(['error' => 'Recipient endpoint not found']);
     }
 }
 
