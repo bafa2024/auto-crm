@@ -83,6 +83,14 @@ try {
             require_once __DIR__ . "/views/auth/signup.php";
             break;
             
+        case $requestUri === "/forgot-password":
+            require_once __DIR__ . "/views/auth/forgot-password.php";
+            break;
+            
+        case strpos($requestUri, "/reset-password") === 0:
+            require_once __DIR__ . "/views/auth/reset-password.php";
+            break;
+            
         case $requestUri === "/logout":
             session_destroy();
             header("Location: /");

@@ -253,6 +253,51 @@ function editEmployee(id) {
         return;
     }
     
+    // Create modal with initial data
+    const modalHtml = `
+        <div class="modal fade" id="editEmployeeModal" tabindex="-1">
+            <div class="modal-dialog">
+                <div class="modal-content">
+                    <div class="modal-header">
+                        <h5 class="modal-title">Edit Employee</h5>
+                        <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                    </div>
+                    <div class="modal-body">
+                        <div id="edit-loading" class="text-center py-4">
+                            <div class="spinner-border" role="status">
+                                <span class="visually-hidden">Loading...</span>
+                            </div>
+                            <p class="mt-2">Loading employee details...</p>
+                        </div>
+                        <form id="edit-employee-form" style="display: none;">
+                            <!-- Form will be populated after fetching details -->
+                        </form>
+                    </div>
+                    <div class="modal-footer">
+                        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                        <button type="button" class="btn btn-primary" id="saveEmployeeBtn" onclick="saveEmployeeEdit()" disabled>
+                            <span id="saveEmployeeText">Save Changes</span>
+                            <span id="saveEmployeeSpinner" class="spinner-border spinner-border-sm ms-2" style="display: none;"></span>
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    `;
+    
+    // Remove existing modal if any
+    const existingModal = document.getElementById('editEmployeeModal');
+    if (existingModal) {
+        existingModal.remove();
+    }
+    
+    // Add modal to body
+    document.body.insertAdjacentHTML('beforeend', modalHtml);
+    
+    // Show modal
+    const modal = new bootstrap.Modal(document.getElementById('editEmployeeModal'));
+    modal.show();
+    
     // Fetch detailed employee data including password
     fetch('<?php echo base_path('api/employees/'); ?>' + id)
         .then(response => response.json())
@@ -260,107 +305,103 @@ function editEmployee(id) {
             if (data.success && data.data) {
                 const employee = data.data;
                 
-                // Create a modal for editing
-                const modalHtml = `
-                    <div class="modal fade" id="editEmployeeModal" tabindex="-1">
-                        <div class="modal-dialog">
-                            <div class="modal-content">
-                                <div class="modal-header">
-                                    <h5 class="modal-title">Edit Employee</h5>
-                                    <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
-                                </div>
-                                <div class="modal-body">
-                                    <form id="edit-employee-form">
-                                        <input type="hidden" id="edit-id" value="${employee.id}">
-                                        <div class="mb-3">
-                                            <label class="form-label">First Name</label>
-                                            <input type="text" class="form-control" id="edit-first-name" value="${employee.first_name}" required>
-                                        </div>
-                                        <div class="mb-3">
-                                            <label class="form-label">Last Name</label>
-                                            <input type="text" class="form-control" id="edit-last-name" value="${employee.last_name}" required>
-                                        </div>
-                                        <div class="mb-3">
-                                            <label class="form-label">Email</label>
-                                            <input type="email" class="form-control" id="edit-email" value="${employee.email}" required>
-                                        </div>
-                                        <div class="mb-3">
-                                            <label class="form-label">Role</label>
-                                            <select class="form-select" id="edit-role">
-                                                <option value="agent" ${employee.role === 'agent' ? 'selected' : ''}>Agent (Employee)</option>
-                                                <option value="manager" ${employee.role === 'manager' ? 'selected' : ''}>Manager (Employee)</option>
-                                                <option value="user" ${employee.role === 'user' ? 'selected' : ''}>User</option>
-                                                <option value="admin" ${employee.role === 'admin' ? 'selected' : ''}>Admin</option>
-                                            </select>
-                                        </div>
-                                        <div class="mb-3">
-                                            <label class="form-label">Status</label>
-                                            <select class="form-select" id="edit-status">
-                                                <option value="active" ${employee.status === 'active' ? 'selected' : ''}>Active</option>
-                                                <option value="inactive" ${employee.status === 'inactive' ? 'selected' : ''}>Inactive</option>
-                                            </select>
-                                        </div>
-                                        <div class="mb-3">
-                                            <label class="form-label">Current Password</label>
-                                            <div class="input-group">
-                                                <input type="password" class="form-control" id="edit-current-password" value="${employee.password || ''}" readonly>
-                                                <button class="btn btn-outline-secondary" type="button" onclick="togglePasswordVisibility('edit-current-password')">
-                                                    <i class="bi bi-eye" id="edit-current-password-icon"></i>
-                                                </button>
-                                            </div>
-                                            <small class="text-muted">Current password (read-only)</small>
-                                        </div>
-                                        <div class="mb-3">
-                                            <label class="form-label">New Password</label>
-                                            <div class="input-group">
-                                                <input type="password" class="form-control" id="edit-password" placeholder="Enter new password to change">
-                                                <button class="btn btn-outline-secondary" type="button" onclick="togglePasswordVisibility('edit-password')">
-                                                    <i class="bi bi-eye" id="edit-password-icon"></i>
-                                                </button>
-                                            </div>
-                                            <small class="text-muted">Leave blank to keep the current password unchanged</small>
-                                        </div>
-                                    </form>
-                                </div>
-                                <div class="modal-footer">
-                                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
-                                    <button type="button" class="btn btn-primary" onclick="saveEmployeeEdit()">Save Changes</button>
-                                </div>
-                            </div>
+                // Populate the form
+                const form = document.getElementById('edit-employee-form');
+                form.innerHTML = `
+                    <input type="hidden" id="edit-id" value="${employee.id}">
+                    <div class="mb-3">
+                        <label class="form-label">First Name <span class="text-danger">*</span></label>
+                        <input type="text" class="form-control" id="edit-first-name" value="${employee.first_name}" required>
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">Last Name <span class="text-danger">*</span></label>
+                        <input type="text" class="form-control" id="edit-last-name" value="${employee.last_name}" required>
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">Email <span class="text-danger">*</span></label>
+                        <input type="email" class="form-control" id="edit-email" value="${employee.email}" required>
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">Role</label>
+                        <select class="form-select" id="edit-role">
+                            <option value="agent" ${employee.role === 'agent' ? 'selected' : ''}>Agent (Employee)</option>
+                            <option value="manager" ${employee.role === 'manager' ? 'selected' : ''}>Manager (Employee)</option>
+                            <option value="user" ${employee.role === 'user' ? 'selected' : ''}>User</option>
+                            <option value="admin" ${employee.role === 'admin' ? 'selected' : ''}>Admin</option>
+                        </select>
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">Status</label>
+                        <select class="form-select" id="edit-status">
+                            <option value="active" ${employee.status === 'active' ? 'selected' : ''}>Active</option>
+                            <option value="inactive" ${employee.status === 'inactive' ? 'selected' : ''}>Inactive</option>
+                        </select>
+                    </div>
+                    ${(employee.role === 'agent' || employee.role === 'manager') ? `
+                    <div class="mb-3">
+                        <label class="form-label">Current Password</label>
+                        <div class="input-group">
+                            <input type="password" class="form-control" id="edit-current-password" value="${employee.password || ''}" readonly>
+                            <button class="btn btn-outline-secondary" type="button" onclick="togglePasswordVisibility('edit-current-password')">
+                                <i class="bi bi-eye" id="edit-current-password-icon"></i>
+                            </button>
                         </div>
+                        <small class="text-muted">Current password (read-only)</small>
+                    </div>` : ''}
+                    <div class="mb-3">
+                        <label class="form-label">New Password</label>
+                        <div class="input-group">
+                            <input type="password" class="form-control" id="edit-password" placeholder="Enter new password to change">
+                            <button class="btn btn-outline-secondary" type="button" onclick="togglePasswordVisibility('edit-password')">
+                                <i class="bi bi-eye" id="edit-password-icon"></i>
+                            </button>
+                        </div>
+                        <small class="text-muted">Leave blank to keep the current password unchanged</small>
                     </div>
                 `;
                 
-                // Remove existing modal if any
-                const existingModal = document.getElementById('editEmployeeModal');
-                if (existingModal) {
-                    existingModal.remove();
-                }
-                
-                // Add modal to body
-                document.body.insertAdjacentHTML('beforeend', modalHtml);
-                
-                // Show modal
-                const modal = new bootstrap.Modal(document.getElementById('editEmployeeModal'));
-                modal.show();
+                // Hide loading, show form
+                document.getElementById('edit-loading').style.display = 'none';
+                form.style.display = 'block';
+                document.getElementById('saveEmployeeBtn').disabled = false;
             } else {
                 showMsg('Failed to load employee details: ' + (data.message || 'Unknown error'), 'error');
+                bootstrap.Modal.getInstance(document.getElementById('editEmployeeModal')).hide();
             }
         })
         .catch(error => {
             console.error('Error loading employee details:', error);
             showMsg('Error loading employee details. Please try again.', 'error');
+            const modalEl = document.getElementById('editEmployeeModal');
+            if (modalEl) {
+                bootstrap.Modal.getInstance(modalEl).hide();
+            }
         });
 }
 
 function saveEmployeeEdit() {
     const id = parseInt(document.getElementById('edit-id').value);
-    const first_name = document.getElementById('edit-first-name').value;
-    const last_name = document.getElementById('edit-last-name').value;
-    const email = document.getElementById('edit-email').value;
+    const first_name = document.getElementById('edit-first-name').value.trim();
+    const last_name = document.getElementById('edit-last-name').value.trim();
+    const email = document.getElementById('edit-email').value.trim();
     const role = document.getElementById('edit-role').value;
     const status = document.getElementById('edit-status').value;
     const password = document.getElementById('edit-password').value;
+    
+    // Validate required fields
+    if (!first_name || !last_name || !email) {
+        showMsg('Please fill in all required fields', 'error');
+        return;
+    }
+    
+    // Show loading state
+    const saveBtn = document.getElementById('saveEmployeeBtn');
+    const saveText = document.getElementById('saveEmployeeText');
+    const saveSpinner = document.getElementById('saveEmployeeSpinner');
+    
+    saveBtn.disabled = true;
+    saveText.textContent = 'Saving...';
+    saveSpinner.style.display = 'inline-block';
     
     const editUrl = '<?php echo base_path('api/employees/edit'); ?>';
     console.log('Edit URL:', editUrl);
@@ -394,11 +435,19 @@ function saveEmployeeEdit() {
             fetchEmployees();
         } else {
             showMsg(data.message || 'Failed to update employee.', 'error');
+            // Reset button state
+            saveBtn.disabled = false;
+            saveText.textContent = 'Save Changes';
+            saveSpinner.style.display = 'none';
         }
     })
     .catch(err => {
         console.error('Error updating employee:', err);
         showMsg('Error updating employee: ' + err.message, 'error');
+        // Reset button state
+        saveBtn.disabled = false;
+        saveText.textContent = 'Save Changes';
+        saveSpinner.style.display = 'none';
     });
 }
 

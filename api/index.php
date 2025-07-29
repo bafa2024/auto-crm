@@ -116,6 +116,15 @@ function handleAuthRoutes($controller, $action) {
         case 'register':
             $controller->register();
             break;
+        case 'forgot-password':
+            $controller->forgotPassword();
+            break;
+        case 'reset-password':
+            $controller->resetPassword();
+            break;
+        case 'validate-reset-token':
+            $controller->validateResetToken();
+            break;
         case 'profile':
             if ($_SERVER['REQUEST_METHOD'] === 'GET') {
                 $controller->getProfile();
@@ -360,34 +369,45 @@ function handleEmployeeRoutes($controller, $action, $subAction) {
             }
             break;
         default:
-            // Handle numeric IDs for /api/employees/{id}/teams etc
-            if (is_numeric($action) && $subAction) {
+            // Handle numeric IDs for /api/employees/{id} and /api/employees/{id}/teams etc
+            if (is_numeric($action)) {
                 $userId = (int)$action;
-                switch ($subAction) {
-                    case 'teams':
-                        if ($_SERVER['REQUEST_METHOD'] === 'GET') {
-                            $controller->getEmployeeTeams($userId);
-                        } else {
-                            http_response_code(405);
-                            echo json_encode(['error' => 'Method not allowed']);
-                        }
-                        break;
-                    case 'permissions':
-                        if ($_SERVER['REQUEST_METHOD'] === 'GET') {
-                            $controller->getEmployeePermissions($userId);
-                        } elseif ($_SERVER['REQUEST_METHOD'] === 'PUT') {
-                            $input = json_decode(file_get_contents('php://input'), true);
-                            $request = new stdClass();
-                            $request->body = $input;
-                            $controller->updateEmployeePermissions($userId, $request);
-                        } else {
-                            http_response_code(405);
-                            echo json_encode(['error' => 'Method not allowed']);
-                        }
-                        break;
-                    default:
-                        http_response_code(404);
-                        echo json_encode(['error' => 'Employee endpoint not found']);
+                if (!$subAction) {
+                    // Handle /api/employees/{id}
+                    if ($_SERVER['REQUEST_METHOD'] === 'GET') {
+                        $controller->getEmployee($userId);
+                    } else {
+                        http_response_code(405);
+                        echo json_encode(['error' => 'Method not allowed']);
+                    }
+                } else {
+                    // Handle /api/employees/{id}/{subAction}
+                    switch ($subAction) {
+                        case 'teams':
+                            if ($_SERVER['REQUEST_METHOD'] === 'GET') {
+                                $controller->getEmployeeTeams($userId);
+                            } else {
+                                http_response_code(405);
+                                echo json_encode(['error' => 'Method not allowed']);
+                            }
+                            break;
+                        case 'permissions':
+                            if ($_SERVER['REQUEST_METHOD'] === 'GET') {
+                                $controller->getEmployeePermissions($userId);
+                            } elseif ($_SERVER['REQUEST_METHOD'] === 'PUT') {
+                                $input = json_decode(file_get_contents('php://input'), true);
+                                $request = new stdClass();
+                                $request->body = $input;
+                                $controller->updateEmployeePermissions($userId, $request);
+                            } else {
+                                http_response_code(405);
+                                echo json_encode(['error' => 'Method not allowed']);
+                            }
+                            break;
+                        default:
+                            http_response_code(404);
+                            echo json_encode(['error' => 'Employee endpoint not found']);
+                    }
                 }
             } else {
                 http_response_code(404);

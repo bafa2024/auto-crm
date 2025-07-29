@@ -315,4 +315,127 @@ class EmailService {
         ");
         $stmt->execute([$campaignId, $campaignId, $campaignId]);
     }
+    
+    /**
+     * Send password reset email
+     */
+    public function sendPasswordResetEmail($email, $resetUrl, $expiresAt) {
+        $subject = "Password Reset Request - AutoDial Pro";
+        
+        $body = "
+        <!DOCTYPE html>
+        <html>
+        <head>
+            <meta charset='UTF-8'>
+            <meta name='viewport' content='width=device-width, initial-scale=1.0'>
+            <title>Password Reset</title>
+            <style>
+                body { font-family: Arial, sans-serif; line-height: 1.6; color: #333; }
+                .container { max-width: 600px; margin: 0 auto; padding: 20px; }
+                .header { background: #007bff; color: white; padding: 20px; text-align: center; border-radius: 5px 5px 0 0; }
+                .content { background: #f8f9fa; padding: 20px; border-radius: 0 0 5px 5px; }
+                .button { display: inline-block; background: #007bff; color: white; padding: 12px 24px; text-decoration: none; border-radius: 5px; margin: 20px 0; }
+                .footer { text-align: center; margin-top: 20px; font-size: 12px; color: #666; }
+                .warning { background: #fff3cd; border: 1px solid #ffeaa7; padding: 15px; border-radius: 5px; margin: 20px 0; }
+            </style>
+        </head>
+        <body>
+            <div class='container'>
+                <div class='header'>
+                    <h1>🔐 Password Reset Request</h1>
+                </div>
+                <div class='content'>
+                    <p>Hello,</p>
+                    <p>We received a request to reset your password for your AutoDial Pro account.</p>
+                    
+                    <p><strong>If you didn't request this password reset, please ignore this email.</strong></p>
+                    
+                    <div style='text-align: center;'>
+                        <a href='{$resetUrl}' class='button'>Reset Your Password</a>
+                    </div>
+                    
+                    <div class='warning'>
+                        <strong>⚠️ Security Notice:</strong>
+                        <ul>
+                            <li>This link will expire on: " . date('F j, Y \a\t g:i A', strtotime($expiresAt)) . "</li>
+                            <li>If you don't reset your password within this time, you'll need to request a new reset link</li>
+                            <li>This link can only be used once</li>
+                        </ul>
+                    </div>
+                    
+                    <p>If the button above doesn't work, you can copy and paste this link into your browser:</p>
+                    <p style='word-break: break-all; background: #f1f1f1; padding: 10px; border-radius: 3px;'>{$resetUrl}</p>
+                    
+                    <p>Best regards,<br>The AutoDial Pro Team</p>
+                </div>
+                <div class='footer'>
+                    <p>This is an automated message. Please do not reply to this email.</p>
+                    <p>If you have any questions, please contact our support team.</p>
+                </div>
+            </div>
+        </body>
+        </html>
+        ";
+        
+        return $this->send($email, $subject, $body, [
+            'from_email' => $this->config['smtp']['from']['address'] ?? 'noreply@autodialpro.com',
+            'from_name' => $this->config['smtp']['from']['name'] ?? 'AutoDial Pro'
+        ]);
+    }
+    
+    /**
+     * Send login link email (for employee login)
+     */
+    public function sendLoginLink($email, $loginUrl, $userName) {
+        $subject = "Login Link - AutoDial Pro";
+        
+        $body = "
+        <!DOCTYPE html>
+        <html>
+        <head>
+            <meta charset='UTF-8'>
+            <meta name='viewport' content='width=device-width, initial-scale=1.0'>
+            <title>Login Link</title>
+            <style>
+                body { font-family: Arial, sans-serif; line-height: 1.6; color: #333; }
+                .container { max-width: 600px; margin: 0 auto; padding: 20px; }
+                .header { background: #28a745; color: white; padding: 20px; text-align: center; border-radius: 5px 5px 0 0; }
+                .content { background: #f8f9fa; padding: 20px; border-radius: 0 0 5px 5px; }
+                .button { display: inline-block; background: #28a745; color: white; padding: 12px 24px; text-decoration: none; border-radius: 5px; margin: 20px 0; }
+                .footer { text-align: center; margin-top: 20px; font-size: 12px; color: #666; }
+            </style>
+        </head>
+        <body>
+            <div class='container'>
+                <div class='header'>
+                    <h1>🔑 Login Link</h1>
+                </div>
+                <div class='content'>
+                    <p>Hello {$userName},</p>
+                    <p>You requested a login link for your AutoDial Pro employee account.</p>
+                    
+                    <div style='text-align: center;'>
+                        <a href='{$loginUrl}' class='button'>Login to AutoDial Pro</a>
+                    </div>
+                    
+                    <p>If the button above doesn't work, you can copy and paste this link into your browser:</p>
+                    <p style='word-break: break-all; background: #f1f1f1; padding: 10px; border-radius: 3px;'>{$loginUrl}</p>
+                    
+                    <p><strong>Note:</strong> This link is valid for a limited time and can only be used once.</p>
+                    
+                    <p>Best regards,<br>The AutoDial Pro Team</p>
+                </div>
+                <div class='footer'>
+                    <p>This is an automated message. Please do not reply to this email.</p>
+                </div>
+            </div>
+        </body>
+        </html>
+        ";
+        
+        return $this->send($email, $subject, $body, [
+            'from_email' => $this->config['smtp']['from']['address'] ?? 'noreply@autodialpro.com',
+            'from_name' => $this->config['smtp']['from']['name'] ?? 'AutoDial Pro'
+        ]);
+    }
 }
