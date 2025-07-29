@@ -131,6 +131,54 @@ if (isset($_SERVER['REQUEST_METHOD']) && $_SERVER['REQUEST_METHOD'] === 'POST') 
                     }
                 }
                 break;
+            case 'schedule_campaign':
+                $campaignId = $_POST['campaign_id'];
+                $scheduleType = $_POST['schedule_type'];
+                $scheduleDate = $_POST['schedule_date'] ?? null;
+                $frequency = $_POST['frequency'] ?? null;
+                $emailSubject = $_POST['email_subject'];
+                $emailContent = $_POST['email_content'];
+                
+                // Validate schedule data
+                if ($scheduleType === 'scheduled' && empty($scheduleDate)) {
+                    $message = 'Schedule date is required for scheduled campaigns.';
+                    $messageType = 'danger';
+                    break;
+                }
+                
+                if ($scheduleType === 'recurring' && empty($frequency)) {
+                    $message = 'Frequency is required for recurring campaigns.';
+                    $messageType = 'danger';
+                    break;
+                }
+                
+                // Update campaign with schedule information
+                $updateData = [
+                    'name' => $_POST['campaign_name'] ?? '',
+                    'schedule_type' => $scheduleType,
+                    'schedule_date' => $scheduleDate,
+                    'frequency' => $frequency,
+                    'subject' => $emailSubject,
+                    'content' => $emailContent,
+                    'sender_name' => $_POST['sender_name'] ?? 'ACRM System',
+                    'sender_email' => $_POST['sender_email'] ?? 'noreply@acrm.com',
+                    'status' => 'scheduled'
+                ];
+                
+                $result = $campaignService->editCampaign($campaignId, $updateData);
+                if ($result['success']) {
+                    $message = "Campaign scheduled successfully!";
+                    if ($scheduleType === 'scheduled') {
+                        $message .= " Campaign will be sent on " . date('M d, Y g:i A', strtotime($scheduleDate));
+                    } elseif ($scheduleType === 'recurring') {
+                        $message .= " Campaign will be sent " . $frequency . " starting on " . date('M d, Y g:i A', strtotime($scheduleDate));
+                    }
+                    $messageType = 'success';
+                } else {
+                    $message = 'Failed to schedule campaign: ' . $result['message'];
+                    $messageType = 'danger';
+                }
+                break;
             case 'delete_campaign':
                 $campaignId = $_POST['campaign_id'];
                 $result = $campaignService->deleteCampaign($campaignId);
@@ -316,6 +364,9 @@ try {
                                             </button>
                                             <button class="btn btn-sm btn-primary" onclick="sendCampaign(<?php echo $campaign['id']; ?>)">
                                                 <i class="bi bi-send"></i> Send
+                                            </button>
+                                            <button class="btn btn-sm btn-success" onclick="scheduleCampaign(<?php echo $campaign['id']; ?>)">
+                                                <i class="bi bi-calendar-plus"></i> Schedule
                                             </button>
                                             <button class="btn btn-sm btn-danger" onclick="deleteCampaign(<?php echo $campaign['id']; ?>)">
                                                 <i class="bi bi-trash"></i> Delete
@@ -598,6 +649,80 @@ try {
                     <div class="modal-footer">
                         <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
                         <button type="submit" class="btn btn-primary">Update Campaign</button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+    
+    <!-- Schedule Campaign Modal -->
+    <div class="modal fade" id="scheduleCampaignModal" tabindex="-1">
+        <div class="modal-dialog modal-lg">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title">Schedule Campaign</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                </div>
+                <form method="POST" id="scheduleCampaignForm">
+                    <input type="hidden" name="action" value="schedule_campaign">
+                    <input type="hidden" name="campaign_id" id="schedule_campaign_id">
+                    <div class="modal-body">
+                        <div class="mb-3">
+                            <label for="schedule_campaign_name" class="form-label">Campaign Name</label>
+                            <input type="text" class="form-control" id="schedule_campaign_name" name="campaign_name" readonly>
+                        </div>
+                        <div class="mb-3">
+                            <label for="schedule_schedule_type" class="form-label">Schedule Type</label>
+                            <select class="form-select" id="schedule_schedule_type" name="schedule_type" required>
+                                <option value="immediate">Send Immediately</option>
+                                <option value="scheduled">Scheduled</option>
+                                <option value="recurring">Recurring</option>
+                            </select>
+                        </div>
+                        <div class="row" id="scheduleOptions" style="display: none;">
+                            <div class="col-md-6">
+                                <div class="mb-3">
+                                    <label for="schedule_date" class="form-label">Schedule Date</label>
+                                    <input type="datetime-local" class="form-control" id="schedule_date" name="schedule_date" required>
+                                </div>
+                            </div>
+                            <div class="col-md-6">
+                                <div class="mb-3">
+                                    <label for="schedule_frequency" class="form-label">Frequency</label>
+                                    <select class="form-select" id="schedule_frequency" name="frequency">
+                                        <option value="daily">Daily</option>
+                                        <option value="weekly">Weekly</option>
+                                        <option value="monthly">Monthly</option>
+                                    </select>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="mb-3">
+                            <label for="schedule_email_subject" class="form-label">Email Subject</label>
+                            <input type="text" class="form-control" id="schedule_email_subject" name="email_subject" required>
+                        </div>
+                        <div class="mb-3">
+                            <label for="schedule_email_content" class="form-label">Email Content</label>
+                            <textarea class="form-control" id="schedule_email_content" name="email_content" rows="10" required placeholder="Enter your email content here..."></textarea>
+                        </div>
+                        <div class="row">
+                            <div class="col-md-6">
+                                <div class="mb-3">
+                                    <label for="schedule_sender_name" class="form-label">Sender Name</label>
+                                    <input type="text" class="form-control" id="schedule_sender_name" name="sender_name" required>
+                                </div>
+                            </div>
+                            <div class="col-md-6">
+                                <div class="mb-3">
+                                    <label for="schedule_sender_email" class="form-label">Sender Email</label>
+                                    <input type="email" class="form-control" id="schedule_sender_email" name="sender_email" required>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="modal-footer">
+                        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                        <button type="submit" class="btn btn-primary">Schedule Campaign</button>
                     </div>
                 </form>
             </div>
@@ -1122,6 +1247,9 @@ try {
                                                 <button class="btn btn-sm btn-primary" onclick="sendCampaign(${campaign.id})">
                                                     <i class="bi bi-send"></i> Send
                                                 </button>
+                                                <button class="btn btn-sm btn-success" onclick="scheduleCampaign(${campaign.id})">
+                                                    <i class="bi bi-calendar-plus"></i> Schedule
+                                                </button>
                                                 <button class="btn btn-sm btn-danger" onclick="deleteCampaign(${campaign.id})">
                                                     <i class="bi bi-trash"></i> Delete
                                                 </button>
@@ -1290,6 +1418,134 @@ try {
                 document.getElementById('batchStatus').innerHTML = 
                     '<i class="bi bi-clock-history"></i> Processing batch...';
             }
+        }
+
+        function scheduleCampaign(campaignId) {
+            document.getElementById('schedule_campaign_id').value = campaignId;
+            
+            // Fetch campaign data to populate the modal
+            fetch('api/get_campaign.php?id=' + campaignId)
+                .then(response => response.json())
+                .then(data => {
+                    if (data.success && data.campaign) {
+                        const campaign = data.campaign;
+                        
+                        // Populate form fields
+                        document.getElementById('schedule_campaign_name').value = campaign.name || '';
+                        document.getElementById('schedule_email_subject').value = campaign.subject || '';
+                        document.getElementById('schedule_email_content').value = campaign.content || campaign.email_content || '';
+                        document.getElementById('schedule_sender_name').value = campaign.from_name || campaign.sender_name || 'ACRM System';
+                        document.getElementById('schedule_sender_email').value = campaign.from_email || campaign.sender_email || 'noreply@acrm.com';
+                        
+                        // Set default schedule date to tomorrow
+                        const tomorrow = new Date();
+                        tomorrow.setDate(tomorrow.getDate() + 1);
+                        tomorrow.setHours(9, 0, 0, 0); // 9 AM
+                        document.getElementById('schedule_date').value = tomorrow.toISOString().slice(0, 16);
+                        
+                        // Show the modal
+                        new bootstrap.Modal(document.getElementById('scheduleCampaignModal')).show();
+                    } else {
+                        alert('Failed to load campaign data. Please try again.');
+                    }
+                })
+                .catch(error => {
+                    console.error('Error loading campaign:', error);
+                    alert('Failed to load campaign data. Please try again.');
+                });
+        }
+        
+        // Toggle schedule options based on schedule type
+        document.addEventListener('DOMContentLoaded', function() {
+            const scheduleTypeSelect = document.getElementById('schedule_schedule_type');
+            const scheduleOptions = document.getElementById('scheduleOptions');
+            const scheduleDateInput = document.getElementById('schedule_date');
+            const frequencySelect = document.getElementById('schedule_frequency');
+            
+            if (scheduleTypeSelect) {
+                scheduleTypeSelect.addEventListener('change', function() {
+                    if (this.value === 'immediate') {
+                        scheduleOptions.style.display = 'none';
+                        scheduleDateInput.removeAttribute('required');
+                        frequencySelect.removeAttribute('required');
+                    } else if (this.value === 'scheduled') {
+                        scheduleOptions.style.display = 'block';
+                        scheduleDateInput.setAttribute('required', 'required');
+                        frequencySelect.removeAttribute('required');
+                        frequencySelect.parentElement.style.display = 'none';
+                    } else if (this.value === 'recurring') {
+                        scheduleOptions.style.display = 'block';
+                        scheduleDateInput.setAttribute('required', 'required');
+                        frequencySelect.setAttribute('required', 'required');
+                        frequencySelect.parentElement.style.display = 'block';
+                    }
+                });
+            }
+        });
+
+        const scheduleCampaignForm = document.getElementById('scheduleCampaignForm');
+        if (scheduleCampaignForm) {
+            scheduleCampaignForm.addEventListener('submit', function(e) {
+                e.preventDefault();
+                
+                // Get submit button and show loading state
+                const submitBtn = this.querySelector('button[type="submit"]');
+                const originalText = submitBtn.innerHTML;
+                submitBtn.disabled = true;
+                submitBtn.innerHTML = '<span class="spinner-border spinner-border-sm me-2"></span>Scheduling Campaign...';
+                
+                // Remove any existing alerts
+                const existingAlerts = document.querySelectorAll('#scheduleCampaignModal .alert');
+                existingAlerts.forEach(a => a.remove());
+                
+                const formData = new FormData(scheduleCampaignForm);
+                
+                fetch(window.location.pathname, {
+                    method: 'POST',
+                    body: formData
+                })
+                .then(response => response.text())
+                .then(html => {
+                    // Try to extract alert message from returned HTML
+                    const parser = new DOMParser();
+                    const doc = parser.parseFromString(html, 'text/html');
+                    const alert = doc.querySelector('.alert');
+                    
+                    if (alert) {
+                        // Show alert in modal
+                        const modalBody = scheduleCampaignForm.closest('.modal-content').querySelector('.modal-body');
+                        modalBody.insertAdjacentElement('afterbegin', alert);
+                    }
+                    
+                    // If success, refresh campaign list without full page reload
+                    if (alert && alert.classList.contains('alert-success')) {
+                        // Clear form
+                        scheduleCampaignForm.reset();
+                        
+                        // Refresh campaign list via AJAX
+                        refreshCampaignList();
+                        
+                        // Close modal after a short delay
+                        setTimeout(() => {
+                            const modal = bootstrap.Modal.getInstance(document.getElementById('scheduleCampaignModal'));
+                            if (modal) modal.hide();
+                            
+                            // Show success message on main page
+                            showMainPageAlert('Campaign scheduled successfully!', 'success');
+                        }, 1500);
+                    }
+                    
+                    // Re-enable submit button
+                    submitBtn.disabled = false;
+                    submitBtn.innerHTML = originalText;
+                })
+                .catch(err => {
+                    console.error('Error:', err);
+                    showModalAlert('Failed to schedule campaign. Please try again.', 'danger');
+                    submitBtn.disabled = false;
+                    submitBtn.innerHTML = originalText;
+                });
+            });
         }
     </script>
 </body>
