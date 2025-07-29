@@ -94,10 +94,30 @@ class EmailRecipientController extends BaseController {
             // Start a transaction to ensure data consistency
             $this->db->beginTransaction();
             
-            // Delete related records from dependent tables first
+            // Get the current user ID from session
+            $deletedBy = isset($_SESSION['user_id']) ? $_SESSION['user_id'] : null;
             
-            // 1. Delete from campaign_sends
+            // First, fetch the recipient data before deletion
+            $sql = "SELECT * FROM email_recipients WHERE id = ?";
+            $stmt = $this->db->prepare($sql);
+            $stmt->execute([$id]);
+            $recipient = $stmt->fetch(PDO::FETCH_ASSOC);
+            
+            if (!$recipient) {
+                $this->db->rollBack();
+                $this->sendError('Recipient not found', 404);
+                return;
+            }
+            
+            // Move campaign_sends records to deleted_campaign_sends table
             try {
+                $sql = "INSERT INTO deleted_campaign_sends (campaign_id, recipient_id, recipient_email, status, sent_at, opened_at, clicked_at, tracking_id, original_id)
+                        SELECT campaign_id, recipient_id, recipient_email, status, sent_at, opened_at, clicked_at, tracking_id, id
+                        FROM campaign_sends WHERE recipient_id = ?";
+                $stmt = $this->db->prepare($sql);
+                $stmt->execute([$id]);
+                
+                // Now delete from campaign_sends
                 $sql = "DELETE FROM campaign_sends WHERE recipient_id = ?";
                 $stmt = $this->db->prepare($sql);
                 $stmt->execute([$id]);
@@ -105,7 +125,7 @@ class EmailRecipientController extends BaseController {
                 // Ignore error if table doesn't exist
             }
             
-            // 2. Delete from batch_recipients if it exists
+            // Delete from batch_recipients if it exists
             try {
                 $sql = "DELETE FROM batch_recipients WHERE recipient_id = ?";
                 $stmt = $this->db->prepare($sql);
@@ -113,6 +133,23 @@ class EmailRecipientController extends BaseController {
             } catch (Exception $e) {
                 // Ignore error if table doesn't exist
             }
+            
+            // Move the recipient to deleted_email_recipients table
+            $sql = "INSERT INTO deleted_email_recipients (email, name, company, dot, campaign_id, created_at, updated_at, deleted_by, deletion_reason, original_id)
+                    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)";
+            $stmt = $this->db->prepare($sql);
+            $stmt->execute([
+                $recipient['email'],
+                $recipient['name'],
+                $recipient['company'],
+                $recipient['dot'],
+                $recipient['campaign_id'],
+                $recipient['created_at'],
+                $recipient['updated_at'],
+                $deletedBy,
+                'Manual deletion',
+                $id
+            ]);
             
             // Finally delete the email_recipient
             $sql = "DELETE FROM email_recipients WHERE id = ?";
@@ -122,7 +159,7 @@ class EmailRecipientController extends BaseController {
             if ($result) {
                 // Commit the transaction
                 $this->db->commit();
-                $this->sendSuccess([], 'Recipient deleted successfully');
+                $this->sendSuccess(['archived' => true], 'Recipient moved to archive successfully');
             } else {
                 // Rollback on failure
                 $this->db->rollBack();
@@ -144,14 +181,28 @@ class EmailRecipientController extends BaseController {
             // Start a transaction to ensure data consistency
             $this->db->beginTransaction();
             
+            // Get the current user ID from session
+            $deletedBy = isset($_SESSION['user_id']) ? $_SESSION['user_id'] : null;
+            
             // Get count of contacts before deletion
             $countStmt = $this->db->query("SELECT COUNT(*) as total FROM email_recipients");
             $totalCount = $countStmt->fetch(PDO::FETCH_ASSOC)['total'];
             
-            // Delete related records from all dependent tables first
+            if ($totalCount == 0) {
+                $this->db->commit();
+                $this->sendSuccess(['archived_count' => 0], "No contacts to delete");
+                return;
+            }
             
-            // 1. Delete from campaign_sends (references email_recipients)
+            // Move all campaign_sends records to deleted_campaign_sends table
             try {
+                $sql = "INSERT INTO deleted_campaign_sends (campaign_id, recipient_id, recipient_email, status, sent_at, opened_at, clicked_at, tracking_id, original_id)
+                        SELECT campaign_id, recipient_id, recipient_email, status, sent_at, opened_at, clicked_at, tracking_id, id
+                        FROM campaign_sends";
+                $stmt = $this->db->prepare($sql);
+                $stmt->execute();
+                
+                // Now delete from campaign_sends
                 $sql = "DELETE FROM campaign_sends";
                 $stmt = $this->db->prepare($sql);
                 $stmt->execute();
@@ -159,7 +210,7 @@ class EmailRecipientController extends BaseController {
                 // Ignore if table doesn't exist
             }
             
-            // 2. Delete from email_clicks (has ON DELETE CASCADE but let's be explicit)
+            // Delete from email_clicks (they have ON DELETE CASCADE but let's be explicit)
             try {
                 $sql = "DELETE FROM email_clicks";
                 $stmt = $this->db->prepare($sql);
@@ -168,7 +219,7 @@ class EmailRecipientController extends BaseController {
                 // Ignore if table doesn't exist
             }
             
-            // 3. Delete from batch_recipients if it exists
+            // Delete from batch_recipients if it exists
             try {
                 $sql = "DELETE FROM batch_recipients";
                 $stmt = $this->db->prepare($sql);
@@ -176,6 +227,16 @@ class EmailRecipientController extends BaseController {
             } catch (Exception $e) {
                 // Ignore error if table doesn't exist
             }
+            
+            // Move all email_recipients to deleted_email_recipients table
+            $sql = "INSERT INTO deleted_email_recipients (email, name, company, dot, campaign_id, created_at, updated_at, deleted_by, deletion_reason, original_id)
+                    SELECT email, name, company, dot, campaign_id, created_at, updated_at, ?, 'Bulk deletion', id
+                    FROM email_recipients";
+            $stmt = $this->db->prepare($sql);
+            $stmt->execute([$deletedBy]);
+            
+            // Get count of successfully archived records
+            $archivedCount = $stmt->rowCount();
             
             // Finally, delete all email_recipients
             $sql = "DELETE FROM email_recipients";
@@ -185,7 +246,10 @@ class EmailRecipientController extends BaseController {
             if ($result) {
                 // Commit the transaction
                 $this->db->commit();
-                $this->sendSuccess(['deleted_count' => $totalCount], "Successfully deleted all {$totalCount} contacts");
+                $this->sendSuccess([
+                    'archived_count' => $archivedCount,
+                    'deleted_count' => $totalCount
+                ], "Successfully archived and removed {$totalCount} contacts");
             } else {
                 // Rollback on failure
                 $this->db->rollBack();
