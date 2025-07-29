@@ -11,7 +11,7 @@ if (isset($_SESSION["user_id"]) && in_array($_SESSION["user_role"], ['agent', 'm
 }
 
 // Handle form submission
-if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['email'])) {
+if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['email']) && isset($_POST['password'])) {
     require_once __DIR__ . "/../../config/database.php";
     require_once __DIR__ . "/../../models/User.php";
     
@@ -20,24 +20,25 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['email'])) {
     $userModel = new User($db);
     
     $email = filter_var($_POST['email'], FILTER_SANITIZE_EMAIL);
+    $password = $_POST['password'];
     
-    // Check if user exists
-    $user = $userModel->findBy("email", $email);
+    // Authenticate user with email and password
+    $user = $userModel->authenticate($email, $password);
     
-    if ($user && in_array($user["role"], ['agent', 'manager']) && $user["status"] === "active") {
+    if ($user && in_array($user["role"], ['agent', 'manager'])) {
         // Create session
         $_SESSION["user_id"] = $user["id"];
         $_SESSION["user_email"] = $user["email"];
         $_SESSION["user_name"] = $user["first_name"] . " " . $user["last_name"];
         $_SESSION["user_role"] = $user["role"];
         $_SESSION["login_time"] = time();
-        $_SESSION["login_method"] = "email_only";
+        $_SESSION["login_method"] = "email_password";
         
         // Redirect to email dashboard
         header("Location: /employee/email-dashboard");
         exit();
     } else {
-        $error = "Email not found or account inactive. Please contact admin.";
+        $error = "Invalid email or password. Please try again.";
     }
 }
 ?>
@@ -69,6 +70,21 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['email'])) {
             border-radius: 10px 10px 0 0;
             text-align: center;
         }
+        .password-toggle {
+            position: relative;
+        }
+        .password-toggle .form-control {
+            padding-right: 40px;
+        }
+        .password-toggle .btn {
+            position: absolute;
+            right: 0;
+            top: 0;
+            height: 100%;
+            border: none;
+            background: transparent;
+            color: #6c757d;
+        }
     </style>
 </head>
 <body>
@@ -94,6 +110,17 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['email'])) {
                                    placeholder="Enter your employee email" autofocus>
                             <div class="form-text">Enter your registered employee email address</div>
                         </div>
+                        <div class="mb-3">
+                            <label for="password" class="form-label">Password</label>
+                            <div class="password-toggle">
+                                <input type="password" class="form-control" id="password" name="password" required 
+                                       placeholder="Enter your password">
+                                <button type="button" class="btn" onclick="togglePassword()">
+                                    <i class="fas fa-eye" id="passwordToggleIcon"></i>
+                                </button>
+                            </div>
+                            <div class="form-text">Enter your employee password</div>
+                        </div>
                         <button type="submit" class="btn btn-primary w-100">
                             <i class="fas fa-sign-in-alt me-2"></i>Login
                         </button>
@@ -118,5 +145,21 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['email'])) {
     </div>
 
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/js/bootstrap.bundle.min.js"></script>
+    <script>
+        function togglePassword() {
+            const passwordInput = document.getElementById('password');
+            const toggleIcon = document.getElementById('passwordToggleIcon');
+            
+            if (passwordInput.type === 'password') {
+                passwordInput.type = 'text';
+                toggleIcon.classList.remove('fa-eye');
+                toggleIcon.classList.add('fa-eye-slash');
+            } else {
+                passwordInput.type = 'password';
+                toggleIcon.classList.remove('fa-eye-slash');
+                toggleIcon.classList.add('fa-eye');
+            }
+        }
+    </script>
 </body>
 </html>
