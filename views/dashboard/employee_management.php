@@ -293,6 +293,16 @@ function editEmployee(id) {
                                     <option value="inactive" ${emp.status === 'inactive' ? 'selected' : ''}>Inactive</option>
                                 </select>
                             </div>
+                            <div class="mb-3">
+                                <label class="form-label">Password</label>
+                                <div class="input-group">
+                                    <input type="password" class="form-control" id="edit-password" placeholder="Leave blank to keep current password">
+                                    <button class="btn btn-outline-secondary" type="button" onclick="togglePasswordVisibility('edit-password')">
+                                        <i class="bi bi-eye" id="edit-password-icon"></i>
+                                    </button>
+                                </div>
+                                <small class="text-muted">Leave blank to keep the current password unchanged</small>
+                            </div>
                         </form>
                     </div>
                     <div class="modal-footer">
@@ -325,15 +335,16 @@ function saveEmployeeEdit() {
     const email = document.getElementById('edit-email').value;
     const role = document.getElementById('edit-role').value;
     const status = document.getElementById('edit-status').value;
+    const password = document.getElementById('edit-password').value;
     
     const editUrl = '<?php echo base_path('api/employees/edit'); ?>';
     console.log('Edit URL:', editUrl);
-    console.log('Edit data:', { id, first_name, last_name, email, role, status });
+    console.log('Edit data:', { id, first_name, last_name, email, role, status, password: password ? '***' : 'unchanged' });
     
     fetch(editUrl, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ id, first_name, last_name, email, role, status })
+        body: JSON.stringify({ id, first_name, last_name, email, role, status, password })
     })
     .then(r => {
         if (!r.ok) {
@@ -361,9 +372,22 @@ function saveEmployeeEdit() {
         }
     })
     .catch(err => {
-        console.error('Error details:', err);
+        console.error('Error updating employee:', err);
         showMsg('Error updating employee: ' + err.message, 'error');
     });
+}
+
+function togglePasswordVisibility(fieldId) {
+    const passwordField = document.getElementById(fieldId);
+    const icon = document.getElementById(fieldId + '-icon');
+    
+    if (passwordField.type === 'password') {
+        passwordField.type = 'text';
+        icon.className = 'bi bi-eye-slash';
+    } else {
+        passwordField.type = 'password';
+        icon.className = 'bi bi-eye';
+    }
 }
 function deleteEmployee(id) {
     const emp = employeesData[id];
