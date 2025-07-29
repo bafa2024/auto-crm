@@ -44,7 +44,26 @@ class EmailUploadService {
     private function isValidEmail($email) {
         $email = trim($email);
         if (empty($email)) return false;
-        return filter_var($email, FILTER_VALIDATE_EMAIL) !== false;
+        
+        // Remove any whitespace and normalize
+        $email = strtolower(trim($email));
+        
+        // Basic format check
+        if (!filter_var($email, FILTER_VALIDATE_EMAIL)) {
+            return false;
+        }
+        
+        // Additional checks for common issues
+        if (strlen($email) > 254) { // RFC 5321 limit
+            return false;
+        }
+        
+        // Check for common invalid patterns
+        if (preg_match('/[<>"\s]/', $email)) {
+            return false;
+        }
+        
+        return true;
     }
 
     /**
@@ -149,9 +168,19 @@ class EmailUploadService {
         $rowNumber = 0;
         
         try {
+            // Add memory limit and execution time for large files
+            ini_set('memory_limit', '512M');
+            set_time_limit(300); // 5 minutes
+            
+            error_log("Starting Excel processing for file: $filePath");
+            
             $spreadsheet = IOFactory::load($filePath);
+            error_log("Excel file loaded successfully");
+            
             $sheet = $spreadsheet->getActiveSheet();
             $rows = $sheet->toArray();
+            
+            error_log("Excel rows converted to array. Total rows: " . count($rows));
             
             if (count($rows) < 1) {
                 return [
@@ -162,23 +191,40 @@ class EmailUploadService {
             
             // Read headers
             $headers = array_map('trim', array_values($rows[0]));
+            error_log("Headers found: " . json_encode($headers));
+            
             $fieldMap = $this->mapHeaders($headers);
+            error_log("Field mapping: " . json_encode($fieldMap));
+            
             if (!isset($fieldMap['email'])) {
                 return [
                     'success' => false,
-                    'message' => 'Email column not found in Excel file'
+                    'message' => 'Email column not found in Excel file. Available columns: ' . implode(', ', $headers)
                 ];
             }
             
-            // Process data rows
-            foreach (array_slice($rows, 1) as $rowIdx => $row) {
-                $rowNumber = $rowIdx + 2; // Excel rows are 1-indexed, + header
+            // Process data rows (skip header row)
+            $dataRows = array_slice($rows, 1);
+            $rowNumber = count($dataRows); // Total data rows (excluding header)
+            
+            error_log("Processing $rowNumber data rows");
+            
+            foreach ($dataRows as $rowIdx => $row) {
+                $excelRowNumber = $rowIdx + 2; // Excel rows are 1-indexed, + header
+                
+                // Skip completely empty rows
+                if (empty(array_filter($row, function($cell) { return !empty(trim($cell)); }))) {
+                    error_log("Skipping empty row $excelRowNumber");
+                    continue;
+                }
+                
                 $contact = [];
                 foreach ($fieldMap as $dbField => $colIndex) {
                     if ($colIndex !== null && isset($row[$colIndex])) {
                         $contact[$dbField] = trim($row[$colIndex]);
                     }
                 }
+                
                 // Handle multiple emails
                 $emails = [];
                 if (!empty($contact['email'])) {
@@ -189,7 +235,7 @@ class EmailUploadService {
                     $email = trim($email);
                     if (empty($email)) continue;
                     if (!$this->isValidEmail($email)) {
-                        $errors[] = "Row $rowNumber: Invalid email address ('$email')";
+                        $errors[] = "Row $excelRowNumber: Invalid email address ('$email')";
                         continue;
                     }
                     $hasValid = true;
@@ -199,15 +245,25 @@ class EmailUploadService {
                     $contacts[] = $newContact;
                 }
                 if (!$hasValid && !empty($contact['email'])) {
-                    $errors[] = "Row $rowNumber: No valid email addresses found ('{$contact['email']}')";
+                    $errors[] = "Row $excelRowNumber: No valid email addresses found ('{$contact['email']}')";
+                }
+                
+                // Log progress every 100 rows
+                if (($rowIdx + 1) % 100 === 0) {
+                    error_log("Processed " . ($rowIdx + 1) . " rows, found " . count($contacts) . " valid contacts");
                 }
             }
+            
+            error_log("Excel processing completed. Found " . count($contacts) . " valid contacts");
+            
         } catch (\Exception $e) {
+            error_log("Excel processing error: " . $e->getMessage());
             return [
                 'success' => false,
                 'message' => 'Failed to read Excel file: ' . $e->getMessage()
             ];
         }
+        
         // Insert contacts into database
         $result = $this->insertContacts($contacts);
         return [
@@ -238,25 +294,57 @@ class EmailUploadService {
             'company' => null,
             'dot' => null
         ];
+        
         foreach ($headers as $index => $header) {
             $headerLower = strtolower(trim($header));
-            // Map email field
-            if ($headerLower === 'email' || strpos($headerLower, 'email') !== false) {
+            
+            // Map email field - more flexible matching
+            if ($headerLower === 'email' || 
+                strpos($headerLower, 'email') !== false ||
+                $headerLower === 'e-mail' ||
+                $headerLower === 'e_mail' ||
+                $headerLower === 'mail') {
                 $fieldMap['email'] = $index;
             }
-            // Map name field
-            elseif ($headerLower === 'name' || $headerLower === 'customer name' || $headerLower === 'full name' || $headerLower === 'fullname' || $headerLower === 'contact name') {
+            // Map name field - more flexible matching
+            elseif ($headerLower === 'name' || 
+                    $headerLower === 'customer name' || 
+                    $headerLower === 'full name' || 
+                    $headerLower === 'fullname' || 
+                    $headerLower === 'contact name' ||
+                    $headerLower === 'first name' ||
+                    $headerLower === 'last name' ||
+                    $headerLower === 'customer' ||
+                    $headerLower === 'contact') {
                 $fieldMap['name'] = $index;
             }
-            // Map company field
-            elseif ($headerLower === 'company' || $headerLower === 'company name' || $headerLower === 'organization') {
+            // Map company field - more flexible matching
+            elseif ($headerLower === 'company' || 
+                    $headerLower === 'company name' || 
+                    $headerLower === 'organization' ||
+                    $headerLower === 'business' ||
+                    $headerLower === 'firm' ||
+                    $headerLower === 'corp' ||
+                    $headerLower === 'corporation') {
                 $fieldMap['company'] = $index;
             }
-            // Map DOT field
-            elseif ($headerLower === 'dot' || $headerLower === 'dot number' || $headerLower === 'dot_number') {
+            // Map DOT field - more flexible matching
+            elseif ($headerLower === 'dot' || 
+                    $headerLower === 'dot number' || 
+                    $headerLower === 'dot_number' ||
+                    $headerLower === 'dotnumber' ||
+                    $headerLower === 'dot #' ||
+                    $headerLower === 'dot#' ||
+                    $headerLower === 'dot id' ||
+                    $headerLower === 'dotid') {
                 $fieldMap['dot'] = $index;
             }
         }
+        
+        // Debug: Log the mapping
+        error_log("Header mapping: " . json_encode($fieldMap));
+        error_log("Headers found: " . json_encode($headers));
+        
         return $fieldMap;
     }
     
