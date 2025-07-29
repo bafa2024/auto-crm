@@ -155,6 +155,7 @@ class EmailUploadService {
             'total_rows' => $rowNumber,
             'imported' => $result['imported'],
             'failed' => $result['failed'],
+            'skipped' => $result['skipped'],
             'errors' => array_merge($errors, $result['errors'])
         ];
     }
@@ -271,6 +272,7 @@ class EmailUploadService {
             'total_rows' => $rowNumber,
             'imported' => $result['imported'],
             'failed' => $result['failed'],
+            'skipped' => $result['skipped'],
             'errors' => array_merge($errors, $result['errors'])
         ];
     }
@@ -354,6 +356,7 @@ class EmailUploadService {
     private function insertContacts($contacts) {
         $imported = 0;
         $failed = 0;
+        $skipped = 0;
         $errors = [];
         $insertedIds = [];
         
@@ -362,20 +365,23 @@ class EmailUploadService {
                 // Normalize email to lowercase to handle case sensitivity
                 $normalizedEmail = strtolower(trim($contact['email']));
                 
-                // Check if email already exists for this campaign (case-insensitive)
+                // Check if email already exists (case-insensitive)
+                $checkSql = "SELECT id FROM email_recipients WHERE LOWER(email) = :email";
+                $params = [':email' => $normalizedEmail];
+                
+                // If campaign_id is provided, also check for campaign-specific duplicates
                 if ($contact['campaign_id']) {
-                    $checkSql = "SELECT id FROM email_recipients WHERE LOWER(email) = :email AND campaign_id = :campaign_id";
-                    $stmt = $this->db->prepare($checkSql);
-                    $stmt->execute([
-                        ':email' => $normalizedEmail,
-                        ':campaign_id' => $contact['campaign_id']
-                    ]);
-                    
-                    if ($stmt->fetch()) {
-                        $errors[] = "Email {$contact['email']} already exists in this campaign";
-                        $failed++;
-                        continue;
-                    }
+                    $checkSql .= " AND campaign_id = :campaign_id";
+                    $params[':campaign_id'] = $contact['campaign_id'];
+                }
+                
+                $stmt = $this->db->prepare($checkSql);
+                $stmt->execute($params);
+                
+                if ($stmt->fetch()) {
+                    // Email already exists - skip instead of treating as error
+                    $skipped++;
+                    continue;
                 }
                 
                 // Insert into email_recipients table with normalized email
@@ -422,6 +428,7 @@ class EmailUploadService {
         return [
             'imported' => $imported,
             'failed' => $failed,
+            'skipped' => $skipped,
             'errors' => $errors
         ];
     }

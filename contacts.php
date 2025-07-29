@@ -100,6 +100,9 @@ if (isset($_SERVER['REQUEST_METHOD']) && $_SERVER['REQUEST_METHOD'] === 'POST' &
             
             if ($result['success']) {
                 $message = "Upload successful! Imported: {$result['imported']} contacts";
+                if ($result['skipped'] > 0) {
+                    $message .= ", Skipped: {$result['skipped']} (already imported)";
+                }
                 if ($result['failed'] > 0) {
                     $message .= ", Failed: {$result['failed']}";
                 }
@@ -259,6 +262,52 @@ try {
                         <?php echo $message; ?>
                         <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
                     </div>
+                    
+                    <?php if ($messageType === 'success' && strpos($message, 'Upload successful') !== false): ?>
+                        <div class="alert alert-info alert-dismissible fade show" role="alert">
+                            <i class="bi bi-info-circle"></i> 
+                            Page will refresh in <span id="countdown">3</span> seconds to show newly uploaded contacts.
+                            <button type="button" class="btn-close" data-bs-dismiss="alert" onclick="cancelRefresh()"></button>
+                        </div>
+                        
+                        <script>
+                            let countdown = 3;
+                            let refreshTimeout;
+                            
+                            function startCountdown() {
+                                const countdownElement = document.getElementById('countdown');
+                                refreshTimeout = setTimeout(function() {
+                                    window.location.reload();
+                                }, 3000);
+                                
+                                const countdownInterval = setInterval(function() {
+                                    countdown--;
+                                    if (countdownElement) {
+                                        countdownElement.textContent = countdown;
+                                    }
+                                    if (countdown <= 0) {
+                                        clearInterval(countdownInterval);
+                                    }
+                                }, 1000);
+                            }
+                            
+                            function cancelRefresh() {
+                                if (refreshTimeout) {
+                                    clearTimeout(refreshTimeout);
+                                }
+                                // Hide the countdown alert
+                                const alert = document.querySelector('.alert-info');
+                                if (alert) {
+                                    alert.style.display = 'none';
+                                }
+                            }
+                            
+                            // Start countdown when page loads
+                            document.addEventListener('DOMContentLoaded', function() {
+                                startCountdown();
+                            });
+                        </script>
+                    <?php endif; ?>
                 <?php endif; ?>
                 
             <div class="row">
