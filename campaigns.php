@@ -138,6 +138,7 @@ if (isset($_SERVER['REQUEST_METHOD']) && $_SERVER['REQUEST_METHOD'] === 'POST') 
                 $frequency = $_POST['frequency'] ?? null;
                 $emailSubject = $_POST['email_subject'];
                 $emailContent = $_POST['email_content'];
+                $recipientIds = $_POST['recipient_ids'] ?? [];
                 
                 // Validate schedule data
                 if ($scheduleType === 'scheduled' && empty($scheduleDate)) {
@@ -148,6 +149,13 @@ if (isset($_SERVER['REQUEST_METHOD']) && $_SERVER['REQUEST_METHOD'] === 'POST') 
                 
                 if ($scheduleType === 'recurring' && empty($frequency)) {
                     $message = 'Frequency is required for recurring campaigns.';
+                    $messageType = 'danger';
+                    break;
+                }
+                
+                // Validate recipient selection
+                if (empty($recipientIds)) {
+                    $message = 'Please select at least one recipient for the campaign.';
                     $messageType = 'danger';
                     break;
                 }
@@ -167,11 +175,21 @@ if (isset($_SERVER['REQUEST_METHOD']) && $_SERVER['REQUEST_METHOD'] === 'POST') 
                 
                 $result = $campaignService->editCampaign($campaignId, $updateData);
                 if ($result['success']) {
-                    $message = "Campaign scheduled successfully!";
-                    if ($scheduleType === 'scheduled') {
-                        $message .= " Campaign will be sent on " . date('M d, Y g:i A', strtotime($scheduleDate));
-                    } elseif ($scheduleType === 'recurring') {
-                        $message .= " Campaign will be sent " . $frequency . " starting on " . date('M d, Y g:i A', strtotime($scheduleDate));
+                    // If immediate sending is selected, send the campaign now
+                    if ($scheduleType === 'immediate') {
+                        $sendResult = $campaignService->sendCampaign($campaignId, $recipientIds);
+                        if ($sendResult['success']) {
+                            $message = "Campaign scheduled and sent immediately to " . count($recipientIds) . " recipients!";
+                        } else {
+                            $message = "Campaign scheduled but sending failed: " . $sendResult['message'];
+                        }
+                    } else {
+                        $message = "Campaign scheduled successfully!";
+                        if ($scheduleType === 'scheduled') {
+                            $message .= " Campaign will be sent on " . date('M d, Y g:i A', strtotime($scheduleDate)) . " to " . count($recipientIds) . " recipients.";
+                        } elseif ($scheduleType === 'recurring') {
+                            $message .= " Campaign will be sent " . $frequency . " starting on " . date('M d, Y g:i A', strtotime($scheduleDate)) . " to " . count($recipientIds) . " recipients.";
+                        }
                     }
                     $messageType = 'success';
                 } else {
@@ -717,6 +735,40 @@ try {
                                     <label for="schedule_sender_email" class="form-label">Sender Email</label>
                                     <input type="email" class="form-control" id="schedule_sender_email" name="sender_email" required>
                                 </div>
+                            </div>
+                        </div>
+                        
+                        <!-- Recipient Selection Section -->
+                        <div class="mb-3">
+                            <div class="d-flex justify-content-between align-items-center mb-2">
+                                <label class="form-label mb-0">Select Recipients</label>
+                                <small class="text-muted" id="scheduleTotalRecipientsCount">0 unsent recipients</small>
+                            </div>
+                            
+                            <!-- Search and Select All -->
+                            <div class="row mb-3">
+                                <div class="col-md-8">
+                                    <input type="text" class="form-control" id="scheduleRecipientSearch" placeholder="Search recipients by email, name, or company...">
+                                </div>
+                                <div class="col-md-4">
+                                    <button type="button" class="btn btn-outline-primary btn-sm" onclick="scheduleSelectAllRecipients()">
+                                        <i class="bi bi-check-all"></i> Select All
+                                    </button>
+                                    <button type="button" class="btn btn-outline-secondary btn-sm" onclick="scheduleClearAllRecipients()">
+                                        <i class="bi bi-x-circle"></i> Clear All
+                                    </button>
+                                </div>
+                            </div>
+                            
+                            <!-- Selected Count -->
+                            <div class="mb-2">
+                                <small class="text-primary" id="scheduleSelectedCount">0 recipients selected</small>
+                                <small class="text-muted ms-3" id="scheduleSearchResultInfo" style="display: none;"></small>
+                            </div>
+                            
+                            <!-- Recipients List -->
+                            <div class="schedule-recipients-list" id="scheduleRecipientsList" style="max-height: 300px; overflow-y: auto; border: 1px solid #dee2e6; border-radius: 8px; padding: 10px;">
+                                <!-- Recipients will be loaded here by JS -->
                             </div>
                         </div>
                     </div>
@@ -1443,6 +1495,9 @@ try {
                         tomorrow.setHours(9, 0, 0, 0); // 9 AM
                         document.getElementById('schedule_date').value = tomorrow.toISOString().slice(0, 16);
                         
+                        // Load recipients for selection
+                        loadScheduleRecipients(campaignId);
+                        
                         // Show the modal
                         new bootstrap.Modal(document.getElementById('scheduleCampaignModal')).show();
                     } else {
@@ -1455,8 +1510,129 @@ try {
                 });
         }
         
-        // Toggle schedule options based on schedule type
+        function loadScheduleRecipients(campaignId) {
+            // Fetch unsent recipients via AJAX
+            fetch('api/get_campaign.php?id=' + campaignId + '&recipients=unsent')
+                .then(response => response.json())
+                .then(data => {
+                    const recipientsList = document.getElementById('scheduleRecipientsList');
+                    const totalRecipientsCount = document.getElementById('scheduleTotalRecipientsCount');
+                    recipientsList.innerHTML = '';
+                    let recipients = data.recipients || [];
+                    
+                    // Update count display with more detail
+                    const totalUnsent = data.total_unsent || recipients.length;
+                    const uniqueUnsent = data.unique_unsent_count || 0;
+                    totalRecipientsCount.innerHTML = `<strong>${totalUnsent}</strong> unsent recipients (<strong>${uniqueUnsent}</strong> unique emails)`;
+                    
+                    if (recipients.length === 0) {
+                        recipientsList.innerHTML = `
+                            <div class="text-center py-4">
+                                <i class="bi bi-check-circle text-success display-4"></i>
+                                <p class="mt-3 mb-0">All recipients have already been sent this campaign!</p>
+                                <small class="text-muted">No unsent recipients found.</small>
+                            </div>
+                        `;
+                        // Disable submit button if no recipients
+                        document.querySelector('#scheduleCampaignForm button[type="submit"]').disabled = true;
+                        return;
+                    }
+                    
+                    // Show only first 100 recipients
+                    const displayLimit = 100;
+                    const displayRecipients = recipients.slice(0, displayLimit);
+                    
+                    displayRecipients.forEach(recipient => {
+                        const div = document.createElement('div');
+                        div.className = 'schedule-recipient-item';
+                        if (recipient.send_status === 'failed') {
+                            div.className += ' border-warning';
+                        }
+                        div.setAttribute('onclick', `toggleScheduleRecipient(${recipient.id})`);
+                        div.setAttribute('data-search', (recipient.email + ' ' + (recipient.name || '') + ' ' + (recipient.company || '')).toLowerCase());
+                        
+                        const statusBadge = recipient.send_status === 'failed' 
+                            ? '<span class="badge bg-warning ms-2">Failed</span>' 
+                            : '<span class="badge bg-info ms-2">Never Sent</span>';
+                        
+                        div.innerHTML = `<div class="form-check">
+                            <input class="form-check-input" type="checkbox" name="recipient_ids[]" value="${recipient.id}" id="schedule_recipient_${recipient.id}" onchange="updateScheduleSelectedCount()">
+                            <label class="form-check-label" for="schedule_recipient_${recipient.id}">
+                                <strong>${escapeHtml(recipient.email)}</strong>${statusBadge}
+                                ${recipient.name ? `<br><small class="text-muted">${escapeHtml(recipient.name)}</small>` : ''}
+                                ${recipient.company ? `<br><small class="text-muted">${escapeHtml(recipient.company)}</small>` : ''}
+                                ${recipient.send_status === 'failed' && recipient.sent_at ? `<br><small class="text-danger">Failed on: ${new Date(recipient.sent_at).toLocaleDateString()}</small>` : ''}
+                            </label>
+                        </div>`;
+                        recipientsList.appendChild(div);
+                    });
+                    
+                    if (recipients.length > displayLimit) {
+                        const info = document.createElement('div');
+                        info.className = 'alert alert-info mt-3';
+                        info.innerHTML = `<i class="bi bi-info-circle"></i> Showing first ${displayLimit} of ${recipients.length} unsent recipients. Use search to find specific recipients or click "Select All" to select all ${uniqueUnsent} unique emails.`;
+                        recipientsList.appendChild(info);
+                    }
+                    updateScheduleSelectedCount();
+                });
+        }
+        
+        function toggleScheduleRecipient(recipientId) {
+            const checkbox = document.getElementById('schedule_recipient_' + recipientId);
+            if (checkbox) {
+                checkbox.checked = !checkbox.checked;
+                updateScheduleSelectedCount();
+            }
+        }
+        
+        function updateScheduleSelectedCount() {
+            const checkboxes = document.querySelectorAll('#scheduleRecipientsList input[type="checkbox"]');
+            const selectedCount = document.getElementById('scheduleSelectedCount');
+            let count = 0;
+            
+            checkboxes.forEach(checkbox => {
+                if (checkbox.checked) count++;
+            });
+            
+            selectedCount.textContent = count + ' recipients selected';
+        }
+        
+        function scheduleSelectAllRecipients() {
+            const checkboxes = document.querySelectorAll('#scheduleRecipientsList input[type="checkbox"]');
+            checkboxes.forEach(checkbox => {
+                checkbox.checked = true;
+            });
+            updateScheduleSelectedCount();
+        }
+        
+        function scheduleClearAllRecipients() {
+            const checkboxes = document.querySelectorAll('#scheduleRecipientsList input[type="checkbox"]');
+            checkboxes.forEach(checkbox => {
+                checkbox.checked = false;
+            });
+            updateScheduleSelectedCount();
+        }
+        
+        // Add search functionality for schedule recipients
         document.addEventListener('DOMContentLoaded', function() {
+            const scheduleRecipientSearch = document.getElementById('scheduleRecipientSearch');
+            if (scheduleRecipientSearch) {
+                scheduleRecipientSearch.addEventListener('input', function() {
+                    const searchTerm = this.value.toLowerCase();
+                    const recipientItems = document.querySelectorAll('.schedule-recipient-item');
+                    
+                    recipientItems.forEach(item => {
+                        const searchData = item.getAttribute('data-search');
+                        if (searchData && searchData.includes(searchTerm)) {
+                            item.style.display = 'block';
+                        } else {
+                            item.style.display = 'none';
+                        }
+                    });
+                });
+            }
+            
+            // Toggle schedule options based on schedule type
             const scheduleTypeSelect = document.getElementById('schedule_schedule_type');
             const scheduleOptions = document.getElementById('scheduleOptions');
             const scheduleDateInput = document.getElementById('schedule_date');
