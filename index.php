@@ -580,7 +580,11 @@ try {
                             break;
                         default:
                             // /api/employees/{id}/teams, add-to-team, remove-from-team
-                            if ($requestMethod === "GET" && isset($pathParts[1]) && is_numeric($pathParts[1]) && isset($pathParts[2]) && $pathParts[2] === "teams") {
+                            if ($requestMethod === "GET" && isset($pathParts[1]) && is_numeric($pathParts[1]) && !isset($pathParts[2])) {
+                                // GET /api/employees/{id} - Get individual employee details
+                                $userId = (int)$pathParts[1];
+                                $controller->getEmployee($userId);
+                            } elseif ($requestMethod === "GET" && isset($pathParts[1]) && is_numeric($pathParts[1]) && isset($pathParts[2]) && $pathParts[2] === "teams") {
                                 $userId = (int)$pathParts[1];
                                 $controller->getEmployeeTeams($userId);
                             } elseif ($requestMethod === "POST" && isset($pathParts[1]) && is_numeric($pathParts[1]) && isset($pathParts[2]) && $pathParts[2] === "add-to-team") {

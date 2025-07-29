@@ -51,6 +51,29 @@ class UserController extends BaseController {
         }
     }
 
+    // GET /api/employees/{id}
+    public function getEmployee($id) {
+        if ($_SERVER['REQUEST_METHOD'] !== 'GET') {
+            $this->sendError('Method not allowed', 405);
+        }
+        
+        try {
+            $sql = "SELECT id, first_name, last_name, email, role, status, password FROM users WHERE id = ?";
+            $stmt = $this->db->prepare($sql);
+            $stmt->execute([$id]);
+            $user = $stmt->fetch();
+            
+            if ($user) {
+                $this->sendSuccess($user);
+            } else {
+                $this->sendError('Employee not found', 404);
+            }
+        } catch (Exception $e) {
+            error_log("Error fetching employee: " . $e->getMessage());
+            $this->sendError("Failed to fetch employee", 500);
+        }
+    }
+
     // POST /api/employees/create
     public function createEmployee($request = null) {
         if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
