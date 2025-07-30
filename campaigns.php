@@ -170,11 +170,18 @@ if (isset($_SERVER['REQUEST_METHOD']) && $_SERVER['REQUEST_METHOD'] === 'POST') 
                     'content' => $emailContent,
                     'sender_name' => $_POST['sender_name'] ?? 'ACRM System',
                     'sender_email' => $_POST['sender_email'] ?? 'noreply@acrm.com',
-                    'status' => 'scheduled'
+                    'status' => ($scheduleType === 'immediate') ? 'draft' : 'scheduled'
                 ];
                 
                 $result = $campaignService->editCampaign($campaignId, $updateData);
                 if ($result['success']) {
+                    // Store the selected recipients for the scheduled campaign
+                    if ($scheduleType !== 'immediate' && !empty($recipientIds)) {
+                        // Store recipient IDs for scheduled processing
+                        require_once 'services/ScheduledCampaignService.php';
+                        $scheduledService = new ScheduledCampaignService($database);
+                        $scheduledService->storeScheduledRecipients($campaignId, $recipientIds);
+                    }
                     // If immediate sending is selected, send the campaign now
                     if ($scheduleType === 'immediate') {
                         $sendResult = $campaignService->sendCampaign($campaignId, $recipientIds);
@@ -936,20 +943,36 @@ try {
                         <div class="row" id="scheduleOptions" style="display: none;">
                             <div class="col-md-6">
                                 <div class="mb-3">
-                                    <label for="schedule_date" class="form-label">Schedule Date</label>
-                                    <input type="datetime-local" class="form-control" id="schedule_date" name="schedule_date" required>
+                                    <label for="schedule_date" class="form-label">Schedule Date & Time</label>
+                                    <input type="datetime-local" class="form-control" id="schedule_date" name="schedule_date">
+                                    <small class="form-text text-muted">Select when to send the campaign</small>
+                                    <div class="mt-2">
+                                        <small class="text-info"><i class="bi bi-info-circle"></i> Current server time: <span id="currentServerTime"></span></small>
+                                    </div>
                                 </div>
                             </div>
-                            <div class="col-md-6">
+                            <div class="col-md-6" id="frequencyOptions" style="display: none;">
                                 <div class="mb-3">
                                     <label for="schedule_frequency" class="form-label">Frequency</label>
                                     <select class="form-select" id="schedule_frequency" name="frequency">
+                                        <option value="">Select frequency</option>
                                         <option value="daily">Daily</option>
                                         <option value="weekly">Weekly</option>
                                         <option value="monthly">Monthly</option>
                                     </select>
+                                    <small class="form-text text-muted">How often to repeat the campaign</small>
                                 </div>
                             </div>
+                        </div>
+                        
+                        <!-- Cron Job Status -->
+                        <div class="alert alert-info" id="cronJobStatus" style="display: none;">
+                            <h6 class="mb-2"><i class="bi bi-clock-history"></i> Scheduled Campaign Processing</h6>
+                            <p class="mb-2">Your campaign will be processed by the background scheduler.</p>
+                            <small>
+                                <strong>Note:</strong> Make sure the cron job is running:
+                                <code>* * * * * php C:\xampp\htdocs\acrm\cron\process_scheduled_campaigns.php</code>
+                            </small>
                         </div>
                         <div class="mb-3">
                             <label for="schedule_email_subject" class="form-label">Email Subject</label>
@@ -2229,6 +2252,138 @@ try {
                 });
             });
         }
+        
+        // Handle schedule type change
+        document.getElementById('schedule_schedule_type').addEventListener('change', function() {
+            const scheduleOptions = document.getElementById('scheduleOptions');
+            const frequencyOptions = document.getElementById('frequencyOptions');
+            const cronJobStatus = document.getElementById('cronJobStatus');
+            const scheduleDateInput = document.getElementById('schedule_date');
+            const frequencyInput = document.getElementById('schedule_frequency');
+            
+            if (this.value === 'scheduled') {
+                scheduleOptions.style.display = 'flex';
+                frequencyOptions.style.display = 'none';
+                cronJobStatus.style.display = 'block';
+                scheduleDateInput.required = true;
+                frequencyInput.required = false;
+            } else if (this.value === 'recurring') {
+                scheduleOptions.style.display = 'flex';
+                frequencyOptions.style.display = 'block';
+                cronJobStatus.style.display = 'block';
+                scheduleDateInput.required = true;
+                frequencyInput.required = true;
+            } else {
+                scheduleOptions.style.display = 'none';
+                frequencyOptions.style.display = 'none';
+                cronJobStatus.style.display = 'none';
+                scheduleDateInput.required = false;
+                frequencyInput.required = false;
+            }
+        });
+        
+        // Update current server time
+        function updateServerTime() {
+            const now = new Date();
+            const serverTime = document.getElementById('currentServerTime');
+            if (serverTime) {
+                serverTime.textContent = now.toLocaleString('en-US', {
+                    year: 'numeric',
+                    month: 'short',
+                    day: 'numeric',
+                    hour: '2-digit',
+                    minute: '2-digit',
+                    second: '2-digit',
+                    hour12: true
+                });
+            }
+        }
+        
+        // Update server time every second
+        setInterval(updateServerTime, 1000);
+        updateServerTime();
+        
+        // Set minimum date/time to current time
+        document.getElementById('schedule_date').addEventListener('focus', function() {
+            const now = new Date();
+            now.setMinutes(now.getMinutes() + 5); // Minimum 5 minutes in the future
+            const minDateTime = now.toISOString().slice(0, 16);
+            this.min = minDateTime;
+        });
+        
+        // Schedule form validation
+        document.getElementById('scheduleCampaignForm').addEventListener('submit', function(e) {
+            const scheduleType = document.getElementById('schedule_schedule_type').value;
+            const scheduleDate = document.getElementById('schedule_date').value;
+            
+            if (scheduleType === 'scheduled' || scheduleType === 'recurring') {
+                if (!scheduleDate) {
+                    e.preventDefault();
+                    alert('Please select a schedule date and time.');
+                    return false;
+                }
+                
+                const selectedDate = new Date(scheduleDate);
+                const now = new Date();
+                
+                if (selectedDate <= now) {
+                    e.preventDefault();
+                    alert('Schedule date must be in the future. Please select a future date and time.');
+                    return false;
+                }
+            }
+            
+            if (scheduleType === 'recurring' && !document.getElementById('schedule_frequency').value) {
+                e.preventDefault();
+                alert('Please select a frequency for recurring campaigns.');
+                return false;
+            }
+        });
+        
+        // Quick date presets for scheduling
+        function addQuickDateButtons() {
+            const scheduleDateContainer = document.querySelector('#schedule_date').parentElement;
+            const quickDates = document.createElement('div');
+            quickDates.className = 'mt-2';
+            quickDates.innerHTML = `
+                <small class="text-muted">Quick select:</small>
+                <button type="button" class="btn btn-sm btn-outline-secondary" onclick="setScheduleDate('tomorrow-9am')">Tomorrow 9AM</button>
+                <button type="button" class="btn btn-sm btn-outline-secondary" onclick="setScheduleDate('tomorrow-2pm')">Tomorrow 2PM</button>
+                <button type="button" class="btn btn-sm btn-outline-secondary" onclick="setScheduleDate('next-monday')">Next Monday</button>
+            `;
+            scheduleDateContainer.appendChild(quickDates);
+        }
+        
+        function setScheduleDate(preset) {
+            const scheduleDateInput = document.getElementById('schedule_date');
+            const now = new Date();
+            let targetDate = new Date();
+            
+            switch(preset) {
+                case 'tomorrow-9am':
+                    targetDate.setDate(now.getDate() + 1);
+                    targetDate.setHours(9, 0, 0, 0);
+                    break;
+                case 'tomorrow-2pm':
+                    targetDate.setDate(now.getDate() + 1);
+                    targetDate.setHours(14, 0, 0, 0);
+                    break;
+                case 'next-monday':
+                    const daysUntilMonday = (8 - now.getDay()) % 7 || 7;
+                    targetDate.setDate(now.getDate() + daysUntilMonday);
+                    targetDate.setHours(9, 0, 0, 0);
+                    break;
+            }
+            
+            scheduleDateInput.value = targetDate.toISOString().slice(0, 16);
+        }
+        
+        // Initialize quick date buttons when modal is shown
+        document.getElementById('scheduleCampaignModal').addEventListener('shown.bs.modal', function() {
+            if (!document.querySelector('.quick-date-buttons')) {
+                addQuickDateButtons();
+            }
+        });
     </script>
 </body>
 </html> 

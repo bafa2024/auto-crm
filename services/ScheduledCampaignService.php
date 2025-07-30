@@ -273,6 +273,58 @@ class ScheduledCampaignService {
     }
     
     /**
+     * Store recipients for a scheduled campaign
+     */
+    public function storeScheduledRecipients($campaignId, $recipientIds) {
+        try {
+            // Ensure email_recipients table has campaign_id column
+            $this->ensureRecipientsTable();
+            
+            // Clear any existing recipients for this campaign
+            $sql = "DELETE FROM email_recipients WHERE campaign_id = ?";
+            $stmt = $this->db->prepare($sql);
+            $stmt->execute([$campaignId]);
+            
+            // Insert new recipients
+            if (!empty($recipientIds)) {
+                $sql = "INSERT INTO email_recipients (campaign_id, email, name, company, status, created_at) 
+                        SELECT ?, email, name, company, 'pending', " . $this->getDateTimeFunction() . "
+                        FROM email_recipients 
+                        WHERE id IN (" . str_repeat('?,', count($recipientIds) - 1) . "?)";
+                
+                $params = array_merge([$campaignId], $recipientIds);
+                $stmt = $this->db->prepare($sql);
+                $stmt->execute($params);
+            }
+            
+            return true;
+        } catch (Exception $e) {
+            error_log("Failed to store scheduled recipients: " . $e->getMessage());
+            return false;
+        }
+    }
+    
+    /**
+     * Ensure email_recipients table has campaign_id column
+     */
+    private function ensureRecipientsTable() {
+        try {
+            // Check if campaign_id column exists
+            if ($this->dbType === 'mysql') {
+                $sql = "SHOW COLUMNS FROM email_recipients LIKE 'campaign_id'";
+                $stmt = $this->db->query($sql);
+                if ($stmt->rowCount() == 0) {
+                    // Add campaign_id column
+                    $sql = "ALTER TABLE email_recipients ADD COLUMN campaign_id INT NULL AFTER id";
+                    $this->db->exec($sql);
+                }
+            }
+        } catch (Exception $e) {
+            error_log("Failed to ensure recipients table structure: " . $e->getMessage());
+        }
+    }
+    
+    /**
      * Send email
      */
     private function sendEmail($to, $subject, $content, $senderName, $senderEmail) {
