@@ -965,22 +965,70 @@ try {
                             </div>
                         </div>
                         
-                        <!-- Cron Job Status -->
-                        <div class="alert alert-info" id="cronJobStatus" style="display: none;">
-                            <h6 class="mb-2"><i class="bi bi-clock-history"></i> Scheduled Campaign Processing</h6>
-                            <p class="mb-2">Your campaign will be processed by the background scheduler.</p>
-                            <small>
-                                <strong>Note:</strong> Make sure the cron job is running:
-                                <code>* * * * * php C:\xampp\htdocs\acrm\cron\process_scheduled_campaigns.php</code>
-                            </small>
+                        <!-- Template Selection -->
+                        <div class="mb-3">
+                            <label for="schedule_template_id" class="form-label">Email Template (Optional)</label>
+                            <select class="form-select" id="schedule_template_id" name="template_id" onchange="loadScheduleTemplate()">
+                                <option value="">-- Select a template --</option>
+                                <?php 
+                                $currentCategory = '';
+                                foreach ($templates as $template): 
+                                    if ($template['category'] != $currentCategory):
+                                        if ($currentCategory != ''): ?>
+                                            </optgroup>
+                                        <?php endif;
+                                        $currentCategory = $template['category'];
+                                        ?>
+                                        <optgroup label="<?php echo htmlspecialchars($currentCategory); ?>">
+                                    <?php endif; ?>
+                                    <option value="<?php echo $template['id']; ?>" 
+                                        data-subject="<?php echo htmlspecialchars($template['subject']); ?>"
+                                        data-content="<?php echo htmlspecialchars($template['content']); ?>"
+                                        data-variables="<?php echo htmlspecialchars($template['variables']); ?>">
+                                        <?php echo htmlspecialchars($template['name']); ?>
+                                    </option>
+                                <?php endforeach; 
+                                if ($currentCategory != ''): ?>
+                                    </optgroup>
+                                <?php endif; ?>
+                            </select>
+                            <small class="form-text text-muted">Select a template to pre-fill subject and content</small>
                         </div>
+                        
                         <div class="mb-3">
                             <label for="schedule_email_subject" class="form-label">Email Subject</label>
-                            <input type="text" class="form-control" id="schedule_email_subject" name="email_subject" required>
+                            <input type="text" class="form-control" id="schedule_email_subject" name="email_subject" required placeholder="Use {{variable_name}} for personalization">
+                            <div id="schedule-subject-preview" class="mt-2 small text-muted" style="display: none;">
+                                <strong>Preview:</strong> <span id="schedule-subject-preview-text"></span>
+                            </div>
                         </div>
+                        
+                        <div class="mb-3">
+                            <label for="schedule_content_type" class="form-label">Content Type</label>
+                            <div class="btn-group w-100" role="group">
+                                <input type="radio" class="btn-check" name="schedule_content_type" id="schedule_content_type_html" value="html" checked>
+                                <label class="btn btn-outline-primary" for="schedule_content_type_html">HTML</label>
+                                
+                                <input type="radio" class="btn-check" name="schedule_content_type" id="schedule_content_type_text" value="text">
+                                <label class="btn btn-outline-primary" for="schedule_content_type_text">Plain Text</label>
+                            </div>
+                        </div>
+                        
                         <div class="mb-3">
                             <label for="schedule_email_content" class="form-label">Email Content</label>
-                            <textarea class="form-control" id="schedule_email_content" name="email_content" rows="10" required placeholder="Enter your email content here..."></textarea>
+                            <div id="schedule-template-variables" class="mb-2" style="display: none;">
+                                <small class="text-muted">Available variables: <span id="schedule-variable-list"></span></small>
+                            </div>
+                            <textarea class="form-control" id="schedule_email_content" name="email_content" rows="10" required placeholder="Enter your email content here... Use {{variable_name}} for personalization"></textarea>
+                        </div>
+                        
+                        <div class="mb-3">
+                            <button type="button" class="btn btn-sm btn-secondary" onclick="previewScheduleEmail()">
+                                <i class="bi bi-eye"></i> Preview Email
+                            </button>
+                            <button type="button" class="btn btn-sm btn-info" onclick="showScheduleMergeTags()">
+                                <i class="bi bi-braces"></i> Available Merge Tags
+                            </button>
                         </div>
                         <div class="row">
                             <div class="col-md-6">
@@ -2012,7 +2060,6 @@ try {
                 document.getElementById('schedule_schedule_type').value = 'immediate';
                 document.getElementById('scheduleOptions').style.display = 'none';
                 document.getElementById('frequencyOptions').style.display = 'none';
-                document.getElementById('cronJobStatus').style.display = 'none';
                 
                 // Fetch campaign data to populate the modal
                 fetch('api/get_campaign.php?id=' + campaignId)
@@ -2280,26 +2327,22 @@ try {
                 scheduleTypeSelect.addEventListener('change', function() {
                     const scheduleOptions = document.getElementById('scheduleOptions');
                     const frequencyOptions = document.getElementById('frequencyOptions');
-                    const cronJobStatus = document.getElementById('cronJobStatus');
                     const scheduleDateInput = document.getElementById('schedule_date');
                     const frequencyInput = document.getElementById('schedule_frequency');
                     
                     if (this.value === 'scheduled') {
                         scheduleOptions.style.display = 'flex';
                         frequencyOptions.style.display = 'none';
-                        cronJobStatus.style.display = 'block';
                         scheduleDateInput.required = true;
                         frequencyInput.required = false;
                     } else if (this.value === 'recurring') {
                         scheduleOptions.style.display = 'flex';
                         frequencyOptions.style.display = 'block';
-                        cronJobStatus.style.display = 'block';
                         scheduleDateInput.required = true;
                         frequencyInput.required = true;
                     } else {
                         scheduleOptions.style.display = 'none';
                         frequencyOptions.style.display = 'none';
-                        cronJobStatus.style.display = 'none';
                         scheduleDateInput.required = false;
                         frequencyInput.required = false;
                     }
@@ -2424,6 +2467,147 @@ try {
             for (let [key, value] of formData.entries()) {
                 console.log(key + ': ' + value);
             }
+        }
+        
+        // Load template for schedule form
+        window.loadScheduleTemplate = function() {
+            const templateSelect = document.getElementById('schedule_template_id');
+            const selectedOption = templateSelect.options[templateSelect.selectedIndex];
+            
+            if (templateSelect.value) {
+                const subject = selectedOption.getAttribute('data-subject');
+                const content = selectedOption.getAttribute('data-content');
+                const variables = selectedOption.getAttribute('data-variables');
+                
+                document.getElementById('schedule_email_subject').value = subject || '';
+                document.getElementById('schedule_email_content').value = content || '';
+                
+                // Show available variables
+                if (variables) {
+                    document.getElementById('schedule-template-variables').style.display = 'block';
+                    document.getElementById('schedule-variable-list').textContent = variables;
+                } else {
+                    document.getElementById('schedule-template-variables').style.display = 'none';
+                }
+                
+                // Update preview
+                updateScheduleEmailPreview();
+            } else {
+                document.getElementById('schedule-template-variables').style.display = 'none';
+            }
+        }
+        
+        // Update email preview for schedule form
+        function updateScheduleEmailPreview() {
+            const subject = document.getElementById('schedule_email_subject').value;
+            if (subject && subject.includes('{{')) {
+                document.getElementById('schedule-subject-preview').style.display = 'block';
+                const sampleData = {
+                    first_name: 'John',
+                    name: 'John Doe',
+                    email: 'john@example.com',
+                    company: 'ACRM Company',
+                    company_name: 'ACRM Company',
+                    current_date: new Date().toLocaleDateString(),
+                    current_year: new Date().getFullYear(),
+                    current_month: new Date().toLocaleString('default', { month: 'long' })
+                };
+                document.getElementById('schedule-subject-preview-text').textContent = replaceMergeTags(subject, sampleData);
+            } else {
+                document.getElementById('schedule-subject-preview').style.display = 'none';
+            }
+        }
+        
+        // Preview schedule email
+        window.previewScheduleEmail = function() {
+            const subject = document.getElementById('schedule_email_subject').value;
+            const content = document.getElementById('schedule_email_content').value;
+            const contentType = document.querySelector('input[name="schedule_content_type"]:checked').value;
+            
+            if (!subject || !content) {
+                alert('Please enter both subject and content to preview.');
+                return;
+            }
+            
+            // Sample data for preview
+            const sampleData = {
+                first_name: 'John',
+                name: 'John Doe',
+                email: 'john@example.com',
+                company: 'ACRM Company',
+                company_name: 'ACRM Company',
+                current_date: new Date().toLocaleDateString(),
+                current_year: new Date().getFullYear(),
+                current_month: new Date().toLocaleString('default', { month: 'long' })
+            };
+            
+            const previewSubject = replaceMergeTags(subject, sampleData);
+            const previewContent = replaceMergeTags(content, sampleData);
+            
+            // Create preview modal
+            const previewModal = createPreviewModal(previewSubject, previewContent, contentType, sampleData);
+            document.body.insertAdjacentHTML('beforeend', previewModal);
+            new bootstrap.Modal(document.getElementById('schedulePreviewModal')).show();
+        }
+        
+        // Show merge tags for schedule form
+        window.showScheduleMergeTags = function() {
+            const mergeTags = [
+                '{{first_name}} - Recipient\'s first name',
+                '{{name}} - Recipient\'s full name',
+                '{{email}} - Recipient\'s email address',
+                '{{company}} - Recipient\'s company',
+                '{{company_name}} - Recipient\'s company (alias)',
+                '{{current_date}} - Today\'s date',
+                '{{current_year}} - Current year',
+                '{{current_month}} - Current month'
+            ];
+            
+            alert('Available Merge Tags:\n\n' + mergeTags.join('\n'));
+        }
+        
+        // Add event listener for schedule subject preview
+        document.addEventListener('DOMContentLoaded', function() {
+            const scheduleSubject = document.getElementById('schedule_email_subject');
+            if (scheduleSubject) {
+                scheduleSubject.addEventListener('input', updateScheduleEmailPreview);
+            }
+        });
+        
+        // Helper to create preview modal
+        function createPreviewModal(subject, content, contentType, sampleData) {
+            return `
+                <div class="modal fade" id="schedulePreviewModal" tabindex="-1">
+                    <div class="modal-dialog modal-lg">
+                        <div class="modal-content">
+                            <div class="modal-header">
+                                <h5 class="modal-title">Email Preview</h5>
+                                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                            </div>
+                            <div class="modal-body">
+                                <div class="mb-3">
+                                    <strong>Subject:</strong> ${escapeHtml(subject)}
+                                </div>
+                                <div class="mb-3">
+                                    <strong>Content Type:</strong> ${contentType.toUpperCase()}
+                                </div>
+                                <div class="border rounded p-3">
+                                    ${contentType === 'html' ? content : '<pre>' + escapeHtml(content) + '</pre>'}
+                                </div>
+                                <div class="mt-3 p-3 bg-light rounded">
+                                    <small class="text-muted">
+                                        <strong>Sample merge tag values:</strong><br>
+                                        ${Object.entries(sampleData).map(([key, value]) => `{{${key}}} = ${value}`).join('<br>')}
+                                    </small>
+                                </div>
+                            </div>
+                            <div class="modal-footer">
+                                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Close</button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            `;
         }
         
         // Schedule campaign form submission handler - wrapped in DOMContentLoaded
