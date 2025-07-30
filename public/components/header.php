@@ -1,6 +1,7 @@
 <?php
 // Include version manager
 require_once __DIR__ . '/../../version.php';
+require_once __DIR__ . '/../../config/base_path.php';
 ?>
 <!DOCTYPE html>
 <html lang="en">
@@ -16,7 +17,7 @@ require_once __DIR__ . '/../../version.php';
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
-    <link rel="stylesheet" href="/autocrm/public/css/styles.css">
+    <link rel="stylesheet" href="<?php echo base_path('public/css/styles.css'); ?>">
     <style>
         .version-badge {
             font-size: 0.75rem;
@@ -53,7 +54,7 @@ require_once __DIR__ . '/../../version.php';
 <nav class="navbar navbar-expand-lg landing-nav">
     <div class="container">
         <div class="d-flex align-items-center">
-            <a class="navbar-brand fw-bold" href="/landing">
+            <a class="navbar-brand fw-bold" href="<?php echo base_path('landing'); ?>">
                 <i class="bi bi-telephone-fill text-primary"></i>
             </a>
             
@@ -67,21 +68,21 @@ require_once __DIR__ . '/../../version.php';
         <div class="collapse navbar-collapse" id="navbarNav">
             <ul class="navbar-nav ms-auto">
                 <li class="nav-item">
-                    <a class="nav-link" href="/landing#features">Features</a>
+                    <a class="nav-link" href="<?php echo base_path('landing#features'); ?>">Features</a>
                 </li>
                 <li class="nav-item">
-                    <a class="nav-link" href="/landing#pricing">Pricing</a>
+                    <a class="nav-link" href="<?php echo base_path('landing#pricing'); ?>">Pricing</a>
                 </li>
                 <li class="nav-item">
-                    <a class="nav-link" href="/landing#testimonials">Testimonials</a>
+                    <a class="nav-link" href="<?php echo base_path('landing#testimonials'); ?>">Testimonials</a>
                 </li>
                 <li class="nav-item">
-                    <a class="nav-link" href="/landing#contact">Contact</a>
+                    <a class="nav-link" href="<?php echo base_path('landing#contact'); ?>">Contact</a>
                 </li>
             </ul>
             <div class="ms-3">
-                <a class="btn btn-outline-primary me-2" href="/login">Login</a>
-                <a class="btn btn-primary" href="/signup">Start Free Trial</a>
+                <a class="btn btn-outline-primary me-2" href="<?php echo base_path('login'); ?>">Login</a>
+                <a class="btn btn-primary" href="<?php echo base_path('signup'); ?>">Start Free Trial</a>
             </div>
         </div>
     </div>

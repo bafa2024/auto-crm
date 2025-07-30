@@ -1,3 +1,6 @@
+<?php
+require_once __DIR__ . '/../../config/base_path.php';
+?>
 <?php include __DIR__ . "/../components/header-landing.php"; ?>
 <?php include __DIR__ . "/../components/navigation.php"; ?>
 
@@ -32,7 +35,7 @@
                                     Remember me
                                 </label>
                             </div>
-                            <a href="/forgot-password">Forgot password?</a>
+                            <a href="<?php echo base_path('forgot-password'); ?>">Forgot password?</a>
                         </div>
                         <button type="submit" class="btn btn-primary w-100 mb-3" id="loginBtn">
                             <span class="btn-text">Sign In</span>
@@ -42,7 +45,7 @@
                             </span>
                         </button>
                         <div class="text-center">
-                            <p class="mb-0">Employee login? <a href="/employee/login">Click here</a></p>
+                            <p class="mb-0">Employee login? <a href="<?php echo base_path('employee/login'); ?>">Click here</a></p>
                         </div>
                     </form>
                 </div>
@@ -53,8 +56,8 @@
 
 <script>
 document.addEventListener("DOMContentLoaded", function() {
-    // Auto-detect base path for live hosting compatibility
-    const basePath = window.location.pathname.includes('/acrm/') ? '/acrm' : '';
+    // Use PHP base path
+    const basePath = '<?php echo base_path(""); ?>';
     
     const loginForm = document.getElementById("loginForm");
     const loginBtn = document.getElementById("loginBtn");
@@ -74,6 +77,10 @@ document.addEventListener("DOMContentLoaded", function() {
         const formData = new FormData(loginForm);
         const data = Object.fromEntries(formData.entries());
         
+        // Debug: Log the data being sent
+        console.log("Sending login data:", data);
+        console.log("API URL:", basePath + "/api/auth/login");
+        
         try {
             const apiUrl = basePath + "/api/auth/login";
             
@@ -85,11 +92,16 @@ document.addEventListener("DOMContentLoaded", function() {
                 body: JSON.stringify(data)
             });
             
+            console.log("Response status:", response.status);
+            console.log("Response headers:", response.headers);
+            
             const result = await response.json();
+            console.log("Response data:", result);
             
             if (response.ok && result.success) {
                 messagesContainer.innerHTML = `
                     <div class="alert alert-success">
+                        <i class="bi bi-check-circle me-2"></i>
                         Login successful! Redirecting...
                     </div>
                 `;
@@ -98,15 +110,26 @@ document.addEventListener("DOMContentLoaded", function() {
                     window.location.href = dashboardUrl;
                 }, 1000);
             } else {
+                let errorMessage = "Invalid email or password";
+                
+                if (result.message) {
+                    errorMessage = result.message;
+                } else if (result.error) {
+                    errorMessage = result.error;
+                }
+                
                 messagesContainer.innerHTML = `
                     <div class="alert alert-danger">
-                        ${result.message || "Invalid email or password"}
+                        <i class="bi bi-exclamation-triangle me-2"></i>
+                        ${errorMessage}
                     </div>
                 `;
             }
         } catch (error) {
+            console.error("Login error:", error);
             messagesContainer.innerHTML = `
                 <div class="alert alert-danger">
+                    <i class="bi bi-exclamation-triangle me-2"></i>
                     Network error. Please try again.
                 </div>
             `;

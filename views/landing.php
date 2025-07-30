@@ -1,5 +1,8 @@
-<?php include __DIR__ . "/components/header-landing.php"; ?>
-<?php include __DIR__ . "/components/navigation.php"; ?>
+<?php 
+require_once __DIR__ . "/../config/base_path.php";
+include __DIR__ . "/components/header-landing.php"; 
+include __DIR__ . "/components/navigation.php"; 
+?>
 
 <!-- Hero Section -->
 <section class="hero-section py-5 bg-primary text-white">
@@ -9,10 +12,10 @@
                 <h1 class="display-4 fw-bold mb-4">Supercharge Your Sales with Intelligent Auto Dialing</h1>
                 <p class="lead mb-4">Increase your team's productivity by 300% with our AI-powered auto dialer. Connect with more prospects, close more deals, and grow your business faster.</p>
                 <div class="d-flex gap-3">
-                    <a class="btn btn-light btn-lg" href="/login">
+                    <a class="btn btn-light btn-lg" href="<?php echo base_path('login'); ?>">
                         <i class="bi bi-shield-check me-2"></i>Admin Login
                     </a>
-                    <a class="btn btn-outline-light btn-lg" href="/employee/login">
+                    <a class="btn btn-outline-light btn-lg" href="<?php echo base_path('employee/login'); ?>">
                         <i class="bi bi-person-badge me-2"></i>Employee Login
                     </a>
                 </div>
@@ -73,7 +76,7 @@
                         </div>
                         <h4>Administrator Access</h4>
                         <p class="text-muted mb-4">Full system access for managers and administrators. Create campaigns, manage employees, view all contacts, and access comprehensive reporting.</p>
-                        <a class="btn btn-primary" href="/login">
+                        <a class="btn btn-primary" href="<?php echo base_path('login'); ?>">
                             <i class="bi bi-shield-check me-2"></i>Admin Login
                         </a>
                     </div>
@@ -87,7 +90,7 @@
                         </div>
                         <h4>Employee Access</h4>
                         <p class="text-muted mb-4">Dedicated portal for sales agents and team members. View assigned contacts, update status, manage your profile, and track your performance.</p>
-                        <a class="btn btn-outline-secondary" href="/employee/login">
+                        <a class="btn btn-outline-secondary" href="<?php echo base_path('employee/login'); ?>">
                             <i class="bi bi-person-badge me-2"></i>Employee Login
                         </a>
                     </div>

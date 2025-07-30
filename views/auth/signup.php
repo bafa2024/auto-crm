@@ -1,3 +1,6 @@
+<?php
+require_once __DIR__ . '/../../config/base_path.php';
+?>
 <?php include __DIR__ . "/../components/header-landing.php"; ?>
 <?php include __DIR__ . "/../components/navigation.php"; ?>
 
@@ -37,8 +40,18 @@
                         </div>
                         <div class="mb-3">
                             <label class="form-label">Password</label>
-                            <input type="password" name="password" class="form-control" required minlength="8">
-                            <small class="text-muted">Must be at least 8 characters</small>
+                            <input type="password" name="password" class="form-control" required minlength="6">
+                            <small class="text-muted">Must be at least 6 characters</small>
+                        </div>
+                        <div class="mb-3">
+                            <label class="form-label">Confirm Password</label>
+                            <input type="password" name="confirm_password" class="form-control" required>
+                        </div>
+                        <div class="form-check mb-3">
+                            <input class="form-check-input" type="checkbox" id="terms" required>
+                            <label class="form-check-label" for="terms">
+                                I agree to the <a href="#">Terms of Service</a> and <a href="#">Privacy Policy</a>
+                            </label>
                         </div>
                         <button type="submit" class="btn btn-primary w-100 mb-3" id="signupBtn">
                             <span class="btn-text">Create Account</span>
@@ -48,7 +61,7 @@
                             </span>
                         </button>
                         <div class="text-center">
-                            <p class="mb-0">Already have an account? <a href="#" id="loginLink">Sign in</a></p>
+                            <p class="mb-0">Already have an account? <a href="<?php echo base_path('login'); ?>">Sign in</a></p>
                         </div>
                     </form>
                 </div>
@@ -59,11 +72,8 @@
 
 <script>
 document.addEventListener("DOMContentLoaded", function() {
-    // Auto-detect base path for live hosting compatibility
-    const basePath = window.location.pathname.includes('/acrm/') ? '/acrm' : '';
-    
-    // Set login link href
-    document.getElementById('loginLink').href = basePath + '/login';
+    // Use PHP base path
+    const basePath = '<?php echo base_path(""); ?>';
     
     const signupForm = document.getElementById("signupForm");
     const signupBtn = document.getElementById("signupBtn");
@@ -74,6 +84,30 @@ document.addEventListener("DOMContentLoaded", function() {
     signupForm.addEventListener("submit", async function(e) {
         e.preventDefault();
         
+        // Basic validation
+        const password = signupForm.querySelector('input[name="password"]').value;
+        const confirmPassword = signupForm.querySelector('input[name="confirm_password"]').value;
+        
+        if (password !== confirmPassword) {
+            messagesContainer.innerHTML = `
+                <div class="alert alert-danger">
+                    <i class="bi bi-exclamation-triangle me-2"></i>
+                    Passwords do not match
+                </div>
+            `;
+            return;
+        }
+        
+        if (password.length < 6) {
+            messagesContainer.innerHTML = `
+                <div class="alert alert-danger">
+                    <i class="bi bi-exclamation-triangle me-2"></i>
+                    Password must be at least 6 characters long
+                </div>
+            `;
+            return;
+        }
+        
         btnText.classList.add("d-none");
         btnLoading.classList.remove("d-none");
         signupBtn.disabled = true;
@@ -82,6 +116,17 @@ document.addEventListener("DOMContentLoaded", function() {
         
         const formData = new FormData(signupForm);
         const data = Object.fromEntries(formData.entries());
+        
+        // Remove confirm_password from data
+        delete data.confirm_password;
+        
+        // Add default role
+        data.role = 'admin';
+        
+        // Debug: Log the data being sent
+        console.log("Sending signup data:", data);
+        console.log("Base path:", basePath);
+        console.log("API URL:", basePath + "/api/auth/register");
         
         try {
             const response = await fetch(basePath + "/api/auth/register", {
@@ -92,11 +137,15 @@ document.addEventListener("DOMContentLoaded", function() {
                 body: JSON.stringify(data)
             });
             
+            console.log("Response status:", response.status);
+            
             const result = await response.json();
+            console.log("Response data:", result);
             
             if (response.ok && result.success) {
                 messagesContainer.innerHTML = `
                     <div class="alert alert-success">
+                        <i class="bi bi-check-circle me-2"></i>
                         Account created successfully! Redirecting to login...
                     </div>
                 `;
@@ -104,15 +153,26 @@ document.addEventListener("DOMContentLoaded", function() {
                     window.location.href = basePath + "/login";
                 }, 2000);
             } else {
+                let errorMessage = "Failed to create account";
+                
+                if (result.message) {
+                    errorMessage = result.message;
+                } else if (result.error) {
+                    errorMessage = result.error;
+                }
+                
                 messagesContainer.innerHTML = `
                     <div class="alert alert-danger">
-                        ${result.message || "Failed to create account"}
+                        <i class="bi bi-exclamation-triangle me-2"></i>
+                        ${errorMessage}
                     </div>
                 `;
             }
         } catch (error) {
+            console.error("Signup error:", error);
             messagesContainer.innerHTML = `
                 <div class="alert alert-danger">
+                    <i class="bi bi-exclamation-triangle me-2"></i>
                     Network error. Please try again.
                 </div>
             `;

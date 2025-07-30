@@ -1,0 +1,51 @@
+DASHBOARD ERROR’s
+
+1)
+Create Email Campaign
+Design and schedule your next email campaign.
+
+when I am clicking here then page is not responding
+
+
+2)
+Import Contacts
+Upload your contact list via CSV or Excel
+
+when I am clicking here then page is not responding
+
+
+3)
+NEW CAMPIGN – on dashboard right hand corner button not working
+
+4)
+Import contacts – On dashboard right hand corner button not working
+
+
+CONTACT’S ERROR 
+
+
+5)
+when i am clicking on conatcs and uploding new contacts , so page is not working.
+
+INSTANT EMAIL ERROR 
+-
+
+
+6)
+when I am sending a email through instant email page is showing error but the email is go through,,, age is sending that this email can’t be send due to some error but mail is go through 
+
+7)
+AGENT PANNEL ERROR"S
+
+
+
+NOTHING IS WORKING IN AGENT PANNEL/
+
+WHEN I AM CLICKING IN CREATE CAMPAIGN THEN SHOWING ERROR < ALSO WHEN I AM CLICKING ON ADD CONTACS THAT TIME ALSO SHOWING ERROR .
+
+PLEASE CHECK AND SOLVE ASAP.
+
+
+
+
+

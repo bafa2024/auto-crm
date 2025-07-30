@@ -1,17 +1,5 @@
 <?php
-// Auto-detect base path for live hosting compatibility
-function employee_base_path($path = '') {
-    $requestUri = $_SERVER['REQUEST_URI'] ?? '';
-    $scriptName = $_SERVER['SCRIPT_NAME'] ?? '';
-    
-    // If the request URI contains /acrm/, we're in local development
-    if (strpos($requestUri, '/acrm/') !== false || strpos($scriptName, '/acrm/') !== false) {
-        return '/acrm' . $path;
-    }
-    
-    // Otherwise, we're likely on live hosting
-    return $path;
-}
+require_once __DIR__ . '/../../config/base_path.php';
 ?>
 
 <div class="sidebar">
@@ -30,21 +18,21 @@ function employee_base_path($path = '') {
     <div class="sidebar-menu">
         <ul class="nav flex-column">
             <li class="nav-item">
-                <a class="nav-link <?php echo strpos($_SERVER['REQUEST_URI'], '/employee/dashboard') !== false ? 'active' : ''; ?>" href="<?php echo employee_base_path('/employee/dashboard'); ?>">
+                <a class="nav-link <?php echo strpos($_SERVER['REQUEST_URI'], '/employee/dashboard') !== false ? 'active' : ''; ?>" href="<?php echo base_path('employee/dashboard'); ?>">
                     <i class="bi bi-speedometer2"></i>
                     <span>Dashboard</span>
                 </a>
             </li>
             
             <li class="nav-item">
-                <a class="nav-link <?php echo strpos($_SERVER['REQUEST_URI'], '/employee/contacts') !== false ? 'active' : ''; ?>" href="<?php echo employee_base_path('/employee/contacts'); ?>">
+                <a class="nav-link <?php echo strpos($_SERVER['REQUEST_URI'], '/employee/contacts') !== false ? 'active' : ''; ?>" href="<?php echo base_path('employee/contacts'); ?>">
                     <i class="bi bi-people"></i>
                     <span>My Contacts</span>
                 </a>
             </li>
             
             <li class="nav-item">
-                <a class="nav-link <?php echo strpos($_SERVER['REQUEST_URI'], '/employee/profile') !== false ? 'active' : ''; ?>" href="<?php echo employee_base_path('/employee/profile'); ?>">
+                <a class="nav-link <?php echo strpos($_SERVER['REQUEST_URI'], '/employee/profile') !== false ? 'active' : ''; ?>" href="<?php echo base_path('employee/profile'); ?>">
                     <i class="bi bi-person"></i>
                     <span>My Profile</span>
                 </a>
@@ -55,7 +43,7 @@ function employee_base_path($path = '') {
         
         <ul class="nav flex-column">
             <li class="nav-item">
-                <a class="nav-link text-muted" href="<?php echo employee_base_path('/employee/logout'); ?>" onclick="return confirm('Are you sure you want to logout?')">
+                <a class="nav-link text-muted" href="<?php echo base_path('employee/logout'); ?>" onclick="return confirm('Are you sure you want to logout?')">
                     <i class="bi bi-box-arrow-right"></i>
                     <span>Logout</span>
                 </a>

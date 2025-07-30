@@ -113,10 +113,10 @@
                     <a href="<?php echo base_path('instant_email.php'); ?>" class="btn btn-primary">
                         <i class="bi bi-envelope-plus me-2"></i>Send Instant Email
                     </a>
-                    <a href="<?php echo base_path('campaigns/create'); ?>" class="btn btn-outline-primary">
+                    <a href="<?php echo base_path('campaigns.php'); ?>" class="btn btn-outline-primary">
                         <i class="bi bi-megaphone me-2"></i>Create Campaign
                     </a>
-                    <a href="<?php echo base_path('contacts/import'); ?>" class="btn btn-outline-primary">
+                    <a href="<?php echo base_path('contacts.php'); ?>" class="btn btn-outline-primary">
                         <i class="bi bi-upload me-2"></i>Import Contacts
                     </a>
                     <a href="<?php echo base_path('contacts/add'); ?>" class="btn btn-outline-primary">

@@ -1,14 +1,14 @@
 <?php
-require_once '../config/config.php';
-require_once '../config/database.php';
+require_once __DIR__ . '/../config/config.php';
+require_once __DIR__ . '/../config/database.php';
 
 // Include controllers
-require_once '../controllers/BaseController.php';
-require_once '../controllers/AuthController.php';
-require_once '../controllers/ContactController.php';
-require_once '../controllers/EmailRecipientController.php';
-require_once '../controllers/EmailCampaignController.php';
-require_once '../services/EmailService.php';
+require_once __DIR__ . '/../controllers/BaseController.php';
+require_once __DIR__ . '/../controllers/AuthController.php';
+require_once __DIR__ . '/../controllers/ContactController.php';
+require_once __DIR__ . '/../controllers/EmailRecipientController.php';
+require_once __DIR__ . '/../controllers/EmailCampaignController.php';
+require_once __DIR__ . '/../services/EmailService.php';
 
 // Set API mode
 define('API_MODE', true);
@@ -86,7 +86,7 @@ try {
             handleTrackingRoutes($db, $id, $action);
             break;
         case 'employees':
-            require_once '../controllers/UserController.php';
+            require_once __DIR__ . '/../controllers/UserController.php';
             $controller = new UserController($db);
             handleEmployeeRoutes($controller, $id, $action);
             break;

@@ -168,10 +168,10 @@ $userEmail = $_SESSION["user_email"] ?? "user@example.com";
                 <p class="text-muted">Intelligent auto dialing and CRM management</p>
             </div>
             <div class="d-flex gap-2">
-                <a href="<?php echo base_path('campaigns/create'); ?>" class="btn btn-primary">
+                <a href="<?php echo base_path('campaigns.php'); ?>" class="btn btn-primary">
                     <i class="bi bi-plus-circle me-2"></i>New Campaign
                 </a>
-                <a href="<?php echo base_path('contacts/import'); ?>" class="btn btn-outline-primary">
+                <a href="<?php echo base_path('contacts.php'); ?>" class="btn btn-outline-primary">
                     <i class="bi bi-upload me-2"></i>Import Contacts
                 </a>
             </div>
@@ -191,7 +191,7 @@ $userEmail = $_SESSION["user_email"] ?? "user@example.com";
                                 <p class="mb-0 opacity-75">Design and schedule your next email campaign</p>
                             </div>
                         </div>
-                        <a href="<?php echo base_path('campaigns/create'); ?>" class="btn btn-light btn-sm mt-3">
+                        <a href="<?php echo base_path('campaigns.php'); ?>" class="btn btn-light btn-sm mt-3">
                             Get Started
                         </a>
                     </div>
@@ -209,7 +209,7 @@ $userEmail = $_SESSION["user_email"] ?? "user@example.com";
                                 <p class="mb-0 opacity-75">Upload your contact list via CSV or Excel</p>
                             </div>
                         </div>
-                        <a href="<?php echo base_path('contacts/import'); ?>" class="btn btn-light btn-sm mt-3">
+                        <a href="<?php echo base_path('contacts.php'); ?>" class="btn btn-light btn-sm mt-3">
                             Import Now
                         </a>
                     </div>

@@ -99,10 +99,15 @@ class Database {
      */
     private function loadConfiguration() {
         if ($this->environment === 'local') {
-            // Local development - use SQLite
+            // Local development - use MySQL with local settings
             $this->config = [
-                'type' => 'sqlite',
-                'path' => __DIR__ . '/../database/autocrm_local.db'
+                'type' => 'mysql',
+                'host' => 'localhost',
+                'port' => '3306',
+                'database' => 'autocrm',
+                'username' => 'root',
+                'password' => '',
+                'charset' => 'utf8mb4'
             ];
         } else {
             // Live server - use MySQL

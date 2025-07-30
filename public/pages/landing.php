@@ -1,16 +1,19 @@
+<?php
+require_once __DIR__ . '/../../config/base_path.php';
+?>
 <!-- Hero Section -->
-<section class="hero-section">
+<div class="hero-section">
     <div class="container">
         <div class="row align-items-center">
             <div class="col-lg-6">
                 <h1 class="display-4 fw-bold mb-4">Supercharge Your Sales with Intelligent Auto Dialing</h1>
                 <p class="lead mb-4">Increase your team's productivity by 300% with our AI-powered auto dialer. Connect with more prospects, close more deals, and grow your business faster.</p>
                 <div class="d-flex gap-3">
-                    <a class="btn btn-light btn-lg" href="/autocrm/login">
-                        <i class="bi bi-box-arrow-in-right me-2"></i>Login
+                    <a class="btn btn-light btn-lg" href="<?php echo base_path('autocrm/login'); ?>">
+                        <i class="bi bi-shield-check me-2"></i>Admin Login
                     </a>
-                    <a class="btn btn-primary btn-lg" href="/autocrm/signup">
-                        <i class="bi bi-rocket-takeoff me-2"></i>Sign Up
+                    <a class="btn btn-primary btn-lg" href="<?php echo base_path('autocrm/signup'); ?>">
+                        <i class="bi bi-rocket-takeoff me-2"></i>Start Free Trial
                     </a>
                 </div>
                 <div class="mt-4">
@@ -18,12 +21,11 @@
                 </div>
             </div>
             <div class="col-lg-6">
-                <img src="https://via.placeholder.com/600x400/ffffff/5B5FDE?text=AutoDial+Dashboard" 
-                     class="img-fluid rounded-3 shadow-lg" alt="Dashboard Preview">
+                <img src="https://images.unsplash.com/photo-1560438718-eb61ede255eb?ixlib=rb-4.0.3&ixid=M3wxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8fA%3D%3D&auto=format&fit=crop&w=1000&q=80" class="img-fluid rounded shadow" alt="AutoDial Pro - Professional Call Center Solution">
             </div>
         </div>
     </div>
-</section>
+</div>
 <!-- Features Section -->
 <section id="features" class="py-5">
     <div class="container">

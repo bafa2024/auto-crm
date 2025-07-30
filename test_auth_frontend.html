@@ -1,0 +1,217 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Auth Test</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 20px;
+        }
+        .container {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 20px;
+        }
+        .section {
+            border: 1px solid #ddd;
+            padding: 20px;
+            border-radius: 5px;
+        }
+        input, button {
+            display: block;
+            width: 100%;
+            margin: 10px 0;
+            padding: 10px;
+        }
+        .result {
+            margin-top: 20px;
+            padding: 10px;
+            background: #f0f0f0;
+            border-radius: 5px;
+            white-space: pre-wrap;
+            font-family: monospace;
+            font-size: 12px;
+            max-height: 300px;
+            overflow-y: auto;
+        }
+        .error {
+            background: #ffe0e0;
+            color: #d00;
+        }
+        .success {
+            background: #e0ffe0;
+            color: #0d0;
+        }
+    </style>
+</head>
+<body>
+    <h1>Auth System Test</h1>
+    
+    <div class="container">
+        <div class="section">
+            <h2>Signup Test</h2>
+            <form id="signupForm">
+                <input type="text" id="firstName" placeholder="First Name" value="Test">
+                <input type="text" id="lastName" placeholder="Last Name" value="User">
+                <input type="text" id="companyName" placeholder="Company Name" value="Test Company">
+                <input type="email" id="signupEmail" placeholder="Email" value="test@example.com">
+                <input type="password" id="signupPassword" placeholder="Password" value="password123">
+                <input type="password" id="confirmPassword" placeholder="Confirm Password" value="password123">
+                <button type="submit">Test Signup</button>
+            </form>
+            <div id="signupResult" class="result"></div>
+        </div>
+        
+        <div class="section">
+            <h2>Login Test</h2>
+            <form id="loginForm">
+                <input type="email" id="loginEmail" placeholder="Email" value="test@example.com">
+                <input type="password" id="loginPassword" placeholder="Password" value="password123">
+                <button type="submit">Test Login</button>
+            </form>
+            <div id="loginResult" class="result"></div>
+        </div>
+    </div>
+    
+    <div style="margin-top: 20px;">
+        <h3>Test Sequence:</h3>
+        <button onclick="runFullTest()">Run Full Test Sequence</button>
+        <button onclick="checkDatabase()">Check Database</button>
+        <button onclick="clearResults()">Clear Results</button>
+    </div>
+    
+    <script>
+        const basePath = window.location.pathname.includes('/acrm/') ? '/acrm' : '';
+        
+        function log(elementId, message, isError = false) {
+            const element = document.getElementById(elementId);
+            const timestamp = new Date().toLocaleTimeString();
+            const className = isError ? 'error' : '';
+            element.innerHTML += `<div class="${className}">[${timestamp}] ${message}</div>\n`;
+            element.scrollTop = element.scrollHeight;
+        }
+        
+        async function testSignup(email, password) {
+            const data = {
+                first_name: document.getElementById('firstName').value,
+                last_name: document.getElementById('lastName').value,
+                company_name: document.getElementById('companyName').value,
+                email: email || document.getElementById('signupEmail').value,
+                password: password || document.getElementById('signupPassword').value,
+                role: 'admin'
+            };
+            
+            log('signupResult', `Testing signup with: ${JSON.stringify(data, null, 2)}`);
+            
+            try {
+                const response = await fetch(basePath + '/api/auth/register', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify(data)
+                });
+                
+                const result = await response.json();
+                log('signupResult', `Response (${response.status}): ${JSON.stringify(result, null, 2)}`, !response.ok);
+                return { success: response.ok, data: result };
+            } catch (error) {
+                log('signupResult', `Error: ${error.message}`, true);
+                return { success: false, error: error.message };
+            }
+        }
+        
+        async function testLogin(email, password) {
+            const data = {
+                email: email || document.getElementById('loginEmail').value,
+                password: password || document.getElementById('loginPassword').value
+            };
+            
+            log('loginResult', `Testing login with: ${JSON.stringify(data, null, 2)}`);
+            
+            try {
+                const response = await fetch(basePath + '/api/auth/login', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify(data)
+                });
+                
+                const result = await response.json();
+                log('loginResult', `Response (${response.status}): ${JSON.stringify(result, null, 2)}`, !response.ok);
+                return { success: response.ok, data: result };
+            } catch (error) {
+                log('loginResult', `Error: ${error.message}`, true);
+                return { success: false, error: error.message };
+            }
+        }
+        
+        async function checkDatabase() {
+            log('signupResult', 'Checking database connection...');
+            try {
+                const response = await fetch(basePath + '/api/test');
+                const text = await response.text();
+                log('signupResult', `Database check response: ${text}`);
+            } catch (error) {
+                log('signupResult', `Database check error: ${error.message}`, true);
+            }
+        }
+        
+        async function runFullTest() {
+            clearResults();
+            const testEmail = `test${Date.now()}@example.com`;
+            const testPassword = 'password123';
+            
+            log('signupResult', '=== Starting Full Test Sequence ===');
+            log('loginResult', '=== Starting Full Test Sequence ===');
+            
+            // Test 1: Register new user
+            log('signupResult', '\n1. Testing new user registration...');
+            const signupResult = await testSignup(testEmail, testPassword);
+            
+            if (signupResult.success) {
+                // Test 2: Login with new user
+                log('loginResult', '\n2. Testing login with new user...');
+                await new Promise(resolve => setTimeout(resolve, 1000)); // Wait 1 second
+                await testLogin(testEmail, testPassword);
+            }
+            
+            // Test 3: Try duplicate registration
+            log('signupResult', '\n3. Testing duplicate registration (should fail)...');
+            await testSignup(testEmail, testPassword);
+            
+            // Test 4: Try invalid login
+            log('loginResult', '\n4. Testing invalid login...');
+            await testLogin(testEmail, 'wrongpassword');
+        }
+        
+        function clearResults() {
+            document.getElementById('signupResult').innerHTML = '';
+            document.getElementById('loginResult').innerHTML = '';
+        }
+        
+        // Form handlers
+        document.getElementById('signupForm').addEventListener('submit', async (e) => {
+            e.preventDefault();
+            await testSignup();
+        });
+        
+        document.getElementById('loginForm').addEventListener('submit', async (e) => {
+            e.preventDefault();
+            await testLogin();
+        });
+        
+        // Initial check
+        window.onload = () => {
+            log('signupResult', `Base Path: ${basePath}`);
+            log('signupResult', `Register URL: ${basePath}/api/auth/register`);
+            log('loginResult', `Login URL: ${basePath}/api/auth/login`);
+        };
+    </script>
+</body>
+</html>
