@@ -1,0 +1,145 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Live API Test</title>
+    <style>
+        body { font-family: Arial, sans-serif; margin: 20px; }
+        .test-section { margin: 20px 0; padding: 15px; border: 1px solid #ddd; border-radius: 5px; }
+        .success { background-color: #d4edda; border-color: #c3e6cb; }
+        .error { background-color: #f8d7da; border-color: #f5c6cb; }
+        .info { background-color: #d1ecf1; border-color: #bee5eb; }
+        button { padding: 10px 20px; margin: 5px; cursor: pointer; }
+        pre { background: #f8f9fa; padding: 10px; border-radius: 3px; overflow-x: auto; }
+    </style>
+</head>
+<body>
+    <h1>Live API Test</h1>
+    
+    <div class="test-section info">
+        <h3>Environment Detection</h3>
+        <p><strong>Current URL:</strong> <span id="currentUrl"></span></p>
+        <p><strong>Host:</strong> <span id="host"></span></p>
+        <p><strong>Protocol:</strong> <span id="protocol"></span></p>
+    </div>
+    
+    <div class="test-section">
+        <h3>API Endpoint Tests</h3>
+        <button onclick="testEndpoint('/api/auth/login')">Test: /api/auth/login</button>
+        <button onclick="testEndpoint('/acrm/api/auth/login')">Test: /acrm/api/auth/login</button>
+        <button onclick="testEndpoint('api/auth/login')">Test: api/auth/login</button>
+        <button onclick="testEndpoint('./api/auth/login')">Test: ./api/auth/login</button>
+        <div id="testResults"></div>
+    </div>
+    
+    <div class="test-section">
+        <h3>Login Test</h3>
+        <button onclick="testLogin()">Test Login API</button>
+        <div id="loginResults"></div>
+    </div>
+
+    <script>
+        // Display current environment info
+        document.getElementById('currentUrl').textContent = window.location.href;
+        document.getElementById('host').textContent = window.location.host;
+        document.getElementById('protocol').textContent = window.location.protocol;
+        
+        function testEndpoint(endpoint) {
+            const baseUrl = window.location.origin;
+            const testUrl = baseUrl + endpoint;
+            
+            console.log('Testing endpoint:', testUrl);
+            
+            fetch(testUrl, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify({
+                    email: 'test@example.com',
+                    password: 'test123'
+                })
+            })
+            .then(response => {
+                console.log('Response status:', response.status);
+                console.log('Response headers:', response.headers);
+                return response.text();
+            })
+            .then(data => {
+                const resultDiv = document.getElementById('testResults');
+                resultDiv.innerHTML = `
+                    <div class="success">
+                        <h4>✅ Endpoint Test: ${endpoint}</h4>
+                        <p><strong>URL:</strong> ${testUrl}</p>
+                        <p><strong>Response:</strong></p>
+                        <pre>${data}</pre>
+                    </div>
+                `;
+            })
+            .catch(error => {
+                const resultDiv = document.getElementById('testResults');
+                resultDiv.innerHTML = `
+                    <div class="error">
+                        <h4>❌ Endpoint Test: ${endpoint}</h4>
+                        <p><strong>URL:</strong> ${testUrl}</p>
+                        <p><strong>Error:</strong> ${error.message}</p>
+                        <pre>${error.stack}</pre>
+                    </div>
+                `;
+            });
+        }
+        
+        function testLogin() {
+            const loginData = {
+                email: 'admin@autocrm.com',
+                password: 'admin123'
+            };
+            
+            // Try different API URLs
+            const endpoints = [
+                '/api/auth/login',
+                '/acrm/api/auth/login',
+                'api/auth/login'
+            ];
+            
+            const resultsDiv = document.getElementById('loginResults');
+            resultsDiv.innerHTML = '<h4>Testing Login Endpoints:</h4>';
+            
+            endpoints.forEach(endpoint => {
+                const testUrl = window.location.origin + endpoint;
+                
+                fetch(testUrl, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify(loginData)
+                })
+                .then(response => response.json())
+                .then(data => {
+                    resultsDiv.innerHTML += `
+                        <div class="success">
+                            <p><strong>✅ ${endpoint}:</strong></p>
+                            <pre>${JSON.stringify(data, null, 2)}</pre>
+                        </div>
+                    `;
+                })
+                .catch(error => {
+                    resultsDiv.innerHTML += `
+                        <div class="error">
+                            <p><strong>❌ ${endpoint}:</strong> ${error.message}</p>
+                        </div>
+                    `;
+                });
+            });
+        }
+        
+        // Auto-test on page load
+        window.addEventListener('load', () => {
+            console.log('Page loaded, testing endpoints...');
+            testEndpoint('/api/auth/login');
+        });
+    </script>
+</body>
+</html> 

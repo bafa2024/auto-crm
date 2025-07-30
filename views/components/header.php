@@ -22,6 +22,7 @@ require_once __DIR__ . '/../../version.php';
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="/css/styles.css">
+    <link rel="stylesheet" href="/css/sidebar-fix.css">
     <style>
         .version-badge {
             font-size: 0.75rem;

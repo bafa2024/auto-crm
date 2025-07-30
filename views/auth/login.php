@@ -79,10 +79,14 @@ document.addEventListener("DOMContentLoaded", function() {
         
         // Debug: Log the data being sent
         console.log("Sending login data:", data);
+        console.log("Base Path:", basePath);
         console.log("API URL:", basePath + "/api/auth/login");
+        console.log("Full URL:", window.location.origin + basePath + "/api/auth/login");
         
         try {
             const apiUrl = basePath + "/api/auth/login";
+            
+            console.log("Making fetch request to:", apiUrl);
             
             const response = await fetch(apiUrl, {
                 method: "POST",
@@ -127,10 +131,27 @@ document.addEventListener("DOMContentLoaded", function() {
             }
         } catch (error) {
             console.error("Login error:", error);
+            console.error("Error details:", {
+                name: error.name,
+                message: error.message,
+                stack: error.stack
+            });
+            
+            let errorMessage = "Network error. Please try again.";
+            
+            // Provide more specific error messages
+            if (error.name === 'TypeError' && error.message.includes('fetch')) {
+                errorMessage = "Unable to connect to the server. Please check your internet connection.";
+            } else if (error.message.includes('CORS')) {
+                errorMessage = "Cross-origin request blocked. Please contact support.";
+            } else if (error.message.includes('timeout')) {
+                errorMessage = "Request timed out. Please try again.";
+            }
+            
             messagesContainer.innerHTML = `
                 <div class="alert alert-danger">
                     <i class="bi bi-exclamation-triangle me-2"></i>
-                    Network error. Please try again.
+                    ${errorMessage}
                 </div>
             `;
         } finally {

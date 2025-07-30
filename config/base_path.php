@@ -16,9 +16,14 @@ class BasePath {
             // Get the current script path
             $scriptPath = $_SERVER['SCRIPT_NAME'] ?? '';
             $requestUri = $_SERVER['REQUEST_URI'] ?? '';
+            $host = $_SERVER['HTTP_HOST'] ?? '';
             
+            // For live server (acrm.regrowup.ca), use empty base path
+            if ($host === 'acrm.regrowup.ca' || $host === 'www.acrm.regrowup.ca') {
+                self::$basePath = '';
+            }
             // Check if we're in acrm directory first
-            if (strpos($scriptPath, '/acrm/') !== false || strpos($requestUri, '/acrm/') !== false) {
+            elseif (strpos($scriptPath, '/acrm/') !== false || strpos($requestUri, '/acrm/') !== false) {
                 self::$basePath = '/acrm';
             } elseif (strpos($scriptPath, '/autocrm/') !== false || strpos($requestUri, '/autocrm/') !== false) {
                 self::$basePath = '/autocrm';
