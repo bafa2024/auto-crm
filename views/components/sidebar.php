@@ -19,6 +19,11 @@ require_once __DIR__ . '/../../config/base_path.php';
                 </a>
             </li>
             <li class="nav-item">
+                <a class="sidebar-link <?php echo strpos($_SERVER['REQUEST_URI'], '/instant_email.php') !== false ? 'active' : ''; ?>" href="<?php echo base_path('instant_email.php'); ?>">
+                    <i class="bi bi-envelope-plus"></i> Instant Email
+                </a>
+            </li>
+            <li class="nav-item">
                 <a class="sidebar-link <?php echo strpos($_SERVER['REQUEST_URI'], '/campaigns.php') !== false ? 'active' : ''; ?>" href="<?php echo base_path('campaigns.php'); ?>">
                     <i class="bi bi-envelope"></i> Campaigns
                 </a>

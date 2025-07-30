@@ -1,10 +1,17 @@
 <?php
-echo "Creating Deleted Email Recipients Table\n";
-echo "======================================\n\n";
+/**
+ * Fix Delete Functionality - Create Missing Tables
+ * 
+ * This script creates the missing tables needed for the delete functionality
+ * to work properly on the production MySQL database.
+ */
+
+echo "Fixing Delete Functionality\n";
+echo "==========================\n\n";
 
 try {
-    // Use the production database configuration
-    require_once __DIR__ . '/../config/database.php';
+    // Include database configuration
+    require_once 'config/database.php';
     $database = new Database();
     $db = $database->getConnection();
     
@@ -12,7 +19,10 @@ try {
         throw new Exception("Database connection failed");
     }
     
-    echo "1. Creating deleted_email_recipients table...\n";
+    echo "✓ Connected to database successfully\n";
+    
+    // Create deleted_email_recipients table
+    echo "\n1. Creating deleted_email_recipients table...\n";
     
     $sql = "
         CREATE TABLE IF NOT EXISTS deleted_email_recipients (
@@ -44,6 +54,7 @@ try {
         echo "✓ Deleted email recipients table already exists\n";
     }
     
+    // Create deleted_campaign_sends table
     echo "\n2. Creating deleted_campaign_sends table...\n";
     
     $sql = "
@@ -74,6 +85,7 @@ try {
         echo "✓ Deleted campaign sends table already exists\n";
     }
     
+    // Test the delete functionality
     echo "\n3. Testing delete functionality...\n";
     
     // Test inserting a record into deleted_email_recipients
@@ -95,12 +107,13 @@ try {
         echo "✓ Test record cleaned up\n";
     }
     
-    echo "\n✅ Deleted recipients tables created successfully!\n";
+    echo "\n✅ Delete functionality fixed successfully!\n";
     echo "\nThe delete functionality should now work properly.\n";
     echo "You can test it by trying to delete contacts from the contacts page.\n";
     
 } catch (Exception $e) {
     echo "❌ Error: " . $e->getMessage() . "\n";
+    echo "\nPlease check your database connection and try again.\n";
     exit(1);
 }
-?>
+?> 

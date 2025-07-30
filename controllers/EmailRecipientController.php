@@ -135,21 +135,27 @@ class EmailRecipientController extends BaseController {
             }
             
             // Move the recipient to deleted_email_recipients table
-            $sql = "INSERT INTO deleted_email_recipients (email, name, company, dot, campaign_id, created_at, updated_at, deleted_by, deletion_reason, original_id)
-                    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)";
-            $stmt = $this->db->prepare($sql);
-            $stmt->execute([
-                $recipient['email'],
-                $recipient['name'],
-                $recipient['company'],
-                $recipient['dot'],
-                $recipient['campaign_id'],
-                $recipient['created_at'],
-                $recipient['updated_at'],
-                $deletedBy,
-                'Manual deletion',
-                $id
-            ]);
+            try {
+                $sql = "INSERT INTO deleted_email_recipients (email, name, company, dot, campaign_id, created_at, updated_at, deleted_by, deletion_reason, original_id)
+                        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)";
+                $stmt = $this->db->prepare($sql);
+                $stmt->execute([
+                    $recipient['email'],
+                    $recipient['name'],
+                    $recipient['company'],
+                    $recipient['dot'],
+                    $recipient['campaign_id'],
+                    $recipient['created_at'],
+                    $recipient['updated_at'],
+                    $deletedBy,
+                    'Manual deletion',
+                    $id
+                ]);
+            } catch (Exception $e) {
+                // If the deleted_email_recipients table doesn't exist, just log the error and continue
+                error_log("Failed to archive recipient to deleted_email_recipients: " . $e->getMessage());
+                // Continue with deletion even if archiving fails
+            }
             
             // Finally delete the email_recipient
             $sql = "DELETE FROM email_recipients WHERE id = ?";
@@ -229,14 +235,21 @@ class EmailRecipientController extends BaseController {
             }
             
             // Move all email_recipients to deleted_email_recipients table
-            $sql = "INSERT INTO deleted_email_recipients (email, name, company, dot, campaign_id, created_at, updated_at, deleted_by, deletion_reason, original_id)
-                    SELECT email, name, company, dot, campaign_id, created_at, updated_at, ?, 'Bulk deletion', id
-                    FROM email_recipients";
-            $stmt = $this->db->prepare($sql);
-            $stmt->execute([$deletedBy]);
-            
-            // Get count of successfully archived records
-            $archivedCount = $stmt->rowCount();
+            $archivedCount = 0;
+            try {
+                $sql = "INSERT INTO deleted_email_recipients (email, name, company, dot, campaign_id, created_at, updated_at, deleted_by, deletion_reason, original_id)
+                        SELECT email, name, company, dot, campaign_id, created_at, updated_at, ?, 'Bulk deletion', id
+                        FROM email_recipients";
+                $stmt = $this->db->prepare($sql);
+                $stmt->execute([$deletedBy]);
+                
+                // Get count of successfully archived records
+                $archivedCount = $stmt->rowCount();
+            } catch (Exception $e) {
+                // If the deleted_email_recipients table doesn't exist, just log the error and continue
+                error_log("Failed to archive recipients to deleted_email_recipients: " . $e->getMessage());
+                // Continue with deletion even if archiving fails
+            }
             
             // Finally, delete all email_recipients
             $sql = "DELETE FROM email_recipients";

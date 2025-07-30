@@ -475,4 +475,73 @@ class EmailService {
             'from_name' => $this->config['smtp']['from']['name'] ?? 'AutoDial Pro'
         ]);
     }
+    
+    /**
+     * Send instant email to a custom email address
+     */
+    public function sendInstantEmail($data) {
+        try {
+            $to = $data['to'];
+            $subject = $data['subject'];
+            $message = $data['message'];
+            $from_name = $data['from_name'] ?? 'AutoDial Pro';
+            $from_email = $data['from_email'] ?? 'noreply@acrm.regrowup.ca';
+            
+            // Convert plain text to HTML if needed
+            $htmlBody = nl2br($message);
+            
+            // Add basic styling
+            $htmlBody = "
+                <html>
+                <body style='font-family: Arial, sans-serif; line-height: 1.6; color: #333;'>
+                    <div style='max-width: 600px; margin: 0 auto; padding: 20px;'>
+                        {$htmlBody}
+                        <hr style='margin: 30px 0; border: none; border-top: 1px solid #eee;'>
+                        <p style='font-size: 12px; color: #666;'>
+                            Sent via AutoDial Pro Email Marketing Platform
+                        </p>
+                    </div>
+                </body>
+                </html>
+            ";
+            
+            // Send the email
+            $result = $this->send($to, $subject, $htmlBody, [
+                'from_name' => $from_name,
+                'from_email' => $from_email
+            ]);
+            
+            // Log the instant email send
+            if ($result['success']) {
+                $this->logInstantEmail($to, $subject, $from_name, $from_email);
+            }
+            
+            return $result;
+            
+        } catch (Exception $e) {
+            error_log("Instant email error: " . $e->getMessage());
+            return ['success' => false, 'message' => $e->getMessage()];
+        }
+    }
+    
+    /**
+     * Log instant email sends for tracking
+     */
+    private function logInstantEmail($to, $subject, $from_name, $from_email) {
+        try {
+            $stmt = $this->db->prepare("
+                INSERT INTO campaign_sends (
+                    campaign_id, recipient_email, subject, status, sent_at, 
+                    from_name, from_email, created_at
+                ) VALUES (
+                    NULL, ?, ?, 'sent', NOW(), ?, ?, NOW()
+                )
+            ");
+            
+            $stmt->execute([$to, $subject, $from_name, $from_email]);
+            
+        } catch (Exception $e) {
+            error_log("Failed to log instant email: " . $e->getMessage());
+        }
+    }
 }

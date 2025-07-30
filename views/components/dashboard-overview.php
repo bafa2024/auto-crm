@@ -110,18 +110,18 @@
             </div>
             <div class="card-body">
                 <div class="d-grid gap-2">
-                    <button class="btn btn-primary">
-                        <i class="bi bi-telephone me-2"></i>Start Auto Dialer
-                    </button>
-                    <button class="btn btn-outline-primary">
-                        <i class="bi bi-person-plus me-2"></i>Add Contact
-                    </button>
-                    <button class="btn btn-outline-primary">
-                        <i class="bi bi-envelope-plus me-2"></i>Create Campaign
-                    </button>
-                    <button class="btn btn-outline-primary">
+                    <a href="<?php echo base_path('instant_email.php'); ?>" class="btn btn-primary">
+                        <i class="bi bi-envelope-plus me-2"></i>Send Instant Email
+                    </a>
+                    <a href="<?php echo base_path('campaigns/create'); ?>" class="btn btn-outline-primary">
+                        <i class="bi bi-megaphone me-2"></i>Create Campaign
+                    </a>
+                    <a href="<?php echo base_path('contacts/import'); ?>" class="btn btn-outline-primary">
                         <i class="bi bi-upload me-2"></i>Import Contacts
-                    </button>
+                    </a>
+                    <a href="<?php echo base_path('contacts/add'); ?>" class="btn btn-outline-primary">
+                        <i class="bi bi-person-plus me-2"></i>Add Contact
+                    </a>
                 </div>
             </div>
         </div>
