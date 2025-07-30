@@ -2002,12 +2002,23 @@ try {
         }
 
         function scheduleCampaign(campaignId) {
+            console.log('Opening schedule modal for campaign:', campaignId);
             document.getElementById('schedule_campaign_id').value = campaignId;
+            
+            // Reset form to default state
+            document.getElementById('schedule_schedule_type').value = 'immediate';
+            document.getElementById('scheduleOptions').style.display = 'none';
+            document.getElementById('frequencyOptions').style.display = 'none';
+            document.getElementById('cronJobStatus').style.display = 'none';
             
             // Fetch campaign data to populate the modal
             fetch('api/get_campaign.php?id=' + campaignId)
-                .then(response => response.json())
+                .then(response => {
+                    console.log('API response status:', response.status);
+                    return response.json();
+                })
                 .then(data => {
+                    console.log('Campaign data received:', data);
                     if (data.success && data.campaign) {
                         const campaign = data.campaign;
                         
@@ -2030,6 +2041,7 @@ try {
                         // Show the modal
                         new bootstrap.Modal(document.getElementById('scheduleCampaignModal')).show();
                     } else {
+                        console.error('Campaign data error:', data);
                         alert('Failed to load campaign data. Please try again.');
                     }
                 })
@@ -2253,32 +2265,81 @@ try {
             });
         }
         
-        // Handle schedule type change
-        document.getElementById('schedule_schedule_type').addEventListener('change', function() {
-            const scheduleOptions = document.getElementById('scheduleOptions');
-            const frequencyOptions = document.getElementById('frequencyOptions');
-            const cronJobStatus = document.getElementById('cronJobStatus');
-            const scheduleDateInput = document.getElementById('schedule_date');
-            const frequencyInput = document.getElementById('schedule_frequency');
+        // Initialize schedule campaign functionality when DOM is ready
+        document.addEventListener('DOMContentLoaded', function() {
+            // Handle schedule type change
+            const scheduleTypeSelect = document.getElementById('schedule_schedule_type');
+            if (scheduleTypeSelect) {
+                scheduleTypeSelect.addEventListener('change', function() {
+                    const scheduleOptions = document.getElementById('scheduleOptions');
+                    const frequencyOptions = document.getElementById('frequencyOptions');
+                    const cronJobStatus = document.getElementById('cronJobStatus');
+                    const scheduleDateInput = document.getElementById('schedule_date');
+                    const frequencyInput = document.getElementById('schedule_frequency');
+                    
+                    if (this.value === 'scheduled') {
+                        scheduleOptions.style.display = 'flex';
+                        frequencyOptions.style.display = 'none';
+                        cronJobStatus.style.display = 'block';
+                        scheduleDateInput.required = true;
+                        frequencyInput.required = false;
+                    } else if (this.value === 'recurring') {
+                        scheduleOptions.style.display = 'flex';
+                        frequencyOptions.style.display = 'block';
+                        cronJobStatus.style.display = 'block';
+                        scheduleDateInput.required = true;
+                        frequencyInput.required = true;
+                    } else {
+                        scheduleOptions.style.display = 'none';
+                        frequencyOptions.style.display = 'none';
+                        cronJobStatus.style.display = 'none';
+                        scheduleDateInput.required = false;
+                        frequencyInput.required = false;
+                    }
+                });
+            }
             
-            if (this.value === 'scheduled') {
-                scheduleOptions.style.display = 'flex';
-                frequencyOptions.style.display = 'none';
-                cronJobStatus.style.display = 'block';
-                scheduleDateInput.required = true;
-                frequencyInput.required = false;
-            } else if (this.value === 'recurring') {
-                scheduleOptions.style.display = 'flex';
-                frequencyOptions.style.display = 'block';
-                cronJobStatus.style.display = 'block';
-                scheduleDateInput.required = true;
-                frequencyInput.required = true;
-            } else {
-                scheduleOptions.style.display = 'none';
-                frequencyOptions.style.display = 'none';
-                cronJobStatus.style.display = 'none';
-                scheduleDateInput.required = false;
-                frequencyInput.required = false;
+            // Set minimum date/time to current time
+            const scheduleDateInput = document.getElementById('schedule_date');
+            if (scheduleDateInput) {
+                scheduleDateInput.addEventListener('focus', function() {
+                    const now = new Date();
+                    now.setMinutes(now.getMinutes() + 5); // Minimum 5 minutes in the future
+                    const minDateTime = now.toISOString().slice(0, 16);
+                    this.min = minDateTime;
+                });
+            }
+            
+            // Schedule form validation
+            const scheduleCampaignForm = document.getElementById('scheduleCampaignForm');
+            if (scheduleCampaignForm) {
+                scheduleCampaignForm.addEventListener('submit', function(e) {
+                    const scheduleType = document.getElementById('schedule_schedule_type').value;
+                    const scheduleDate = document.getElementById('schedule_date').value;
+                    
+                    if (scheduleType === 'scheduled' || scheduleType === 'recurring') {
+                        if (!scheduleDate) {
+                            e.preventDefault();
+                            alert('Please select a schedule date and time.');
+                            return false;
+                        }
+                        
+                        const selectedDate = new Date(scheduleDate);
+                        const now = new Date();
+                        
+                        if (selectedDate <= now) {
+                            e.preventDefault();
+                            alert('Schedule date must be in the future. Please select a future date and time.');
+                            return false;
+                        }
+                    }
+                    
+                    if (scheduleType === 'recurring' && !document.getElementById('schedule_frequency').value) {
+                        e.preventDefault();
+                        alert('Please select a frequency for recurring campaigns.');
+                        return false;
+                    }
+                });
             }
         });
         
@@ -2302,43 +2363,6 @@ try {
         // Update server time every second
         setInterval(updateServerTime, 1000);
         updateServerTime();
-        
-        // Set minimum date/time to current time
-        document.getElementById('schedule_date').addEventListener('focus', function() {
-            const now = new Date();
-            now.setMinutes(now.getMinutes() + 5); // Minimum 5 minutes in the future
-            const minDateTime = now.toISOString().slice(0, 16);
-            this.min = minDateTime;
-        });
-        
-        // Schedule form validation
-        document.getElementById('scheduleCampaignForm').addEventListener('submit', function(e) {
-            const scheduleType = document.getElementById('schedule_schedule_type').value;
-            const scheduleDate = document.getElementById('schedule_date').value;
-            
-            if (scheduleType === 'scheduled' || scheduleType === 'recurring') {
-                if (!scheduleDate) {
-                    e.preventDefault();
-                    alert('Please select a schedule date and time.');
-                    return false;
-                }
-                
-                const selectedDate = new Date(scheduleDate);
-                const now = new Date();
-                
-                if (selectedDate <= now) {
-                    e.preventDefault();
-                    alert('Schedule date must be in the future. Please select a future date and time.');
-                    return false;
-                }
-            }
-            
-            if (scheduleType === 'recurring' && !document.getElementById('schedule_frequency').value) {
-                e.preventDefault();
-                alert('Please select a frequency for recurring campaigns.');
-                return false;
-            }
-        });
         
         // Quick date presets for scheduling
         function addQuickDateButtons() {
@@ -2384,6 +2408,86 @@ try {
                 addQuickDateButtons();
             }
         });
+        
+        // Debug function to check form values
+        function debugScheduleForm() {
+            const form = document.getElementById('scheduleCampaignForm');
+            const formData = new FormData(form);
+            console.log('Schedule Form Debug:');
+            for (let [key, value] of formData.entries()) {
+                console.log(key + ': ' + value);
+            }
+        }
+        
+        // Schedule campaign form submission handler
+        const scheduleCampaignForm = document.getElementById('scheduleCampaignForm');
+        if (scheduleCampaignForm) {
+            scheduleCampaignForm.addEventListener('submit', function(e) {
+                e.preventDefault();
+                console.log('Schedule form submitted');
+                
+                // Get submit button and show loading state
+                const submitBtn = this.querySelector('button[type="submit"]');
+                const originalText = submitBtn.innerHTML;
+                submitBtn.disabled = true;
+                submitBtn.innerHTML = '<span class="spinner-border spinner-border-sm"></span> Scheduling...';
+                
+                // Create FormData
+                const formData = new FormData(this);
+                
+                // Debug log form data
+                console.log('Form data being sent:');
+                for (let [key, value] of formData.entries()) {
+                    console.log(key + ':', value);
+                }
+                
+                // Submit form via AJAX
+                fetch(window.location.pathname, {
+                    method: 'POST',
+                    body: formData
+                })
+                .then(response => response.text())
+                .then(html => {
+                    console.log('Response received');
+                    
+                    // Parse response to check for success
+                    const parser = new DOMParser();
+                    const doc = parser.parseFromString(html, 'text/html');
+                    const alert = doc.querySelector('.alert');
+                    
+                    if (alert) {
+                        // Show alert in modal
+                        const modalBody = scheduleCampaignForm.closest('.modal-content').querySelector('.modal-body');
+                        const existingAlert = modalBody.querySelector('.alert');
+                        if (existingAlert) {
+                            existingAlert.remove();
+                        }
+                        modalBody.insertAdjacentElement('afterbegin', alert);
+                        
+                        // If success, close modal after delay
+                        if (alert.classList.contains('alert-success')) {
+                            setTimeout(() => {
+                                const modal = bootstrap.Modal.getInstance(document.getElementById('scheduleCampaignModal'));
+                                if (modal) modal.hide();
+                                
+                                // Refresh page to show updated campaign
+                                window.location.reload();
+                            }, 2000);
+                        }
+                    }
+                    
+                    // Re-enable submit button
+                    submitBtn.disabled = false;
+                    submitBtn.innerHTML = originalText;
+                })
+                .catch(error => {
+                    console.error('Error:', error);
+                    alert('Failed to schedule campaign. Please try again.');
+                    submitBtn.disabled = false;
+                    submitBtn.innerHTML = originalText;
+                });
+            });
+        }
     </script>
 </body>
 </html> 
