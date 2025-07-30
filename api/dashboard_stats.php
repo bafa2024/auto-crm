@@ -22,29 +22,50 @@ try {
     $stmt = $db->query("SELECT COUNT(*) as total FROM contacts");
     $totalContacts = $stmt->fetch(PDO::FETCH_ASSOC)['total'];
     
-    // Get calls today (placeholder - would need call_logs table)
-    $callsToday = 0;
-    try {
-        $stmt = $db->query("SELECT COUNT(*) as total FROM call_logs WHERE DATE(created_at) = CURDATE()");
-        $callsToday = $stmt->fetch(PDO::FETCH_ASSOC)['total'];
-    } catch (Exception $e) {
-        // Table might not exist, use default value
-    }
+    // Get emails sent count
+    $stmt = $db->query("SELECT SUM(sent_count) as total FROM email_campaigns WHERE status IN ('sending', 'completed')");
+    $emailsSent = $stmt->fetch(PDO::FETCH_ASSOC)['total'] ?? 0;
     
     // Get active campaigns count
     $stmt = $db->query("SELECT COUNT(*) as total FROM email_campaigns WHERE status IN ('draft', 'scheduled', 'sending')");
     $activeCampaigns = $stmt->fetch(PDO::FETCH_ASSOC)['total'];
     
-    // Get connection rate (placeholder - would need actual call data)
-    $connectionRate = "23.5%";
+    // Calculate email performance metrics
+    $totalSent = $emailsSent;
+    $totalOpened = 0;
+    $totalClicked = 0;
+    $totalBounced = 0;
+    
+    // Get opened count
+    $stmt = $db->query("SELECT SUM(opened_count) as total FROM email_campaigns WHERE status IN ('sending', 'completed')");
+    $totalOpened = $stmt->fetch(PDO::FETCH_ASSOC)['total'] ?? 0;
+    
+    // Get clicked count
+    $stmt = $db->query("SELECT SUM(clicked_count) as total FROM email_campaigns WHERE status IN ('sending', 'completed')");
+    $totalClicked = $stmt->fetch(PDO::FETCH_ASSOC)['total'] ?? 0;
+    
+    // Calculate rates
+    $deliveryRate = $totalSent > 0 ? round((($totalSent - $totalBounced) / $totalSent) * 100, 1) : 0;
+    $openRate = $totalSent > 0 ? round(($totalOpened / $totalSent) * 100, 1) : 0;
+    $clickRate = $totalSent > 0 ? round(($totalClicked / $totalSent) * 100, 1) : 0;
+    $bounceRate = $totalSent > 0 ? round(($totalBounced / $totalSent) * 100, 1) : 0;
+    
+    // Format rates with % symbol
+    $deliveryRateFormatted = $deliveryRate . '%';
+    $openRateFormatted = $openRate . '%';
+    $clickRateFormatted = $clickRate . '%';
+    $bounceRateFormatted = $bounceRate . '%';
     
     echo json_encode([
         'success' => true,
         'stats' => [
             'totalContacts' => (int)$totalContacts,
-            'callsToday' => (int)$callsToday,
+            'emailsSent' => (int)$emailsSent,
             'activeCampaigns' => (int)$activeCampaigns,
-            'connectionRate' => $connectionRate
+            'openRate' => $openRateFormatted,
+            'deliveryRate' => $deliveryRateFormatted,
+            'clickRate' => $clickRateFormatted,
+            'bounceRate' => $bounceRateFormatted
         ]
     ]);
     
