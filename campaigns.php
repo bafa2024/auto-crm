@@ -1492,66 +1492,61 @@ try {
             }
         });
 
-        // AJAX for campaign creation
+        // AJAX for campaign creation - Optimized for speed
         const createCampaignForm = document.getElementById('createCampaignForm');
         if (createCampaignForm) {
             createCampaignForm.addEventListener('submit', function(e) {
                 e.preventDefault();
                 
-                // Get submit button and show loading state
+                // Get submit button and show loading state immediately
                 const submitBtn = this.querySelector('button[type="submit"]');
                 const originalText = submitBtn.innerHTML;
                 submitBtn.disabled = true;
-                submitBtn.innerHTML = '<span class="spinner-border spinner-border-sm me-2"></span>Creating Campaign...';
-                
-                // Remove any existing alerts
-                const existingAlerts = document.querySelectorAll('#createCampaignModal .alert');
-                existingAlerts.forEach(a => a.remove());
+                submitBtn.innerHTML = '<span class="spinner-border spinner-border-sm"></span>';
                 
                 const formData = new FormData(createCampaignForm);
                 
+                // Submit form with JSON response for faster processing
                 fetch(window.location.pathname, {
                     method: 'POST',
+                    headers: {
+                        'X-Requested-With': 'XMLHttpRequest'
+                    },
                     body: formData
                 })
-                .then(response => response.text())
-                .then(html => {
-                    // Try to extract alert message from returned HTML
-                    const parser = new DOMParser();
-                    const doc = parser.parseFromString(html, 'text/html');
-                    const alert = doc.querySelector('.alert');
-                    
-                    if (alert) {
-                        // Show alert in modal
-                        const modalBody = createCampaignForm.closest('.modal-content').querySelector('.modal-body');
-                        modalBody.insertAdjacentElement('afterbegin', alert);
-                    }
-                    
-                    // If success, refresh campaign list without full page reload
-                    if (alert && alert.classList.contains('alert-success')) {
-                        // Clear form
-                        createCampaignForm.reset();
+                .then(response => {
+                    // Fast check for success
+                    if (response.ok) {
+                        // Close modal immediately on success
+                        const modal = bootstrap.Modal.getInstance(document.getElementById('createCampaignModal'));
+                        if (modal) modal.hide();
                         
-                        // Refresh campaign list via AJAX
-                        refreshCampaignList();
+                        // Show success message on main page
+                        showMainPageAlert('Campaign created successfully!', 'success');
                         
-                        // Close modal after a short delay
-                        setTimeout(() => {
-                            const modal = bootstrap.Modal.getInstance(document.getElementById('createCampaignModal'));
-                            if (modal) modal.hide();
-                            
-                            // Show success message on main page
-                            showMainPageAlert('Campaign created successfully!', 'success');
-                        }, 1500);
+                        // Refresh page to show new campaign
+                        setTimeout(() => window.location.reload(), 500);
                     }
-                    
-                    // Re-enable submit button
-                    submitBtn.disabled = false;
-                    submitBtn.innerHTML = originalText;
+                    return response.text();
                 })
-                .catch(err => {
-                    console.error('Error:', err);
-                    showModalAlert('Failed to create campaign. Please try again.', 'danger');
+                .then(html => {
+                    // Handle any error messages
+                    if (html.includes('alert-danger')) {
+                        const parser = new DOMParser();
+                        const doc = parser.parseFromString(html, 'text/html');
+                        const alert = doc.querySelector('.alert-danger');
+                        if (alert) {
+                            const modalBody = createCampaignForm.closest('.modal-content').querySelector('.modal-body');
+                            modalBody.insertAdjacentElement('afterbegin', alert);
+                        }
+                        // Re-enable button on error
+                        submitBtn.disabled = false;
+                        submitBtn.innerHTML = originalText;
+                    }
+                })
+                .catch(error => {
+                    console.error('Error:', error);
+                    alert('Failed to create campaign. Please try again.');
                     submitBtn.disabled = false;
                     submitBtn.innerHTML = originalText;
                 });
@@ -2049,128 +2044,131 @@ try {
             }
         }
 
-        // Make scheduleCampaign function globally accessible
+        // Make scheduleCampaign function globally accessible - Optimized for speed
         window.scheduleCampaign = function(campaignId) {
-            console.log('Opening schedule modal for campaign:', campaignId);
-            
             try {
-                document.getElementById('schedule_campaign_id').value = campaignId;
+                // Show modal immediately for better perceived performance
+                const modal = new bootstrap.Modal(document.getElementById('scheduleCampaignModal'));
+                modal.show();
                 
-                // Reset form to default state - default to scheduled
+                // Set campaign ID and defaults
+                document.getElementById('schedule_campaign_id').value = campaignId;
                 document.getElementById('schedule_schedule_type').value = 'scheduled';
                 document.getElementById('scheduleOptions').style.display = 'flex';
                 document.getElementById('frequencyOptions').style.display = 'none';
                 document.getElementById('schedule_date').required = true;
                 
-                // Fetch campaign data to populate the modal
-                fetch('api/get_campaign.php?id=' + campaignId)
-                    .then(response => {
-                        console.log('API response status:', response.status);
-                        return response.json();
-                    })
-                    .then(data => {
-                        console.log('Campaign data received:', data);
-                        if (data.success && data.campaign) {
-                            const campaign = data.campaign;
-                            
-                            // Populate form fields
-                            document.getElementById('schedule_campaign_name').value = campaign.name || '';
-                            document.getElementById('schedule_email_subject').value = campaign.subject || '';
-                            document.getElementById('schedule_email_content').value = campaign.content || campaign.email_content || '';
-                            document.getElementById('schedule_sender_name').value = campaign.from_name || campaign.sender_name || 'ACRM System';
-                            document.getElementById('schedule_sender_email').value = campaign.from_email || campaign.sender_email || 'noreply@acrm.com';
-                            
-                            // Set default schedule date to tomorrow
-                            const tomorrow = new Date();
-                            tomorrow.setDate(tomorrow.getDate() + 1);
-                            tomorrow.setHours(9, 0, 0, 0); // 9 AM
-                            document.getElementById('schedule_date').value = tomorrow.toISOString().slice(0, 16);
-                            
-                            // Load recipients for selection
-                            loadScheduleRecipients(campaignId);
-                            
-                            // Show the modal
-                            new bootstrap.Modal(document.getElementById('scheduleCampaignModal')).show();
-                        } else {
-                            console.error('Campaign data error:', data);
-                            alert('Failed to load campaign data. Please try again.');
-                        }
-                    })
-                    .catch(error => {
-                        console.error('Error loading campaign:', error);
-                        alert('Failed to load campaign data. Please try again.');
-                    });
+                // Set default date immediately
+                const tomorrow = new Date();
+                tomorrow.setDate(tomorrow.getDate() + 1);
+                tomorrow.setHours(9, 0, 0, 0);
+                document.getElementById('schedule_date').value = tomorrow.toISOString().slice(0, 16);
+                
+                // Show loading state in form fields
+                document.getElementById('schedule_campaign_name').value = 'Loading...';
+                document.getElementById('schedule_email_subject').value = 'Loading...';
+                document.getElementById('schedule_email_content').value = 'Loading campaign content...';
+                
+                // Fetch campaign data and recipients in parallel for speed
+                Promise.all([
+                    fetch('api/get_campaign.php?id=' + campaignId).then(r => r.json()),
+                    fetch('api/get_campaign.php?id=' + campaignId + '&recipients=unsent').then(r => r.json())
+                ])
+                .then(([campaignData, recipientsData]) => {
+                    if (campaignData.success && campaignData.campaign) {
+                        const campaign = campaignData.campaign;
+                        
+                        // Populate form fields
+                        document.getElementById('schedule_campaign_name').value = campaign.name || '';
+                        document.getElementById('schedule_email_subject').value = campaign.subject || '';
+                        document.getElementById('schedule_email_content').value = campaign.content || campaign.email_content || '';
+                        document.getElementById('schedule_sender_name').value = campaign.from_name || campaign.sender_name || 'ACRM System';
+                        document.getElementById('schedule_sender_email').value = campaign.from_email || campaign.sender_email || 'noreply@acrm.com';
+                    }
+                    
+                    // Handle recipients data
+                    if (recipientsData.recipients) {
+                        displayScheduleRecipients(recipientsData);
+                    }
+                })
+                .catch(error => {
+                    console.error('Error:', error);
+                    document.getElementById('schedule_campaign_name').value = 'Error loading campaign';
+                    document.getElementById('schedule_email_subject').value = '';
+                    document.getElementById('schedule_email_content').value = 'Failed to load campaign data. Please try again.';
+                });
+                
             } catch (error) {
-                console.error('Error in scheduleCampaign:', error);
-                alert('Error opening schedule modal. Check console for details.');
+                console.error('Error:', error);
+                alert('Error opening schedule modal.');
             }
         }
         
+        // Optimized function to display schedule recipients
+        window.displayScheduleRecipients = function(data) {
+            const recipientsList = document.getElementById('scheduleRecipientsList');
+            const totalRecipientsCount = document.getElementById('scheduleTotalRecipientsCount');
+            const recipients = data.recipients || [];
+            
+            // Update count display
+            const totalUnsent = data.total_unsent || recipients.length;
+            const uniqueUnsent = data.unique_unsent_count || 0;
+            totalRecipientsCount.innerHTML = `<strong>${totalUnsent}</strong> unsent recipients (<strong>${uniqueUnsent}</strong> unique emails)`;
+            
+            if (recipients.length === 0) {
+                recipientsList.innerHTML = `
+                    <div class="text-center py-4">
+                        <i class="bi bi-check-circle text-success display-4"></i>
+                        <p class="mt-3 mb-0">All recipients have already been sent this campaign!</p>
+                        <small class="text-muted">No unsent recipients found.</small>
+                    </div>
+                `;
+                document.querySelector('#scheduleCampaignForm button[type="submit"]').disabled = true;
+                return;
+            }
+            
+            // Build HTML in one go for better performance
+            const displayLimit = 100;
+            const displayRecipients = recipients.slice(0, displayLimit);
+            let html = '';
+            
+            displayRecipients.forEach(recipient => {
+                const statusBadge = recipient.send_status === 'failed' 
+                    ? '<span class="badge bg-warning ms-2">Failed</span>' 
+                    : '<span class="badge bg-info ms-2">Never Sent</span>';
+                
+                html += `<div class="schedule-recipient-item${recipient.send_status === 'failed' ? ' border-warning' : ''}" 
+                    onclick="toggleScheduleRecipient(${recipient.id})" 
+                    data-search="${(recipient.email + ' ' + (recipient.name || '') + ' ' + (recipient.company || '')).toLowerCase()}">
+                    <div class="form-check">
+                        <input class="form-check-input" type="checkbox" name="recipient_ids[]" value="${recipient.id}" 
+                            id="schedule_recipient_${recipient.id}" onchange="updateScheduleSelectedCount()">
+                        <label class="form-check-label" for="schedule_recipient_${recipient.id}">
+                            <strong>${escapeHtml(recipient.email)}</strong>${statusBadge}
+                            ${recipient.name ? `<br><small class="text-muted">${escapeHtml(recipient.name)}</small>` : ''}
+                            ${recipient.company ? `<br><small class="text-muted">${escapeHtml(recipient.company)}</small>` : ''}
+                            ${recipient.send_status === 'failed' && recipient.sent_at ? `<br><small class="text-danger">Failed on: ${new Date(recipient.sent_at).toLocaleDateString()}</small>` : ''}
+                        </label>
+                    </div>
+                </div>`;
+            });
+            
+            if (recipients.length > displayLimit) {
+                html += `<div class="alert alert-info mt-3">
+                    <i class="bi bi-info-circle"></i> Showing first ${displayLimit} of ${recipients.length} unsent recipients. 
+                    Use search to find specific recipients or click "Select All" to select all ${uniqueUnsent} unique emails.
+                </div>`;
+            }
+            
+            recipientsList.innerHTML = html;
+            updateScheduleSelectedCount();
+        }
+        
         window.loadScheduleRecipients = function(campaignId) {
-            // Fetch unsent recipients via AJAX
             fetch('api/get_campaign.php?id=' + campaignId + '&recipients=unsent')
                 .then(response => response.json())
-                .then(data => {
-                    const recipientsList = document.getElementById('scheduleRecipientsList');
-                    const totalRecipientsCount = document.getElementById('scheduleTotalRecipientsCount');
-                    recipientsList.innerHTML = '';
-                    let recipients = data.recipients || [];
-                    
-                    // Update count display with more detail
-                    const totalUnsent = data.total_unsent || recipients.length;
-                    const uniqueUnsent = data.unique_unsent_count || 0;
-                    totalRecipientsCount.innerHTML = `<strong>${totalUnsent}</strong> unsent recipients (<strong>${uniqueUnsent}</strong> unique emails)`;
-                    
-                    if (recipients.length === 0) {
-                        recipientsList.innerHTML = `
-                            <div class="text-center py-4">
-                                <i class="bi bi-check-circle text-success display-4"></i>
-                                <p class="mt-3 mb-0">All recipients have already been sent this campaign!</p>
-                                <small class="text-muted">No unsent recipients found.</small>
-                            </div>
-                        `;
-                        // Disable submit button if no recipients
-                        document.querySelector('#scheduleCampaignForm button[type="submit"]').disabled = true;
-                        return;
-                    }
-                    
-                    // Show only first 100 recipients
-                    const displayLimit = 100;
-                    const displayRecipients = recipients.slice(0, displayLimit);
-                    
-                    displayRecipients.forEach(recipient => {
-                        const div = document.createElement('div');
-                        div.className = 'schedule-recipient-item';
-                        if (recipient.send_status === 'failed') {
-                            div.className += ' border-warning';
-                        }
-                        div.setAttribute('onclick', `toggleScheduleRecipient(${recipient.id})`);
-                        div.setAttribute('data-search', (recipient.email + ' ' + (recipient.name || '') + ' ' + (recipient.company || '')).toLowerCase());
-                        
-                        const statusBadge = recipient.send_status === 'failed' 
-                            ? '<span class="badge bg-warning ms-2">Failed</span>' 
-                            : '<span class="badge bg-info ms-2">Never Sent</span>';
-                        
-                        div.innerHTML = `<div class="form-check">
-                            <input class="form-check-input" type="checkbox" name="recipient_ids[]" value="${recipient.id}" id="schedule_recipient_${recipient.id}" onchange="updateScheduleSelectedCount()">
-                            <label class="form-check-label" for="schedule_recipient_${recipient.id}">
-                                <strong>${escapeHtml(recipient.email)}</strong>${statusBadge}
-                                ${recipient.name ? `<br><small class="text-muted">${escapeHtml(recipient.name)}</small>` : ''}
-                                ${recipient.company ? `<br><small class="text-muted">${escapeHtml(recipient.company)}</small>` : ''}
-                                ${recipient.send_status === 'failed' && recipient.sent_at ? `<br><small class="text-danger">Failed on: ${new Date(recipient.sent_at).toLocaleDateString()}</small>` : ''}
-                            </label>
-                        </div>`;
-                        recipientsList.appendChild(div);
-                    });
-                    
-                    if (recipients.length > displayLimit) {
-                        const info = document.createElement('div');
-                        info.className = 'alert alert-info mt-3';
-                        info.innerHTML = `<i class="bi bi-info-circle"></i> Showing first ${displayLimit} of ${recipients.length} unsent recipients. Use search to find specific recipients or click "Select All" to select all ${uniqueUnsent} unique emails.`;
-                        recipientsList.appendChild(info);
-                    }
-                    updateScheduleSelectedCount();
-                });
+                .then(data => displayScheduleRecipients(data))
+                .catch(error => console.error('Error loading recipients:', error));
         }
         
         window.toggleScheduleRecipient = function(recipientId) {
@@ -2621,65 +2619,52 @@ try {
             if (scheduleCampaignForm) {
                 scheduleCampaignForm.addEventListener('submit', function(e) {
                     e.preventDefault();
-                    console.log('Schedule form submitted');
                     
-                    // Get submit button and show loading state
+                    // Get submit button and show loading state immediately
                     const submitBtn = this.querySelector('button[type="submit"]');
                     const originalText = submitBtn.innerHTML;
                     submitBtn.disabled = true;
-                    submitBtn.innerHTML = '<span class="spinner-border spinner-border-sm"></span> Scheduling...';
+                    submitBtn.innerHTML = '<span class="spinner-border spinner-border-sm"></span>';
                     
-                    // Create FormData
                     const formData = new FormData(this);
                     
-                    // Debug log form data
-                    console.log('Form data being sent:');
-                    for (let [key, value] of formData.entries()) {
-                        console.log(key + ':', value);
-                    }
-                    
-                    // Submit form via AJAX
+                    // Submit form with fast response handling
                     fetch(window.location.pathname, {
                         method: 'POST',
+                        headers: {
+                            'X-Requested-With': 'XMLHttpRequest'
+                        },
                         body: formData
                     })
-                    .then(response => response.text())
-                    .then(html => {
-                        console.log('Response received');
-                        
-                        // Parse response to check for success
-                        const parser = new DOMParser();
-                        const doc = parser.parseFromString(html, 'text/html');
-                        const alert = doc.querySelector('.alert');
-                        
-                        if (alert) {
-                            // Show alert in modal
-                            const modalBody = scheduleCampaignForm.closest('.modal-content').querySelector('.modal-body');
-                            const existingAlert = modalBody.querySelector('.alert');
-                            if (existingAlert) {
-                                existingAlert.remove();
-                            }
-                            modalBody.insertAdjacentElement('afterbegin', alert);
+                    .then(response => {
+                        if (response.ok) {
+                            // Close modal immediately on success
+                            const modal = bootstrap.Modal.getInstance(document.getElementById('scheduleCampaignModal'));
+                            if (modal) modal.hide();
                             
-                            // If success, close modal after delay
-                            if (alert.classList.contains('alert-success')) {
-                                setTimeout(() => {
-                                    const modal = bootstrap.Modal.getInstance(document.getElementById('scheduleCampaignModal'));
-                                    if (modal) modal.hide();
-                                    
-                                    // Refresh page to show updated campaign
-                                    window.location.reload();
-                                }, 2000);
-                            }
+                            // Show success and refresh
+                            showMainPageAlert('Campaign scheduled successfully!', 'success');
+                            setTimeout(() => window.location.reload(), 500);
                         }
-                        
-                        // Re-enable submit button
-                        submitBtn.disabled = false;
-                        submitBtn.innerHTML = originalText;
+                        return response.text();
+                    })
+                    .then(html => {
+                        // Handle errors if any
+                        if (html.includes('alert-danger')) {
+                            const parser = new DOMParser();
+                            const doc = parser.parseFromString(html, 'text/html');
+                            const alert = doc.querySelector('.alert-danger');
+                            if (alert) {
+                                const modalBody = scheduleCampaignForm.closest('.modal-content').querySelector('.modal-body');
+                                modalBody.insertAdjacentElement('afterbegin', alert);
+                            }
+                            submitBtn.disabled = false;
+                            submitBtn.innerHTML = originalText;
+                        }
                     })
                     .catch(error => {
                         console.error('Error:', error);
-                        alert('Failed to schedule campaign. Please try again.');
+                        alert('Failed to schedule campaign.');
                         submitBtn.disabled = false;
                         submitBtn.innerHTML = originalText;
                     });
