@@ -2001,57 +2001,64 @@ try {
             }
         }
 
-        function scheduleCampaign(campaignId) {
+        // Make scheduleCampaign function globally accessible
+        window.scheduleCampaign = function(campaignId) {
             console.log('Opening schedule modal for campaign:', campaignId);
-            document.getElementById('schedule_campaign_id').value = campaignId;
             
-            // Reset form to default state
-            document.getElementById('schedule_schedule_type').value = 'immediate';
-            document.getElementById('scheduleOptions').style.display = 'none';
-            document.getElementById('frequencyOptions').style.display = 'none';
-            document.getElementById('cronJobStatus').style.display = 'none';
-            
-            // Fetch campaign data to populate the modal
-            fetch('api/get_campaign.php?id=' + campaignId)
-                .then(response => {
-                    console.log('API response status:', response.status);
-                    return response.json();
-                })
-                .then(data => {
-                    console.log('Campaign data received:', data);
-                    if (data.success && data.campaign) {
-                        const campaign = data.campaign;
-                        
-                        // Populate form fields
-                        document.getElementById('schedule_campaign_name').value = campaign.name || '';
-                        document.getElementById('schedule_email_subject').value = campaign.subject || '';
-                        document.getElementById('schedule_email_content').value = campaign.content || campaign.email_content || '';
-                        document.getElementById('schedule_sender_name').value = campaign.from_name || campaign.sender_name || 'ACRM System';
-                        document.getElementById('schedule_sender_email').value = campaign.from_email || campaign.sender_email || 'noreply@acrm.com';
-                        
-                        // Set default schedule date to tomorrow
-                        const tomorrow = new Date();
-                        tomorrow.setDate(tomorrow.getDate() + 1);
-                        tomorrow.setHours(9, 0, 0, 0); // 9 AM
-                        document.getElementById('schedule_date').value = tomorrow.toISOString().slice(0, 16);
-                        
-                        // Load recipients for selection
-                        loadScheduleRecipients(campaignId);
-                        
-                        // Show the modal
-                        new bootstrap.Modal(document.getElementById('scheduleCampaignModal')).show();
-                    } else {
-                        console.error('Campaign data error:', data);
+            try {
+                document.getElementById('schedule_campaign_id').value = campaignId;
+                
+                // Reset form to default state
+                document.getElementById('schedule_schedule_type').value = 'immediate';
+                document.getElementById('scheduleOptions').style.display = 'none';
+                document.getElementById('frequencyOptions').style.display = 'none';
+                document.getElementById('cronJobStatus').style.display = 'none';
+                
+                // Fetch campaign data to populate the modal
+                fetch('api/get_campaign.php?id=' + campaignId)
+                    .then(response => {
+                        console.log('API response status:', response.status);
+                        return response.json();
+                    })
+                    .then(data => {
+                        console.log('Campaign data received:', data);
+                        if (data.success && data.campaign) {
+                            const campaign = data.campaign;
+                            
+                            // Populate form fields
+                            document.getElementById('schedule_campaign_name').value = campaign.name || '';
+                            document.getElementById('schedule_email_subject').value = campaign.subject || '';
+                            document.getElementById('schedule_email_content').value = campaign.content || campaign.email_content || '';
+                            document.getElementById('schedule_sender_name').value = campaign.from_name || campaign.sender_name || 'ACRM System';
+                            document.getElementById('schedule_sender_email').value = campaign.from_email || campaign.sender_email || 'noreply@acrm.com';
+                            
+                            // Set default schedule date to tomorrow
+                            const tomorrow = new Date();
+                            tomorrow.setDate(tomorrow.getDate() + 1);
+                            tomorrow.setHours(9, 0, 0, 0); // 9 AM
+                            document.getElementById('schedule_date').value = tomorrow.toISOString().slice(0, 16);
+                            
+                            // Load recipients for selection
+                            loadScheduleRecipients(campaignId);
+                            
+                            // Show the modal
+                            new bootstrap.Modal(document.getElementById('scheduleCampaignModal')).show();
+                        } else {
+                            console.error('Campaign data error:', data);
+                            alert('Failed to load campaign data. Please try again.');
+                        }
+                    })
+                    .catch(error => {
+                        console.error('Error loading campaign:', error);
                         alert('Failed to load campaign data. Please try again.');
-                    }
-                })
-                .catch(error => {
-                    console.error('Error loading campaign:', error);
-                    alert('Failed to load campaign data. Please try again.');
-                });
+                    });
+            } catch (error) {
+                console.error('Error in scheduleCampaign:', error);
+                alert('Error opening schedule modal. Check console for details.');
+            }
         }
         
-        function loadScheduleRecipients(campaignId) {
+        window.loadScheduleRecipients = function(campaignId) {
             // Fetch unsent recipients via AJAX
             fetch('api/get_campaign.php?id=' + campaignId + '&recipients=unsent')
                 .then(response => response.json())
@@ -2118,7 +2125,7 @@ try {
                 });
         }
         
-        function toggleScheduleRecipient(recipientId) {
+        window.toggleScheduleRecipient = function(recipientId) {
             const checkbox = document.getElementById('schedule_recipient_' + recipientId);
             if (checkbox) {
                 checkbox.checked = !checkbox.checked;
@@ -2126,7 +2133,7 @@ try {
             }
         }
         
-        function updateScheduleSelectedCount() {
+        window.updateScheduleSelectedCount = function() {
             const checkboxes = document.querySelectorAll('#scheduleRecipientsList input[type="checkbox"]');
             const selectedCount = document.getElementById('scheduleSelectedCount');
             let count = 0;
@@ -2138,20 +2145,20 @@ try {
             selectedCount.textContent = count + ' recipients selected';
         }
         
-        function scheduleSelectAllRecipients() {
+        window.scheduleSelectAllRecipients = function() {
             const checkboxes = document.querySelectorAll('#scheduleRecipientsList input[type="checkbox"]');
             checkboxes.forEach(checkbox => {
                 checkbox.checked = true;
             });
-            updateScheduleSelectedCount();
+            window.updateScheduleSelectedCount();
         }
         
-        function scheduleClearAllRecipients() {
+        window.scheduleClearAllRecipients = function() {
             const checkboxes = document.querySelectorAll('#scheduleRecipientsList input[type="checkbox"]');
             checkboxes.forEach(checkbox => {
                 checkbox.checked = false;
             });
-            updateScheduleSelectedCount();
+            window.updateScheduleSelectedCount();
         }
         
         // Add search functionality for schedule recipients
@@ -2378,7 +2385,7 @@ try {
             scheduleDateContainer.appendChild(quickDates);
         }
         
-        function setScheduleDate(preset) {
+        window.setScheduleDate = function(preset) {
             const scheduleDateInput = document.getElementById('schedule_date');
             const now = new Date();
             let targetDate = new Date();
@@ -2419,75 +2426,77 @@ try {
             }
         }
         
-        // Schedule campaign form submission handler
-        const scheduleCampaignForm = document.getElementById('scheduleCampaignForm');
-        if (scheduleCampaignForm) {
-            scheduleCampaignForm.addEventListener('submit', function(e) {
-                e.preventDefault();
-                console.log('Schedule form submitted');
-                
-                // Get submit button and show loading state
-                const submitBtn = this.querySelector('button[type="submit"]');
-                const originalText = submitBtn.innerHTML;
-                submitBtn.disabled = true;
-                submitBtn.innerHTML = '<span class="spinner-border spinner-border-sm"></span> Scheduling...';
-                
-                // Create FormData
-                const formData = new FormData(this);
-                
-                // Debug log form data
-                console.log('Form data being sent:');
-                for (let [key, value] of formData.entries()) {
-                    console.log(key + ':', value);
-                }
-                
-                // Submit form via AJAX
-                fetch(window.location.pathname, {
-                    method: 'POST',
-                    body: formData
-                })
-                .then(response => response.text())
-                .then(html => {
-                    console.log('Response received');
+        // Schedule campaign form submission handler - wrapped in DOMContentLoaded
+        document.addEventListener('DOMContentLoaded', function() {
+            const scheduleCampaignForm = document.getElementById('scheduleCampaignForm');
+            if (scheduleCampaignForm) {
+                scheduleCampaignForm.addEventListener('submit', function(e) {
+                    e.preventDefault();
+                    console.log('Schedule form submitted');
                     
-                    // Parse response to check for success
-                    const parser = new DOMParser();
-                    const doc = parser.parseFromString(html, 'text/html');
-                    const alert = doc.querySelector('.alert');
+                    // Get submit button and show loading state
+                    const submitBtn = this.querySelector('button[type="submit"]');
+                    const originalText = submitBtn.innerHTML;
+                    submitBtn.disabled = true;
+                    submitBtn.innerHTML = '<span class="spinner-border spinner-border-sm"></span> Scheduling...';
                     
-                    if (alert) {
-                        // Show alert in modal
-                        const modalBody = scheduleCampaignForm.closest('.modal-content').querySelector('.modal-body');
-                        const existingAlert = modalBody.querySelector('.alert');
-                        if (existingAlert) {
-                            existingAlert.remove();
-                        }
-                        modalBody.insertAdjacentElement('afterbegin', alert);
-                        
-                        // If success, close modal after delay
-                        if (alert.classList.contains('alert-success')) {
-                            setTimeout(() => {
-                                const modal = bootstrap.Modal.getInstance(document.getElementById('scheduleCampaignModal'));
-                                if (modal) modal.hide();
-                                
-                                // Refresh page to show updated campaign
-                                window.location.reload();
-                            }, 2000);
-                        }
+                    // Create FormData
+                    const formData = new FormData(this);
+                    
+                    // Debug log form data
+                    console.log('Form data being sent:');
+                    for (let [key, value] of formData.entries()) {
+                        console.log(key + ':', value);
                     }
                     
-                    // Re-enable submit button
-                    submitBtn.disabled = false;
-                    submitBtn.innerHTML = originalText;
-                })
-                .catch(error => {
-                    console.error('Error:', error);
-                    alert('Failed to schedule campaign. Please try again.');
-                    submitBtn.disabled = false;
-                    submitBtn.innerHTML = originalText;
+                    // Submit form via AJAX
+                    fetch(window.location.pathname, {
+                        method: 'POST',
+                        body: formData
+                    })
+                    .then(response => response.text())
+                    .then(html => {
+                        console.log('Response received');
+                        
+                        // Parse response to check for success
+                        const parser = new DOMParser();
+                        const doc = parser.parseFromString(html, 'text/html');
+                        const alert = doc.querySelector('.alert');
+                        
+                        if (alert) {
+                            // Show alert in modal
+                            const modalBody = scheduleCampaignForm.closest('.modal-content').querySelector('.modal-body');
+                            const existingAlert = modalBody.querySelector('.alert');
+                            if (existingAlert) {
+                                existingAlert.remove();
+                            }
+                            modalBody.insertAdjacentElement('afterbegin', alert);
+                            
+                            // If success, close modal after delay
+                            if (alert.classList.contains('alert-success')) {
+                                setTimeout(() => {
+                                    const modal = bootstrap.Modal.getInstance(document.getElementById('scheduleCampaignModal'));
+                                    if (modal) modal.hide();
+                                    
+                                    // Refresh page to show updated campaign
+                                    window.location.reload();
+                                }, 2000);
+                            }
+                        }
+                        
+                        // Re-enable submit button
+                        submitBtn.disabled = false;
+                        submitBtn.innerHTML = originalText;
+                    })
+                    .catch(error => {
+                        console.error('Error:', error);
+                        alert('Failed to schedule campaign. Please try again.');
+                        submitBtn.disabled = false;
+                        submitBtn.innerHTML = originalText;
+                    });
                 });
-            });
-        }
+            }
+        });
     </script>
 </body>
 </html> 
