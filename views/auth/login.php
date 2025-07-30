@@ -149,7 +149,16 @@ document.addEventListener("DOMContentLoaded", function() {
                     </div>
                 `;
                 setTimeout(() => {
-                    const dashboardUrl = basePath + "/dashboard";
+                    // Fix for live server - ensure proper URL construction
+                    let dashboardUrl;
+                    if (window.location.hostname === 'acrm.regrowup.ca') {
+                        // Live server - use absolute URL
+                        dashboardUrl = window.location.origin + "/dashboard";
+                    } else {
+                        // Local development - use base path
+                        dashboardUrl = basePath + "/dashboard";
+                    }
+                    console.log("Redirecting to:", dashboardUrl);
                     window.location.href = dashboardUrl;
                 }, 1000);
             } else {

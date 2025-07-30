@@ -107,12 +107,23 @@ class AuthController extends BaseController {
         $_SESSION["user_role"] = $user["role"] ?? "user";
         $_SESSION["login_time"] = time();
         
-        $basePath = $this->getBasePath();
+        // Fix for live server redirect
+        $host = $_SERVER['HTTP_HOST'] ?? '';
+        $protocol = isset($_SERVER['HTTPS']) && $_SERVER['HTTPS'] === 'on' ? 'https' : 'http';
+        
+        if ($host === 'acrm.regrowup.ca' || $host === 'www.acrm.regrowup.ca') {
+            // Live server - use absolute URL
+            $redirectUrl = $protocol . "://" . $host . "/dashboard";
+        } else {
+            // Local development - use base path
+            $basePath = $this->getBasePath();
+            $redirectUrl = $basePath . "/dashboard";
+        }
         
         $this->sendSuccess([
             "user" => $user,
             "session_id" => session_id(),
-            "redirect" => $basePath . "/dashboard"
+            "redirect" => $redirectUrl
         ], "Login successful");
     }
     
@@ -193,12 +204,23 @@ class AuthController extends BaseController {
         $_SESSION["user_role"] = $user["role"];
         $_SESSION["login_time"] = time();
         
-        $basePath = $this->getBasePath();
+        // Fix for live server redirect
+        $host = $_SERVER['HTTP_HOST'] ?? '';
+        $protocol = isset($_SERVER['HTTPS']) && $_SERVER['HTTPS'] === 'on' ? 'https' : 'http';
+        
+        if ($host === 'acrm.regrowup.ca' || $host === 'www.acrm.regrowup.ca') {
+            // Live server - use absolute URL
+            $redirectUrl = $protocol . "://" . $host . "/employee/email-dashboard";
+        } else {
+            // Local development - use base path
+            $basePath = $this->getBasePath();
+            $redirectUrl = $basePath . "/employee/email-dashboard";
+        }
         
         $this->sendSuccess([
             "user" => $user,
             "session_id" => session_id(),
-            "redirect" => $basePath . "/employee/email-dashboard"
+            "redirect" => $redirectUrl
         ], "Employee login successful");
     }
     
