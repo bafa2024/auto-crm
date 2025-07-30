@@ -11,9 +11,62 @@ class EmailService {
         $this->db = $db;
         $this->config = include __DIR__ . '/../config/email.php';
         
+        // Load SMTP settings from database if available
+        $this->loadSmtpSettingsFromDatabase();
+        
         // Check if PHPMailer is available, if not use built-in mail()
         if (!class_exists('PHPMailer\PHPMailer\PHPMailer')) {
             $this->config['driver'] = 'mail';
+        }
+    }
+    
+    /**
+     * Load SMTP settings from database
+     */
+    private function loadSmtpSettingsFromDatabase() {
+        try {
+            // Get database connection
+            $conn = null;
+            if (is_object($this->db) && method_exists($this->db, 'getConnection')) {
+                $conn = $this->db->getConnection();
+            } elseif ($this->db instanceof PDO) {
+                $conn = $this->db;
+            }
+            
+            if (!$conn) {
+                return;
+            }
+            
+            // Check if smtp_settings table exists
+            $stmt = $conn->prepare("SHOW TABLES LIKE 'smtp_settings'");
+            $stmt->execute();
+            if (!$stmt->fetch()) {
+                return;
+            }
+            
+            // Load settings from database
+            $stmt = $conn->prepare("SELECT setting_key, setting_value FROM smtp_settings");
+            $stmt->execute();
+            
+            $dbSettings = [];
+            while ($row = $stmt->fetch(PDO::FETCH_ASSOC)) {
+                $dbSettings[$row['setting_key']] = $row['setting_value'];
+            }
+            
+            // Update config with database settings if SMTP is enabled
+            if (!empty($dbSettings['smtp_enabled']) && $dbSettings['smtp_enabled'] == '1') {
+                $this->config['driver'] = 'smtp';
+                $this->config['smtp']['host'] = $dbSettings['smtp_host'] ?? $this->config['smtp']['host'];
+                $this->config['smtp']['port'] = $dbSettings['smtp_port'] ?? $this->config['smtp']['port'];
+                $this->config['smtp']['username'] = $dbSettings['smtp_username'] ?? $this->config['smtp']['username'];
+                $this->config['smtp']['password'] = $dbSettings['smtp_password'] ?? $this->config['smtp']['password'];
+                $this->config['smtp']['encryption'] = $dbSettings['smtp_encryption'] ?? $this->config['smtp']['encryption'];
+                $this->config['smtp']['from']['address'] = $dbSettings['smtp_from_email'] ?? $this->config['smtp']['from']['address'];
+                $this->config['smtp']['from']['name'] = $dbSettings['smtp_from_name'] ?? $this->config['smtp']['from']['name'];
+            }
+        } catch (Exception $e) {
+            // Silently fail and use config file settings
+            error_log("Failed to load SMTP settings from database: " . $e->getMessage());
         }
     }
     
@@ -529,16 +582,49 @@ class EmailService {
      */
     private function logInstantEmail($to, $subject, $from_name, $from_email) {
         try {
+            // First, check if recipient exists in contacts table
+            $stmt = $this->db->prepare("SELECT id FROM contacts WHERE email = ?");
+            $stmt->execute([$to]);
+            $recipient = $stmt->fetch(PDO::FETCH_ASSOC);
+            
+            $recipientId = null;
+            if ($recipient) {
+                $recipientId = $recipient['id'];
+            } else {
+                // Create a temporary contact for this email
+                $stmt = $this->db->prepare("
+                    INSERT INTO contacts (
+                        first_name, last_name, email, phone, company, status, created_at, updated_at
+                    ) VALUES (
+                        'Instant', 'Email', ?, 'N/A', 'Instant Email Recipient', 'new', NOW(), NOW()
+                    )
+                ");
+                $stmt->execute([$to]);
+                $recipientId = $this->db->lastInsertId();
+            }
+            
+            // Create a temporary campaign for instant emails
             $stmt = $this->db->prepare("
-                INSERT INTO campaign_sends (
-                    campaign_id, recipient_email, subject, status, sent_at, 
-                    from_name, from_email, created_at
+                INSERT INTO email_campaigns (
+                    name, subject, content, status, created_at, updated_at
                 ) VALUES (
-                    NULL, ?, ?, 'sent', NOW(), ?, ?, NOW()
+                    'Instant Email', ?, ?, 'sent', NOW(), NOW()
                 )
             ");
             
-            $stmt->execute([$to, $subject, $from_name, $from_email]);
+            $stmt->execute([$subject, 'Instant email sent to ' . $to]);
+            $campaignId = $this->db->lastInsertId();
+            
+            // Insert into campaign_sends with the correct columns
+            $stmt = $this->db->prepare("
+                INSERT INTO campaign_sends (
+                    campaign_id, recipient_id, recipient_email, status, sent_at
+                ) VALUES (
+                    ?, ?, ?, 'sent', NOW()
+                )
+            ");
+            
+            $stmt->execute([$campaignId, $recipientId, $to]);
             
         } catch (Exception $e) {
             error_log("Failed to log instant email: " . $e->getMessage());
