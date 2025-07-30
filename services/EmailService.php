@@ -22,6 +22,12 @@ class EmailService {
      */
     public function send($to, $subject, $body, $options = []) {
         try {
+            // Apply merge tags if recipient data is provided
+            if (!empty($options['merge_data'])) {
+                $subject = $this->replaceMergeTags($subject, $options['merge_data']);
+                $body = $this->replaceMergeTags($body, $options['merge_data']);
+            }
+            
             if ($this->config['driver'] === 'smtp' && class_exists('PHPMailer\PHPMailer\PHPMailer')) {
                 return $this->sendViaSMTP($to, $subject, $body, $options);
             } else {
@@ -31,6 +37,37 @@ class EmailService {
             error_log("Email send error: " . $e->getMessage());
             return ['success' => false, 'error' => $e->getMessage()];
         }
+    }
+    
+    /**
+     * Replace merge tags with actual values
+     */
+    private function replaceMergeTags($text, $data) {
+        // Common merge tags
+        $defaults = [
+            'current_date' => date('F j, Y'),
+            'current_year' => date('Y'),
+            'current_month' => date('F'),
+            'company_name' => 'ACRM'
+        ];
+        
+        // Merge defaults with provided data
+        $mergeData = array_merge($defaults, $data);
+        
+        // Replace all merge tags
+        foreach ($mergeData as $key => $value) {
+            // Handle both {{tag}} and {{ tag }} formats
+            $patterns = [
+                '/\{\{\s*' . preg_quote($key, '/') . '\s*\}\}/i',
+                '/\[\[\s*' . preg_quote($key, '/') . '\s*\]\]/i'  // Alternative format
+            ];
+            
+            foreach ($patterns as $pattern) {
+                $text = preg_replace($pattern, $value ?? '', $text);
+            }
+        }
+        
+        return $text;
     }
     
     /**

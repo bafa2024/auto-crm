@@ -229,6 +229,138 @@ try {
 } catch (Exception $e) {
     // Ignore error if table doesn't exist
 }
+
+// Get email templates
+$templates = [];
+try {
+    // Create templates table if it doesn't exist
+    $dbType = $database->getDatabaseType();
+    if ($dbType === 'sqlite') {
+        $database->getConnection()->exec("
+            CREATE TABLE IF NOT EXISTS email_templates (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                name VARCHAR(255) NOT NULL,
+                category VARCHAR(100),
+                subject VARCHAR(255) NOT NULL,
+                content TEXT NOT NULL,
+                thumbnail TEXT,
+                variables TEXT DEFAULT '[]',
+                created_by INTEGER,
+                is_public INTEGER DEFAULT 1,
+                created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+                updated_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+                FOREIGN KEY (created_by) REFERENCES users(id) ON DELETE SET NULL
+            )
+        ");
+    } else {
+        $database->getConnection()->exec("
+            CREATE TABLE IF NOT EXISTS email_templates (
+                id INT PRIMARY KEY AUTO_INCREMENT,
+                name VARCHAR(255) NOT NULL,
+                category VARCHAR(100),
+                subject VARCHAR(255) NOT NULL,
+                content TEXT NOT NULL,
+                thumbnail TEXT,
+                variables JSON,
+                created_by INT,
+                is_public BOOLEAN DEFAULT TRUE,
+                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+                FOREIGN KEY (created_by) REFERENCES users(id) ON DELETE SET NULL,
+                INDEX idx_category (category),
+                INDEX idx_public (is_public)
+            ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4
+        ");
+    }
+    
+    // Check if templates exist, if not insert defaults
+    $count = $database->getConnection()->query("SELECT COUNT(*) FROM email_templates")->fetchColumn();
+    if ($count == 0) {
+        // Insert default templates
+        $defaultTemplates = [
+            [
+                'name' => 'Welcome Email',
+                'category' => 'Welcome',
+                'subject' => 'Welcome to {{company_name}}!',
+                'content' => '<h2>Welcome {{first_name}}!</h2>
+<p>We\'re thrilled to have you join us at {{company_name}}.</p>
+<p>Your journey with us begins now, and we\'re here to support you every step of the way.</p>
+<p>If you have any questions, feel free to reach out to our support team.</p>
+<p>Best regards,<br>The {{company_name}} Team</p>',
+                'variables' => json_encode(['first_name', 'company_name'])
+            ],
+            [
+                'name' => 'Newsletter Template',
+                'category' => 'Newsletter',
+                'subject' => '{{company_name}} Newsletter - {{month}} {{year}}',
+                'content' => '<div style="max-width: 600px; margin: 0 auto; font-family: Arial, sans-serif;">
+    <h1 style="color: #333;">{{company_name}} Newsletter</h1>
+    <h2 style="color: #666;">{{month}} {{year}} Edition</h2>
+    
+    <p>Dear {{first_name}},</p>
+    
+    <h3>In This Issue:</h3>
+    <ul>
+        <li>Latest Updates</li>
+        <li>Featured Products</li>
+        <li>Customer Success Stories</li>
+        <li>Upcoming Events</li>
+    </ul>
+    
+    <p>Thank you for being a valued member of our community!</p>
+    
+    <p>Best regards,<br>The {{company_name}} Team</p>
+</div>',
+                'variables' => json_encode(['first_name', 'company_name', 'month', 'year'])
+            ],
+            [
+                'name' => 'Product Announcement',
+                'category' => 'Announcement',
+                'subject' => 'Introducing Our Latest Product: {{product_name}}',
+                'content' => '<div style="max-width: 600px; margin: 0 auto; font-family: Arial, sans-serif;">
+    <h1 style="color: #333;">Exciting News, {{first_name}}!</h1>
+    
+    <p>We\'re thrilled to announce the launch of <strong>{{product_name}}</strong>.</p>
+    
+    <h3>Key Features:</h3>
+    <ul>
+        <li>Feature 1</li>
+        <li>Feature 2</li>
+        <li>Feature 3</li>
+    </ul>
+    
+    <p><a href="{{product_link}}" style="display: inline-block; padding: 12px 24px; background-color: #007bff; color: white; text-decoration: none; border-radius: 4px;">Learn More</a></p>
+    
+    <p>Questions? Reply to this email and we\'ll be happy to help!</p>
+    
+    <p>Best regards,<br>The {{company_name}} Team</p>
+</div>',
+                'variables' => json_encode(['first_name', 'product_name', 'product_link', 'company_name'])
+            ]
+        ];
+        
+        $stmt = $database->getConnection()->prepare("INSERT INTO email_templates (name, category, subject, content, variables, is_public) VALUES (?, ?, ?, ?, ?, 1)");
+        foreach ($defaultTemplates as $template) {
+            try {
+                $stmt->execute([
+                    $template['name'],
+                    $template['category'],
+                    $template['subject'],
+                    $template['content'],
+                    $template['variables']
+                ]);
+            } catch (Exception $e) {
+                // Template may already exist
+            }
+        }
+    }
+    
+    // Get all templates
+    $stmt = $database->getConnection()->query("SELECT * FROM email_templates WHERE is_public = 1 OR created_by = {$_SESSION['user_id']} ORDER BY category, name");
+    $templates = $stmt->fetchAll(PDO::FETCH_ASSOC);
+} catch (Exception $e) {
+    // Ignore error if table doesn't exist
+}
 ?>
 
 <!DOCTYPE html>
@@ -498,13 +630,65 @@ try {
                         </div>
                         
                         <div class="mb-3">
+                            <label for="template_id" class="form-label">Email Template (Optional)</label>
+                            <select class="form-select" id="template_id" name="template_id" onchange="loadTemplate()">
+                                <option value="">-- Select a template --</option>
+                                <?php 
+                                $currentCategory = '';
+                                foreach ($templates as $template): 
+                                    if ($template['category'] != $currentCategory):
+                                        if ($currentCategory != ''): ?>
+                                            </optgroup>
+                                        <?php endif;
+                                        $currentCategory = $template['category'];
+                                        ?>
+                                        <optgroup label="<?php echo htmlspecialchars($currentCategory); ?>">
+                                    <?php endif; ?>
+                                    <option value="<?php echo $template['id']; ?>" 
+                                        data-subject="<?php echo htmlspecialchars($template['subject']); ?>"
+                                        data-content="<?php echo htmlspecialchars($template['content']); ?>"
+                                        data-variables="<?php echo htmlspecialchars($template['variables']); ?>">
+                                        <?php echo htmlspecialchars($template['name']); ?>
+                                    </option>
+                                <?php endforeach; 
+                                if ($currentCategory != ''): ?>
+                                    </optgroup>
+                                <?php endif; ?>
+                            </select>
+                            <small class="form-text text-muted">Select a template to pre-fill subject and content</small>
+                        </div>
+                        
+                        <div class="mb-3">
                             <label for="email_subject" class="form-label">Email Subject</label>
-                            <input type="text" class="form-control" id="email_subject" name="email_subject" required>
+                            <input type="text" class="form-control" id="email_subject" name="email_subject" required placeholder="Use {{variable_name}} for personalization">
+                            <div id="subject-preview" class="mt-2 small text-muted" style="display: none;">
+                                <strong>Preview:</strong> <span id="subject-preview-text"></span>
+                            </div>
+                        </div>
+                        
+                        <div class="mb-3">
+                            <label for="content_type" class="form-label">Content Type</label>
+                            <div class="btn-group w-100" role="group">
+                                <input type="radio" class="btn-check" name="content_type" id="content_type_html" value="html" checked>
+                                <label class="btn btn-outline-primary" for="content_type_html">HTML</label>
+                                
+                                <input type="radio" class="btn-check" name="content_type" id="content_type_text" value="text">
+                                <label class="btn btn-outline-primary" for="content_type_text">Plain Text</label>
+                            </div>
                         </div>
                         
                         <div class="mb-3">
                             <label for="email_content" class="form-label">Email Content</label>
-                            <textarea class="form-control" id="email_content" name="email_content" rows="10" required placeholder="Enter your email content here..."></textarea>
+                            <div id="template-variables" class="mb-2" style="display: none;">
+                                <small class="text-muted">Available variables: <span id="variable-list"></span></small>
+                            </div>
+                            <textarea class="form-control" id="email_content" name="email_content" rows="10" required placeholder="Enter your email content here... Use {{variable_name}} for personalization"></textarea>
+                        </div>
+                        
+                        <div class="mb-3">
+                            <button type="button" class="btn btn-sm btn-secondary" onclick="previewEmail()">
+                                <i class="bi bi-eye"></i> Preview Email
+                            </button>
                         </div>
                     </div>
                     <div class="modal-footer">
@@ -645,13 +829,65 @@ try {
                         </div>
                         
                         <div class="mb-3">
+                            <label for="edit_template_id" class="form-label">Email Template (Optional)</label>
+                            <select class="form-select" id="edit_template_id" name="template_id" onchange="loadEditTemplate()">
+                                <option value="">-- Select a template --</option>
+                                <?php 
+                                $currentCategory = '';
+                                foreach ($templates as $template): 
+                                    if ($template['category'] != $currentCategory):
+                                        if ($currentCategory != ''): ?>
+                                            </optgroup>
+                                        <?php endif;
+                                        $currentCategory = $template['category'];
+                                        ?>
+                                        <optgroup label="<?php echo htmlspecialchars($currentCategory); ?>">
+                                    <?php endif; ?>
+                                    <option value="<?php echo $template['id']; ?>" 
+                                        data-subject="<?php echo htmlspecialchars($template['subject']); ?>"
+                                        data-content="<?php echo htmlspecialchars($template['content']); ?>"
+                                        data-variables="<?php echo htmlspecialchars($template['variables']); ?>">
+                                        <?php echo htmlspecialchars($template['name']); ?>
+                                    </option>
+                                <?php endforeach; 
+                                if ($currentCategory != ''): ?>
+                                    </optgroup>
+                                <?php endif; ?>
+                            </select>
+                            <small class="form-text text-muted">Select a template to replace current content</small>
+                        </div>
+                        
+                        <div class="mb-3">
                             <label for="edit_email_subject" class="form-label">Email Subject</label>
-                            <input type="text" class="form-control" id="edit_email_subject" name="email_subject" required>
+                            <input type="text" class="form-control" id="edit_email_subject" name="email_subject" required placeholder="Use {{variable_name}} for personalization">
+                            <div id="edit-subject-preview" class="mt-2 small text-muted" style="display: none;">
+                                <strong>Preview:</strong> <span id="edit-subject-preview-text"></span>
+                            </div>
+                        </div>
+                        
+                        <div class="mb-3">
+                            <label for="edit_content_type" class="form-label">Content Type</label>
+                            <div class="btn-group w-100" role="group">
+                                <input type="radio" class="btn-check" name="edit_content_type" id="edit_content_type_html" value="html" checked>
+                                <label class="btn btn-outline-primary" for="edit_content_type_html">HTML</label>
+                                
+                                <input type="radio" class="btn-check" name="edit_content_type" id="edit_content_type_text" value="text">
+                                <label class="btn btn-outline-primary" for="edit_content_type_text">Plain Text</label>
+                            </div>
                         </div>
                         
                         <div class="mb-3">
                             <label for="edit_email_content" class="form-label">Email Content</label>
-                            <textarea class="form-control" id="edit_email_content" name="email_content" rows="10" required placeholder="Enter your email content here..."></textarea>
+                            <div id="edit-template-variables" class="mb-2" style="display: none;">
+                                <small class="text-muted">Available variables: <span id="edit-variable-list"></span></small>
+                            </div>
+                            <textarea class="form-control" id="edit_email_content" name="email_content" rows="10" required placeholder="Enter your email content here... Use {{variable_name}} for personalization"></textarea>
+                        </div>
+                        
+                        <div class="mb-3">
+                            <button type="button" class="btn btn-sm btn-secondary" onclick="previewEditEmail()">
+                                <i class="bi bi-eye"></i> Preview Email
+                            </button>
                         </div>
                         
                         <div class="mb-3">
@@ -1337,6 +1573,276 @@ try {
             };
             return text ? text.replace(/[&<>"']/g, m => map[m]) : '';
         }
+        
+        // Load template into form
+        function loadTemplate() {
+            const templateSelect = document.getElementById('template_id');
+            const selectedOption = templateSelect.options[templateSelect.selectedIndex];
+            
+            if (selectedOption.value) {
+                const subject = selectedOption.getAttribute('data-subject');
+                const content = selectedOption.getAttribute('data-content');
+                const variables = JSON.parse(selectedOption.getAttribute('data-variables') || '[]');
+                
+                // Set subject and content
+                document.getElementById('email_subject').value = subject;
+                document.getElementById('email_content').value = content;
+                
+                // Show available variables
+                if (variables.length > 0) {
+                    document.getElementById('template-variables').style.display = 'block';
+                    document.getElementById('variable-list').innerHTML = variables.map(v => `<code>{{${v}}}</code>`).join(', ');
+                } else {
+                    document.getElementById('template-variables').style.display = 'none';
+                }
+                
+                // Update preview
+                updateEmailPreview();
+            } else {
+                // Clear template variables display
+                document.getElementById('template-variables').style.display = 'none';
+            }
+        }
+        
+        // Preview email with merge tags replaced
+        function previewEmail() {
+            const subject = document.getElementById('email_subject').value;
+            const content = document.getElementById('email_content').value;
+            const contentType = document.querySelector('input[name="content_type"]:checked').value;
+            
+            // Sample data for preview
+            const sampleData = {
+                first_name: 'John',
+                last_name: 'Doe',
+                email: 'john.doe@example.com',
+                company_name: 'ACRM Company',
+                product_name: 'Sample Product',
+                product_link: 'https://example.com/product',
+                month: new Date().toLocaleString('default', { month: 'long' }),
+                year: new Date().getFullYear()
+            };
+            
+            // Replace merge tags
+            let previewSubject = replaceMergeTags(subject, sampleData);
+            let previewContent = replaceMergeTags(content, sampleData);
+            
+            // Create preview modal
+            const modalHtml = `
+                <div class="modal fade" id="previewModal" tabindex="-1">
+                    <div class="modal-dialog modal-lg">
+                        <div class="modal-content">
+                            <div class="modal-header">
+                                <h5 class="modal-title">Email Preview</h5>
+                                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                            </div>
+                            <div class="modal-body">
+                                <div class="alert alert-info">
+                                    <small>This is a preview with sample data. Actual emails will use recipient data.</small>
+                                </div>
+                                <div class="card">
+                                    <div class="card-header">
+                                        <strong>Subject:</strong> ${escapeHtml(previewSubject)}
+                                    </div>
+                                    <div class="card-body">
+                                        ${contentType === 'html' ? previewContent : '<pre>' + escapeHtml(previewContent) + '</pre>'}
+                                    </div>
+                                </div>
+                                <div class="mt-3">
+                                    <small class="text-muted">
+                                        <strong>Sample merge tag values:</strong><br>
+                                        ${Object.entries(sampleData).map(([key, value]) => `{{${key}}} = ${value}`).join('<br>')}
+                                    </small>
+                                </div>
+                            </div>
+                            <div class="modal-footer">
+                                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Close</button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            `;
+            
+            // Remove existing preview modal if any
+            const existingModal = document.getElementById('previewModal');
+            if (existingModal) {
+                existingModal.remove();
+            }
+            
+            // Add modal to body
+            document.body.insertAdjacentHTML('beforeend', modalHtml);
+            
+            // Show modal
+            new bootstrap.Modal(document.getElementById('previewModal')).show();
+        }
+        
+        // Replace merge tags with actual values
+        function replaceMergeTags(text, data) {
+            let result = text;
+            for (const [key, value] of Object.entries(data)) {
+                const regex = new RegExp(`{{\\s*${key}\\s*}}`, 'gi');
+                result = result.replace(regex, value);
+            }
+            return result;
+        }
+        
+        // Update email preview on input
+        function updateEmailPreview() {
+            const subject = document.getElementById('email_subject').value;
+            if (subject && subject.includes('{{')) {
+                document.getElementById('subject-preview').style.display = 'block';
+                const sampleData = {
+                    first_name: 'John',
+                    company_name: 'ACRM Company',
+                    month: new Date().toLocaleString('default', { month: 'long' }),
+                    year: new Date().getFullYear()
+                };
+                document.getElementById('subject-preview-text').textContent = replaceMergeTags(subject, sampleData);
+            } else {
+                document.getElementById('subject-preview').style.display = 'none';
+            }
+        }
+        
+        // Add event listeners for real-time preview
+        document.getElementById('email_subject').addEventListener('input', updateEmailPreview);
+        
+        // Toggle content editor based on type
+        document.querySelectorAll('input[name="content_type"]').forEach(radio => {
+            radio.addEventListener('change', function() {
+                const textarea = document.getElementById('email_content');
+                if (this.value === 'text') {
+                    // Convert HTML to plain text if switching
+                    const tempDiv = document.createElement('div');
+                    tempDiv.innerHTML = textarea.value;
+                    textarea.value = tempDiv.textContent || tempDiv.innerText || '';
+                }
+            });
+        });
+        
+        // Load template for edit form
+        function loadEditTemplate() {
+            const templateSelect = document.getElementById('edit_template_id');
+            const selectedOption = templateSelect.options[templateSelect.selectedIndex];
+            
+            if (selectedOption.value) {
+                if (confirm('This will replace your current subject and content. Continue?')) {
+                    const subject = selectedOption.getAttribute('data-subject');
+                    const content = selectedOption.getAttribute('data-content');
+                    const variables = JSON.parse(selectedOption.getAttribute('data-variables') || '[]');
+                    
+                    // Set subject and content
+                    document.getElementById('edit_email_subject').value = subject;
+                    document.getElementById('edit_email_content').value = content;
+                    
+                    // Show available variables
+                    if (variables.length > 0) {
+                        document.getElementById('edit-template-variables').style.display = 'block';
+                        document.getElementById('edit-variable-list').innerHTML = variables.map(v => `<code>{{${v}}}</code>`).join(', ');
+                    } else {
+                        document.getElementById('edit-template-variables').style.display = 'none';
+                    }
+                    
+                    // Update preview
+                    updateEditEmailPreview();
+                } else {
+                    // Reset selection
+                    templateSelect.value = '';
+                }
+            } else {
+                // Clear template variables display
+                document.getElementById('edit-template-variables').style.display = 'none';
+            }
+        }
+        
+        // Preview email for edit form
+        function previewEditEmail() {
+            const subject = document.getElementById('edit_email_subject').value;
+            const content = document.getElementById('edit_email_content').value;
+            const contentType = document.querySelector('input[name="edit_content_type"]:checked').value;
+            
+            // Sample data for preview
+            const sampleData = {
+                first_name: 'John',
+                last_name: 'Doe',
+                email: 'john.doe@example.com',
+                company_name: 'ACRM Company',
+                product_name: 'Sample Product',
+                product_link: 'https://example.com/product',
+                month: new Date().toLocaleString('default', { month: 'long' }),
+                year: new Date().getFullYear()
+            };
+            
+            // Replace merge tags
+            let previewSubject = replaceMergeTags(subject, sampleData);
+            let previewContent = replaceMergeTags(content, sampleData);
+            
+            // Create preview modal
+            const modalHtml = `
+                <div class="modal fade" id="editPreviewModal" tabindex="-1">
+                    <div class="modal-dialog modal-lg">
+                        <div class="modal-content">
+                            <div class="modal-header">
+                                <h5 class="modal-title">Email Preview</h5>
+                                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                            </div>
+                            <div class="modal-body">
+                                <div class="alert alert-info">
+                                    <small>This is a preview with sample data. Actual emails will use recipient data.</small>
+                                </div>
+                                <div class="card">
+                                    <div class="card-header">
+                                        <strong>Subject:</strong> ${escapeHtml(previewSubject)}
+                                    </div>
+                                    <div class="card-body">
+                                        ${contentType === 'html' ? previewContent : '<pre>' + escapeHtml(previewContent) + '</pre>'}
+                                    </div>
+                                </div>
+                                <div class="mt-3">
+                                    <small class="text-muted">
+                                        <strong>Sample merge tag values:</strong><br>
+                                        ${Object.entries(sampleData).map(([key, value]) => `{{${key}}} = ${value}`).join('<br>')}
+                                    </small>
+                                </div>
+                            </div>
+                            <div class="modal-footer">
+                                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Close</button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            `;
+            
+            // Remove existing preview modal if any
+            const existingModal = document.getElementById('editPreviewModal');
+            if (existingModal) {
+                existingModal.remove();
+            }
+            
+            // Add modal to body
+            document.body.insertAdjacentHTML('beforeend', modalHtml);
+            
+            // Show modal
+            new bootstrap.Modal(document.getElementById('editPreviewModal')).show();
+        }
+        
+        // Update email preview for edit form
+        function updateEditEmailPreview() {
+            const subject = document.getElementById('edit_email_subject').value;
+            if (subject && subject.includes('{{')) {
+                document.getElementById('edit-subject-preview').style.display = 'block';
+                const sampleData = {
+                    first_name: 'John',
+                    company_name: 'ACRM Company',
+                    month: new Date().toLocaleString('default', { month: 'long' }),
+                    year: new Date().getFullYear()
+                };
+                document.getElementById('edit-subject-preview-text').textContent = replaceMergeTags(subject, sampleData);
+            } else {
+                document.getElementById('edit-subject-preview').style.display = 'none';
+            }
+        }
+        
+        // Add event listener for edit subject preview
+        document.getElementById('edit_email_subject').addEventListener('input', updateEditEmailPreview);
         
         // Helper function to show alerts in modal
         function showModalAlert(message, type = 'info') {

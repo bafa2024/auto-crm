@@ -258,11 +258,11 @@ class EmailCampaignService {
                     
                     $processedEmails[] = $normalizedEmail;
                     
-                    $personalizedContent = $this->personalizeContent($campaign['email_content'], $recipient);
+                    // Send email with merge tag support
                     $emailSent = $this->sendEmail(
                         $recipient['email'],
                         $campaign['subject'],
-                        $personalizedContent,
+                        $campaign['email_content'],
                         $campaign['from_name'],
                         $campaign['from_email'],
                         $recipient
@@ -386,23 +386,53 @@ class EmailCampaignService {
     }
     
     /**
-     * Send email using PHP mail() function
+     * Send email using EmailService with merge tag support
      */
     private function sendEmail($to, $subject, $content, $senderName, $senderEmail, $recipient = null) {
-        // Prepare email headers
-        $headers = [
-            'MIME-Version: 1.0',
-            'Content-type: text/html; charset=UTF-8',
-            'From: ' . $senderName . ' <' . $senderEmail . '>',
-            'Reply-To: ' . $senderEmail,
-            'X-Mailer: ACRM Email Campaign System'
-        ];
-        
-        // Create HTML email
-        $htmlContent = $this->createHtmlEmail($content, $senderName, $recipient);
-        
-        // Send email
-        return mail($to, $subject, $htmlContent, implode("\r\n", $headers));
+        try {
+            // Use EmailService for sending
+            require_once __DIR__ . '/EmailService.php';
+            $emailService = new EmailService($this->db);
+            
+            // Prepare merge data
+            $mergeData = [];
+            if ($recipient) {
+                $mergeData = [
+                    'email' => $recipient['email'] ?? '',
+                    'name' => $recipient['name'] ?? '',
+                    'first_name' => $this->getFirstName($recipient['name'] ?? ''),
+                    'last_name' => $this->getLastName($recipient['name'] ?? ''),
+                    'company' => $recipient['company'] ?? '',
+                    'company_name' => $recipient['company'] ?? 'our company'
+                ];
+            }
+            
+            // Send email with merge data
+            $result = $emailService->send(
+                $to,
+                $subject,
+                $content,
+                [
+                    'from_email' => $senderEmail,
+                    'from_name' => $senderName,
+                    'merge_data' => $mergeData
+                ]
+            );
+            
+            return $result['success'];
+            
+        } catch (Exception $e) {
+            error_log("Error sending email: " . $e->getMessage());
+            return false;
+        }
+    }
+    
+    /**
+     * Extract last name from full name
+     */
+    private function getLastName($fullName) {
+        $parts = explode(' ', trim($fullName));
+        return count($parts) > 1 ? end($parts) : '';
     }
     
     /**
