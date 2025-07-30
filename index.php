@@ -243,6 +243,9 @@ try {
             
         // API endpoints
         case strpos($requestUri, "/api/") === 0:
+            // Debug logging for API requests
+            error_log("API Request Debug - URI: " . $requestUri . ", Method: " . $requestMethod);
+            
             header("Content-Type: application/json");
             header("Access-Control-Allow-Origin: *");
             header("Access-Control-Allow-Methods: GET, POST, PUT, DELETE, OPTIONS");

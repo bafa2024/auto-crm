@@ -9,6 +9,7 @@ RewriteRule ^(composer\.(json|lock)|\.env|\.git|\.gitignore|README\.md)$ - [F,L]
 
 # Block access to sensitive directories (but allow API access)
 RewriteCond %{REQUEST_URI} !^/api/
+RewriteCond %{REQUEST_URI} !^/acrm/api/
 RewriteRule ^(config|models|controllers|services|vendor|logs|temp|backups)/.*$ - [F,L]
 
 # Allow direct access to specific API files

@@ -32,6 +32,10 @@ class AuthController extends BaseController {
     }
     
     public function login($request = null) {
+        // Debug logging
+        error_log("AuthController::login called - Method: " . $_SERVER["REQUEST_METHOD"]);
+        error_log("AuthController::login - Request URI: " . ($_SERVER["REQUEST_URI"] ?? 'N/A'));
+        
         // Set CORS headers
         header("Access-Control-Allow-Origin: *");
         header("Access-Control-Allow-Methods: POST, OPTIONS");

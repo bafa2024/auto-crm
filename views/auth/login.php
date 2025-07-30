@@ -88,13 +88,52 @@ document.addEventListener("DOMContentLoaded", function() {
             
             console.log("Making fetch request to:", apiUrl);
             
-            const response = await fetch(apiUrl, {
-                method: "POST",
-                headers: {
-                    "Content-Type": "application/json",
-                },
-                body: JSON.stringify(data)
-            });
+            // Fallback for live server - try different URL patterns
+            let response;
+            try {
+                response = await fetch(apiUrl, {
+                    method: "POST",
+                    headers: {
+                        "Content-Type": "application/json",
+                    },
+                    body: JSON.stringify(data)
+                });
+            } catch (fetchError) {
+                console.log("First attempt failed, trying fallback URLs...");
+                
+                // Try alternative URLs for live server
+                const fallbackUrls = [
+                    "/api/auth/login",
+                    "/acrm/api/auth/login",
+                    "api/auth/login",
+                    window.location.origin + "/api/auth/login",
+                    window.location.origin + "/acrm/api/auth/login"
+                ];
+                
+                let lastError = fetchError;
+                
+                for (const fallbackUrl of fallbackUrls) {
+                    try {
+                        console.log("Trying fallback URL:", fallbackUrl);
+                        response = await fetch(fallbackUrl, {
+                            method: "POST",
+                            headers: {
+                                "Content-Type": "application/json",
+                            },
+                            body: JSON.stringify(data)
+                        });
+                        console.log("Fallback URL succeeded:", fallbackUrl);
+                        break;
+                    } catch (fallbackError) {
+                        console.log("Fallback URL failed:", fallbackUrl, fallbackError.message);
+                        lastError = fallbackError;
+                    }
+                }
+                
+                if (!response) {
+                    throw lastError;
+                }
+            }
             
             console.log("Response status:", response.status);
             console.log("Response headers:", response.headers);
