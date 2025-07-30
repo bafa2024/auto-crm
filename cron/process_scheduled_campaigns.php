@@ -1,78 +1,92 @@
 <?php
-// process_scheduled_campaigns.php - Cron job for processing scheduled campaigns
-// This script should be run every minute via cron job
+/**
+ * Cron job script to process scheduled email campaigns
+ * Run this every minute: * * * * * /usr/bin/php /path/to/cron/process_scheduled_campaigns.php
+ */
 
 // Set error reporting
 error_reporting(E_ALL);
-ini_set('display_errors', 1);
+ini_set('display_errors', 0);
+ini_set('log_errors', 1);
+ini_set('error_log', __DIR__ . '/../logs/cron_errors.log');
 
-// Set time limit for long-running processes
-set_time_limit(300); // 5 minutes
+// Start execution time tracking
+$startTime = microtime(true);
 
-echo "=== Scheduled Campaigns Processor ===\n";
-echo "Started at: " . date('Y-m-d H:i:s') . "\n\n";
+// Log start
+error_log("[" . date('Y-m-d H:i:s') . "] Starting scheduled campaigns processing");
 
 try {
     // Include required files
     require_once __DIR__ . '/../config/database.php';
+    require_once __DIR__ . '/../services/EmailCampaignService.php';
     require_once __DIR__ . '/../services/ScheduledCampaignService.php';
-    require_once __DIR__ . '/../services/EmailService.php';
     
     // Initialize database
     $database = new Database();
-    echo "Environment: " . $database->getEnvironment() . "\n";
-    echo "Database Type: " . $database->getDatabaseType() . "\n\n";
+    $db = $database->getConnection();
     
-    // Initialize scheduled campaign service
-    $scheduledService = new ScheduledCampaignService($database);
+    // Initialize services
+    $emailCampaignService = new EmailCampaignService($database);
+    $scheduledCampaignService = new ScheduledCampaignService($database);
     
-    // Process scheduled campaigns
-    echo "Processing scheduled campaigns...\n";
-    $result = $scheduledService->processScheduledCampaigns();
-    
-    if ($result['success']) {
-        echo "✅ Processing completed successfully!\n";
-        echo "Campaigns processed: {$result['processed']}\n";
-        echo "Emails sent: {$result['sent']}\n";
-        
-        if (!empty($result['errors'])) {
-            echo "Errors encountered:\n";
-            foreach ($result['errors'] as $error) {
-                echo "- $error\n";
-            }
-        }
-    } else {
-        echo "❌ Processing failed: {$result['message']}\n";
-    }
-    
-    // Get scheduled campaigns for display
-    echo "\nUpcoming scheduled campaigns:\n";
-    $scheduledCampaigns = $scheduledService->getScheduledCampaigns();
+    // Get campaigns that are scheduled and ready to send
+    $scheduledCampaigns = $scheduledCampaignService->getReadyToSendCampaigns();
     
     if (empty($scheduledCampaigns)) {
-        echo "No scheduled campaigns found.\n";
-    } else {
-        foreach ($scheduledCampaigns as $campaign) {
-            $scheduleDate = new DateTime($campaign['schedule_date']);
-            $now = new DateTime();
-            $timeUntil = $scheduleDate->diff($now);
+        error_log("[" . date('Y-m-d H:i:s') . "] No campaigns ready to send");
+        exit(0);
+    }
+    
+    error_log("[" . date('Y-m-d H:i:s') . "] Found " . count($scheduledCampaigns) . " campaigns ready to send");
+    
+    $processedCount = 0;
+    $errorCount = 0;
+    
+    foreach ($scheduledCampaigns as $campaign) {
+        try {
+            error_log("[" . date('Y-m-d H:i:s') . "] Processing campaign ID: {$campaign['id']} - {$campaign['name']}");
             
-            echo "- Campaign: {$campaign['name']}\n";
-            echo "  Schedule: {$campaign['schedule_date']}\n";
-            echo "  Type: {$campaign['schedule_type']}\n";
-            if ($campaign['frequency']) {
-                echo "  Frequency: {$campaign['frequency']}\n";
+            // Update campaign status to sending
+            $scheduledCampaignService->updateCampaignStatus($campaign['id'], 'sending');
+            
+            // Get all recipients for this campaign
+            $recipients = $emailCampaignService->getAllCampaignRecipients($campaign['id']);
+            
+            if (empty($recipients)) {
+                error_log("[" . date('Y-m-d H:i:s') . "] No recipients found for campaign {$campaign['id']}");
+                $scheduledCampaignService->updateCampaignStatus($campaign['id'], 'completed');
+                continue;
             }
-            echo "  Time until: {$timeUntil->format('%d days, %h hours, %i minutes')}\n\n";
+            
+            error_log("[" . date('Y-m-d H:i:s') . "] Found " . count($recipients) . " recipients for campaign {$campaign['id']}");
+            
+            // Send campaign to all recipients
+            $result = $emailCampaignService->sendCampaignToAll($campaign['id']);
+            
+            if ($result['success']) {
+                error_log("[" . date('Y-m-d H:i:s') . "] Successfully initiated sending for campaign {$campaign['id']}");
+                $processedCount++;
+            } else {
+                error_log("[" . date('Y-m-d H:i:s') . "] Failed to send campaign {$campaign['id']}: " . $result['message']);
+                $scheduledCampaignService->updateCampaignStatus($campaign['id'], 'failed');
+                $errorCount++;
+            }
+            
+        } catch (Exception $e) {
+            error_log("[" . date('Y-m-d H:i:s') . "] Error processing campaign {$campaign['id']}: " . $e->getMessage());
+            $scheduledCampaignService->updateCampaignStatus($campaign['id'], 'failed');
+            $errorCount++;
         }
     }
     
-    echo "Completed at: " . date('Y-m-d H:i:s') . "\n";
-    echo "=== End of Processing ===\n";
+    $executionTime = round(microtime(true) - $startTime, 2);
+    error_log("[" . date('Y-m-d H:i:s') . "] Completed processing. Processed: $processedCount, Errors: $errorCount, Time: {$executionTime}s");
     
 } catch (Exception $e) {
-    echo "❌ Critical error: " . $e->getMessage() . "\n";
-    echo "Stack trace:\n" . $e->getTraceAsString() . "\n";
+    error_log("[" . date('Y-m-d H:i:s') . "] Critical error in scheduled campaigns processing: " . $e->getMessage());
     exit(1);
 }
+
+exit(0);
 ?> 
