@@ -935,16 +935,16 @@ try {
                         <div class="mb-3">
                             <label for="schedule_schedule_type" class="form-label">Schedule Type</label>
                             <select class="form-select" id="schedule_schedule_type" name="schedule_type" required>
+                                <option value="scheduled">Scheduled (One-time)</option>
                                 <option value="immediate">Send Immediately</option>
-                                <option value="scheduled">Scheduled</option>
                                 <option value="recurring">Recurring</option>
                             </select>
                         </div>
-                        <div class="row" id="scheduleOptions" style="display: none;">
+                        <div class="row" id="scheduleOptions">
                             <div class="col-md-6">
                                 <div class="mb-3">
                                     <label for="schedule_date" class="form-label">Schedule Date & Time</label>
-                                    <input type="datetime-local" class="form-control" id="schedule_date" name="schedule_date">
+                                    <input type="datetime-local" class="form-control" id="schedule_date" name="schedule_date" required>
                                     <small class="form-text text-muted">Select when to send the campaign</small>
                                     <div class="mt-2">
                                         <small class="text-info"><i class="bi bi-info-circle"></i> Current server time: <span id="currentServerTime"></span></small>
@@ -2056,10 +2056,11 @@ try {
             try {
                 document.getElementById('schedule_campaign_id').value = campaignId;
                 
-                // Reset form to default state
-                document.getElementById('schedule_schedule_type').value = 'immediate';
-                document.getElementById('scheduleOptions').style.display = 'none';
+                // Reset form to default state - default to scheduled
+                document.getElementById('schedule_schedule_type').value = 'scheduled';
+                document.getElementById('scheduleOptions').style.display = 'flex';
                 document.getElementById('frequencyOptions').style.display = 'none';
+                document.getElementById('schedule_date').required = true;
                 
                 // Fetch campaign data to populate the modal
                 fetch('api/get_campaign.php?id=' + campaignId)
@@ -2330,21 +2331,23 @@ try {
                     const scheduleDateInput = document.getElementById('schedule_date');
                     const frequencyInput = document.getElementById('schedule_frequency');
                     
-                    if (this.value === 'scheduled') {
+                    if (this.value === 'immediate') {
+                        // Hide date/time for immediate sending
+                        scheduleOptions.style.display = 'none';
+                        scheduleDateInput.required = false;
+                        frequencyInput.required = false;
+                    } else if (this.value === 'scheduled') {
+                        // Show only date/time for one-time scheduled
                         scheduleOptions.style.display = 'flex';
                         frequencyOptions.style.display = 'none';
                         scheduleDateInput.required = true;
                         frequencyInput.required = false;
                     } else if (this.value === 'recurring') {
+                        // Show both date/time and frequency for recurring
                         scheduleOptions.style.display = 'flex';
                         frequencyOptions.style.display = 'block';
                         scheduleDateInput.required = true;
                         frequencyInput.required = true;
-                    } else {
-                        scheduleOptions.style.display = 'none';
-                        frequencyOptions.style.display = 'none';
-                        scheduleDateInput.required = false;
-                        frequencyInput.required = false;
                     }
                 });
             }
@@ -2417,8 +2420,10 @@ try {
         // Quick date presets for scheduling
         function addQuickDateButtons() {
             const scheduleDateContainer = document.querySelector('#schedule_date').parentElement;
+            if (!scheduleDateContainer) return;
+            
             const quickDates = document.createElement('div');
-            quickDates.className = 'mt-2';
+            quickDates.className = 'mt-2 quick-date-buttons';
             quickDates.innerHTML = `
                 <small class="text-muted">Quick select:</small>
                 <button type="button" class="btn btn-sm btn-outline-secondary" onclick="setScheduleDate('tomorrow-9am')">Tomorrow 9AM</button>
