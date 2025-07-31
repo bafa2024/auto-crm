@@ -9,7 +9,8 @@ if (session_status() === PHP_SESSION_NONE) {
 $token = $_GET['token'] ?? '';
 
 if (empty($token)) {
-    header("Location: /employee/login");
+    require_once __DIR__ . "/../../config/base_path.php";
+    header("Location: " . base_path('employee/login'));
     exit();
 }
 
@@ -27,7 +28,7 @@ $email = $authTokenModel->verifyToken($token);
 if (!$email) {
     // Invalid or expired token
     $_SESSION['auth_error'] = "Invalid or expired login link. Please request a new one.";
-    header("Location: /employee/login");
+    header("Location: " . base_path('employee/login'));
     exit();
 }
 
@@ -37,7 +38,7 @@ $user = $userModel->findBy("email", $email);
 
 if (!$user || !in_array($user["role"], ['agent', 'manager']) || $user["status"] !== "active") {
     $_SESSION['auth_error'] = "Account not found or inactive.";
-    header("Location: /employee/login");
+    header("Location: " . base_path('employee/login'));
     exit();
 }
 
@@ -50,5 +51,6 @@ $_SESSION["login_time"] = time();
 $_SESSION["login_method"] = "magic_link";
 
 // Redirect to email dashboard for employees
-header("Location: /employee/email-dashboard");
+require_once __DIR__ . "/../../config/base_path.php";
+header("Location: " . base_path('employee/email-dashboard'));
 exit();

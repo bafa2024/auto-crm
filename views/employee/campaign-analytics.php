@@ -5,10 +5,12 @@ if (session_status() === PHP_SESSION_NONE) {
 }
 
 require_once __DIR__ . "/../../config/database.php";
+require_once __DIR__ . "/../../config/base_path.php";
 
 // Check if user is logged in and is an employee
 if (!isset($_SESSION["user_id"]) || !in_array($_SESSION["user_role"], ['agent', 'manager'])) {
-    header("Location: /employee/login");
+    require_once __DIR__ . "/../../config/base_path.php";
+    header("Location: " . base_path('employee/login'));
     exit();
 }
 
@@ -153,37 +155,37 @@ $hourlyEngagement = $stmt->fetchAll();
                     </div>
                     <ul class="nav flex-column">
                         <li class="nav-item">
-                            <a class="nav-link" href="/employee/email-dashboard">
+                            <a class="nav-link" href="<?php echo base_path('employee/email-dashboard'); ?>">
                                 <i class="fas fa-tachometer-alt me-2"></i> Dashboard
                             </a>
                         </li>
                         <li class="nav-item">
-                            <a class="nav-link" href="/employee/campaigns">
+                            <a class="nav-link" href="<?php echo base_path('employee/campaigns'); ?>">
                                 <i class="fas fa-envelope me-2"></i> My Campaigns
                             </a>
                         </li>
                         <li class="nav-item">
-                            <a class="nav-link" href="/employee/campaigns/create">
+                            <a class="nav-link" href="<?php echo base_path('employee/campaigns/create'); ?>">
                                 <i class="fas fa-plus-circle me-2"></i> Create Campaign
                             </a>
                         </li>
                         <li class="nav-item">
-                            <a class="nav-link active" href="/employee/campaigns/analytics">
+                            <a class="nav-link active" href="<?php echo base_path('employee/campaigns/analytics'); ?>">
                                 <i class="fas fa-chart-line me-2"></i> Analytics
                             </a>
                         </li>
                         <li class="nav-item">
-                            <a class="nav-link" href="/employee/contacts">
+                            <a class="nav-link" href="<?php echo base_path('employee/contacts'); ?>">
                                 <i class="fas fa-address-book me-2"></i> Contacts
                             </a>
                         </li>
                         <li class="nav-item">
-                            <a class="nav-link" href="/employee/profile">
+                            <a class="nav-link" href="<?php echo base_path('employee/profile'); ?>">
                                 <i class="fas fa-user me-2"></i> Profile
                             </a>
                         </li>
                         <li class="nav-item">
-                            <a class="nav-link text-danger" href="/employee/logout">
+                            <a class="nav-link text-danger" href="<?php echo base_path('employee/logout'); ?>">
                                 <i class="fas fa-sign-out-alt me-2"></i> Logout
                             </a>
                         </li>
@@ -352,7 +354,7 @@ $hourlyEngagement = $stmt->fetchAll();
                                                 </td>
                                                 <td><?php echo date('M d, Y', strtotime($campaign['created_at'])); ?></td>
                                                 <td>
-                                                    <a href="/employee/campaigns/view/<?php echo $campaign['id']; ?>" class="btn btn-sm btn-info">
+                                                    <a href="<?php echo base_path('employee/campaigns/view/' . $campaign['id']); ?>" class="btn btn-sm btn-info">
                                                         <i class="fas fa-eye"></i>
                                                     </a>
                                                 </td>

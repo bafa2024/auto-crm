@@ -170,18 +170,18 @@ try {
         // Employee Dashboard - Redirect to email dashboard
         case $requestUri === "/employee/dashboard":
             if (!isset($_SESSION["user_id"]) || !in_array($_SESSION["user_role"], ['agent', 'manager'])) {
-                header("Location: /employee/login");
+                header("Location: " . base_path('employee/login'));
                 exit;
             }
             // Redirect to email dashboard for employees
-            header("Location: /employee/email-dashboard");
+            header("Location: " . base_path('employee/email-dashboard'));
             exit;
             break;
             
         // Employee Email Dashboard
         case $requestUri === "/employee/email-dashboard":
             if (!isset($_SESSION["user_id"]) || !in_array($_SESSION["user_role"], ['agent', 'manager'])) {
-                header("Location: /employee/login");
+                header("Location: " . base_path('employee/login'));
                 exit;
             }
             require_once __DIR__ . "/views/employee/email-dashboard.php";
@@ -190,7 +190,7 @@ try {
         // Employee Campaigns
         case strpos($requestUri, "/employee/campaigns") === 0:
             if (!isset($_SESSION["user_id"]) || !in_array($_SESSION["user_role"], ['agent', 'manager'])) {
-                header("Location: /employee/login");
+                header("Location: " . base_path('employee/login'));
                 exit;
             }
             
@@ -218,7 +218,7 @@ try {
         // Employee Contacts
         case $requestUri === "/employee/contacts":
             if (!isset($_SESSION["user_id"]) || !in_array($_SESSION["user_role"], ['agent', 'manager'])) {
-                header("Location: /employee/login");
+                header("Location: " . base_path('employee/login'));
                 exit;
             }
             require_once __DIR__ . "/views/employee/contacts.php";
@@ -227,7 +227,7 @@ try {
         // Employee Profile
         case $requestUri === "/employee/profile":
             if (!isset($_SESSION["user_id"]) || !in_array($_SESSION["user_role"], ['agent', 'manager'])) {
-                header("Location: /employee/login");
+                header("Location: " . base_path('employee/login'));
                 exit;
             }
             require_once __DIR__ . "/views/employee/profile.php";

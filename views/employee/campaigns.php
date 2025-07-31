@@ -108,34 +108,34 @@ $campaigns = $stmt->fetchAll();
                     </div>
                     <ul class="nav flex-column">
                         <li class="nav-item">
-                            <a class="nav-link" href="<?php echo base_path(); ?>/employee/email-dashboard">
-                                <i class="fas fa-tachometer-alt me-2"></i> Dashboard
-                            </a>
-                        </li>
-                        <li class="nav-item">
-                            <a class="nav-link active" href="<?php echo base_path(); ?>/employee/campaigns">
-                                <i class="fas fa-envelope me-2"></i> My Campaigns
-                            </a>
-                        </li>
-                        <li class="nav-item">
-                            <a class="nav-link" href="<?php echo base_path(); ?>/employee/campaigns/create">
-                                <i class="fas fa-plus-circle me-2"></i> Create Campaign
-                            </a>
-                        </li>
-                        <li class="nav-item">
-                            <a class="nav-link" href="<?php echo base_path(); ?>/employee/contacts">
-                                <i class="fas fa-address-book me-2"></i> Contacts
-                            </a>
-                        </li>
-                        <li class="nav-item">
-                            <a class="nav-link" href="<?php echo base_path(); ?>/employee/profile">
-                                <i class="fas fa-user me-2"></i> Profile
-                            </a>
-                        </li>
-                        <li class="nav-item">
-                            <a class="nav-link text-danger" href="<?php echo base_path(); ?>/employee/logout">
-                                <i class="fas fa-sign-out-alt me-2"></i> Logout
-                            </a>
+                                                    <a class="nav-link" href="<?php echo base_path('employee/email-dashboard'); ?>">
+                            <i class="fas fa-tachometer-alt me-2"></i> Dashboard
+                        </a>
+                    </li>
+                    <li class="nav-item">
+                        <a class="nav-link active" href="<?php echo base_path('employee/campaigns'); ?>">
+                            <i class="fas fa-envelope me-2"></i> My Campaigns
+                        </a>
+                    </li>
+                    <li class="nav-item">
+                        <a class="nav-link" href="<?php echo base_path('employee/campaigns/create'); ?>">
+                            <i class="fas fa-plus-circle me-2"></i> Create Campaign
+                        </a>
+                    </li>
+                    <li class="nav-item">
+                        <a class="nav-link" href="<?php echo base_path('employee/contacts'); ?>">
+                            <i class="fas fa-address-book me-2"></i> Contacts
+                        </a>
+                    </li>
+                    <li class="nav-item">
+                        <a class="nav-link" href="<?php echo base_path('employee/profile'); ?>">
+                            <i class="fas fa-user me-2"></i> Profile
+                        </a>
+                    </li>
+                    <li class="nav-item">
+                        <a class="nav-link text-danger" href="<?php echo base_path('employee/logout'); ?>">
+                            <i class="fas fa-sign-out-alt me-2"></i> Logout
+                        </a>
                         </li>
                     </ul>
                 </div>
@@ -147,7 +147,7 @@ $campaigns = $stmt->fetchAll();
                     <h1 class="h2">My Email Campaigns</h1>
                     <div class="btn-toolbar mb-2 mb-md-0">
                         <?php if ($permissions['can_create_campaigns']): ?>
-                        <a href="<?php echo base_path(); ?>/employee/campaigns/create" class="btn btn-primary">
+                        <a href="<?php echo base_path('employee/campaigns/create'); ?>" class="btn btn-primary">
                             <i class="fas fa-plus me-2"></i>New Campaign
                         </a>
                         <?php endif; ?>
@@ -178,7 +178,7 @@ $campaigns = $stmt->fetchAll();
                                 <button type="submit" class="btn btn-primary me-2">
                                     <i class="fas fa-filter"></i> Filter
                                 </button>
-                                <a href="<?php echo base_path(); ?>/employee/campaigns" class="btn btn-secondary">
+                                <a href="<?php echo base_path('employee/campaigns'); ?>" class="btn btn-secondary">
                                     <i class="fas fa-times"></i> Clear
                                 </a>
                             </div>
@@ -197,7 +197,7 @@ $campaigns = $stmt->fetchAll();
                                 <i class="fas fa-inbox fa-4x text-muted mb-3"></i>
                                 <h5 class="text-muted">No campaigns found</h5>
                                 <p class="text-muted">Create your first campaign to get started!</p>
-                                                                 <a href="<?php echo base_path(); ?>/employee/campaigns/create" class="btn btn-primary">
+                                                                 <a href="<?php echo base_path('employee/campaigns/create'); ?>" class="btn btn-primary">
                                     <i class="fas fa-plus me-2"></i>Create Campaign
                                 </a>
                             </div>
@@ -250,13 +250,13 @@ $campaigns = $stmt->fetchAll();
                                                 <td><?php echo $stats['sent'] ?? 0; ?></td>
                                                 <td><?php echo date('M d, Y', strtotime($campaign['created_at'])); ?></td>
                                                 <td class="campaign-actions">
-                                                                                                         <a href="<?php echo base_path(); ?>/employee/campaigns/view/<?php echo $campaign['id']; ?>"  
+                                                                                                         <a href="<?php echo base_path('employee/campaigns/view/' . $campaign['id']); ?>"  
                                                        class="btn btn-sm btn-info" title="View">
                                                         <i class="fas fa-eye"></i>
                                                     </a>
                                                     <?php if ($campaign['status'] === 'draft'): ?>
                                                         <?php if ($permissions['can_edit_campaigns']): ?>
-                                                                                                                 <a href="<?php echo base_path(); ?>/employee/campaigns/edit/<?php echo $campaign['id']; ?>"  
+                                                                                                                 <a href="<?php echo base_path('employee/campaigns/edit/' . $campaign['id']); ?>"  
                                                            class="btn btn-sm btn-warning" title="Edit">
                                                             <i class="fas fa-edit"></i>
                                                         </a>
@@ -311,15 +311,15 @@ $campaigns = $stmt->fetchAll();
                                 <nav aria-label="Page navigation" class="mt-4">
                                     <ul class="pagination justify-content-center">
                                         <li class="page-item <?php echo $page <= 1 ? 'disabled' : ''; ?>">
-                                                                                         <a class="page-link" href="<?php echo base_path(); ?>/employee/campaigns?page=<?php echo ($page - 1); ?>&status=<?php echo $status; ?>&search=<?php echo $search; ?>">Previous</a>
+                                                                                         <a class="page-link" href="<?php echo base_path('employee/campaigns?page=' . ($page - 1) . '&status=' . $status . '&search=' . $search); ?>">Previous</a>
                                         </li>
                                         <?php for ($i = 1; $i <= $totalPages; $i++): ?>
                                             <li class="page-item <?php echo $i === $page ? 'active' : ''; ?>">
-                                                                                                 <a class="page-link" href="<?php echo base_path(); ?>/employee/campaigns?page=<?php echo $i; ?>&status=<?php echo $status; ?>&search=<?php echo $search; ?>"><?php echo $i; ?></a>
+                                                                                                 <a class="page-link" href="<?php echo base_path('employee/campaigns?page=' . $i . '&status=' . $status . '&search=' . $search); ?>"><?php echo $i; ?></a>
                                             </li>
                                         <?php endfor; ?>
                                                                                  <li class="page-item <?php echo $page >= $totalPages ? 'disabled' : ''; ?>">
-                                             <a class="page-link" href="<?php echo base_path(); ?>/employee/campaigns?page=<?php echo ($page + 1); ?>&status=<?php echo $status; ?>&search=<?php echo $search; ?>">Next</a>
+                                             <a class="page-link" href="<?php echo base_path('employee/campaigns?page=' . ($page + 1) . '&status=' . $status . '&search=' . $search); ?>">Next</a>
                                         </li>
                                     </ul>
                                 </nav>

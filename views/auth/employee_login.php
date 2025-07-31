@@ -8,7 +8,7 @@ require_once __DIR__ . "/../../config/base_path.php";
 
 // Redirect if already logged in
 if (isset($_SESSION["user_id"]) && in_array($_SESSION["user_role"], ['agent', 'manager'])) {
-    header("Location: " . base_path() . "/employee/email-dashboard");
+    header("Location: " . base_path('employee/email-dashboard'));
     exit();
 }
 
@@ -37,10 +37,10 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['email']) && isset($_P
         $_SESSION["login_method"] = "email_password";
         
         // Debug info
-        error_log("Employee login successful: " . $email . " -> " . base_path() . "/employee/email-dashboard");
+        error_log("Employee login successful: " . $email . " -> " . base_path('employee/email-dashboard'));
         
         // Redirect to email dashboard
-        header("Location: " . base_path() . "/employee/email-dashboard");
+        header("Location: " . base_path('employee/email-dashboard'));
         exit();
     } else {
         // Debug info

@@ -2,7 +2,8 @@
 session_start();
 // Redirect if already logged in
 if (isset($_SESSION["user_id"]) && in_array($_SESSION["user_role"], ['agent', 'manager'])) {
-    header("Location: /employee/email-dashboard");
+    require_once __DIR__ . "/../../config/base_path.php";
+    header("Location: " . base_path('employee/email-dashboard'));
     exit();
 }
 
@@ -30,7 +31,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['email'])) {
         $_SESSION["login_method"] = "email_only";
         
         // Redirect to email dashboard
-        header("Location: /employee/email-dashboard");
+        header("Location: " . base_path('employee/email-dashboard'));
         exit();
     } else {
         $error = "Email not found or account inactive. Please contact admin.";

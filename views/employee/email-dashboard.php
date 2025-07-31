@@ -11,7 +11,7 @@ require_once __DIR__ . "/../../config/base_path.php";
 
 // Check if user is logged in and is an employee
 if (!isset($_SESSION["user_id"]) || !in_array($_SESSION["user_role"], ['agent', 'manager'])) {
-    header("Location: " . base_path() . "/employee/login");
+    header("Location: " . base_path('employee/login'));
     exit();
 }
 
@@ -113,32 +113,32 @@ $totalContacts = $stmt->fetch()['total'];
                     </div>
                     <ul class="nav flex-column">
                         <li class="nav-item">
-                            <a class="nav-link active" href="<?php echo base_path(); ?>/employee/email-dashboard">
+                            <a class="nav-link active" href="<?php echo base_path('employee/email-dashboard'); ?>">
                                 <i class="fas fa-tachometer-alt me-2"></i> Dashboard
                             </a>
                         </li>
                         <li class="nav-item">
-                            <a class="nav-link" href="<?php echo base_path(); ?>/employee/campaigns">
+                            <a class="nav-link" href="<?php echo base_path('employee/campaigns'); ?>">
                                 <i class="fas fa-envelope me-2"></i> My Campaigns
                             </a>
                         </li>
                         <li class="nav-item">
-                            <a class="nav-link" href="<?php echo base_path(); ?>/employee/campaigns/create">
+                            <a class="nav-link" href="<?php echo base_path('employee/campaigns/create'); ?>">
                                 <i class="fas fa-plus-circle me-2"></i> Create Campaign
                             </a>
                         </li>
                         <li class="nav-item">
-                            <a class="nav-link" href="<?php echo base_path(); ?>/employee/contacts">
+                            <a class="nav-link" href="<?php echo base_path('employee/contacts'); ?>">
                                 <i class="fas fa-address-book me-2"></i> Contacts
                             </a>
                         </li>
                         <li class="nav-item">
-                            <a class="nav-link" href="<?php echo base_path(); ?>/employee/profile">
+                            <a class="nav-link" href="<?php echo base_path('employee/profile'); ?>">
                                 <i class="fas fa-user me-2"></i> Profile
                             </a>
                         </li>
                         <li class="nav-item">
-                            <a class="nav-link text-danger" href="<?php echo base_path(); ?>/employee/logout">
+                            <a class="nav-link text-danger" href="<?php echo base_path('employee/logout'); ?>">
                                 <i class="fas fa-sign-out-alt me-2"></i> Logout
                             </a>
                         </li>
@@ -152,7 +152,7 @@ $totalContacts = $stmt->fetch()['total'];
                     <h1 class="h2">Email Campaign Dashboard</h1>
                     <div class="btn-toolbar mb-2 mb-md-0">
                         <?php if ($permissions['can_create_campaigns']): ?>
-                        <a href="<?php echo base_path(); ?>/employee/campaigns/create" class="btn btn-primary">
+                        <a href="<?php echo base_path('employee/campaigns/create'); ?>" class="btn btn-primary">
                             <i class="fas fa-plus me-2"></i>New Campaign
                         </a>
                         <?php endif; ?>
@@ -248,7 +248,7 @@ $totalContacts = $stmt->fetch()['total'];
                                     <div class="text-center text-muted py-4">
                                         <i class="fas fa-inbox fa-3x mb-3"></i>
                                         <p>No campaigns created yet.</p>
-                                        <a href="<?php echo base_path(); ?>/employee/campaigns/create" class="btn btn-primary">
+                                        <a href="<?php echo base_path('employee/campaigns/create'); ?>" class="btn btn-primary">
                                             <i class="fas fa-plus me-2"></i>Create Your First Campaign
                                         </a>
                                     </div>
@@ -294,11 +294,11 @@ $totalContacts = $stmt->fetch()['total'];
                                                         <td><?php echo number_format($campaign['recipient_count'] ?? 0); ?></td>
                                                         <td><?php echo date('M j, Y', strtotime($campaign['created_at'])); ?></td>
                                                         <td>
-                                                            <a href="<?php echo base_path(); ?>/employee/campaigns/view/<?php echo $campaign['id']; ?>" 
+                                                            <a href="<?php echo base_path('employee/campaigns/view/' . $campaign['id']); ?>" 
                                                                class="btn btn-sm btn-outline-primary">
                                                                 <i class="fas fa-eye"></i>
                                                             </a>
-                                                            <a href="<?php echo base_path(); ?>/employee/campaigns/edit/<?php echo $campaign['id']; ?>" 
+                                                            <a href="<?php echo base_path('employee/campaigns/edit/' . $campaign['id']); ?>" 
                                                                class="btn btn-sm btn-outline-secondary">
                                                                 <i class="fas fa-edit"></i>
                                                             </a>

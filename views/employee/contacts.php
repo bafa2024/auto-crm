@@ -1,7 +1,8 @@
 <?php
 // Check if user is logged in and is an employee
 if (!isset($_SESSION["user_id"]) || !in_array($_SESSION["user_role"], ['agent', 'manager'])) {
-    header("Location: /employee/login");
+    require_once __DIR__ . "/../../config/base_path.php";
+    header("Location: " . base_path('employee/login'));
     exit;
 }
 

@@ -69,7 +69,12 @@ error_reporting(E_ALL);
                         if ($token) {
                             $protocol = isset($_SERVER['HTTPS']) && $_SERVER['HTTPS'] === 'on' ? 'https' : 'http';
                             $host = $_SERVER['HTTP_HOST'];
-                            $loginUrl = "{$protocol}://{$host}/employee/auth?token={$token}";
+                            
+                            // Get base path
+                            require_once __DIR__ . "/config/base_path.php";
+                            $basePath = BasePath::getBasePath();
+                            
+                            $loginUrl = "{$protocol}://{$host}{$basePath}/employee/auth?token={$token}";
                             
                             echo '<div class="alert alert-success">';
                             echo '<h5>✅ Magic link generated!</h5>';

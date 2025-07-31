@@ -5,6 +5,7 @@ if (session_status() === PHP_SESSION_NONE) {
 }
 
 require_once __DIR__ . "/../../config/database.php";
+require_once __DIR__ . "/../../config/base_path.php";
 require_once __DIR__ . "/../../models/EmailCampaign.php";
 require_once __DIR__ . "/../../models/Contact.php";
 require_once __DIR__ . "/../../models/EmployeePermission.php";
@@ -12,7 +13,8 @@ require_once __DIR__ . "/../../models/EmailTemplate.php";
 
 // Check if user is logged in and is an employee
 if (!isset($_SESSION["user_id"]) || !in_array($_SESSION["user_role"], ['agent', 'manager'])) {
-    header("Location: /employee/login");
+    require_once __DIR__ . "/../../config/base_path.php";
+    header("Location: " . base_path('employee/login'));
     exit();
 }
 
@@ -25,7 +27,8 @@ $permissions = $permissionModel->getUserPermissions($_SESSION["user_id"]);
 
 if (!$permissions['can_create_campaigns']) {
     $_SESSION['error'] = "You don't have permission to create campaigns.";
-    header("Location: /employee/campaigns");
+    require_once __DIR__ . "/../../config/base_path.php";
+    header("Location: " . base_path('employee/campaigns'));
     exit();
 }
 
@@ -103,32 +106,32 @@ $templateCategories = $templateModel->getCategories();
                     </div>
                     <ul class="nav flex-column">
                         <li class="nav-item">
-                            <a class="nav-link" href="/employee/email-dashboard">
+                            <a class="nav-link" href="<?php echo base_path('employee/email-dashboard'); ?>">
                                 <i class="fas fa-tachometer-alt me-2"></i> Dashboard
                             </a>
                         </li>
                         <li class="nav-item">
-                            <a class="nav-link" href="/employee/campaigns">
+                            <a class="nav-link" href="<?php echo base_path('employee/campaigns'); ?>">
                                 <i class="fas fa-envelope me-2"></i> My Campaigns
                             </a>
                         </li>
                         <li class="nav-item">
-                            <a class="nav-link active" href="/employee/campaigns/create">
+                            <a class="nav-link active" href="<?php echo base_path('employee/campaigns/create'); ?>">
                                 <i class="fas fa-plus-circle me-2"></i> Create Campaign
                             </a>
                         </li>
                         <li class="nav-item">
-                            <a class="nav-link" href="/employee/contacts">
+                            <a class="nav-link" href="<?php echo base_path('employee/contacts'); ?>">
                                 <i class="fas fa-address-book me-2"></i> Contacts
                             </a>
                         </li>
                         <li class="nav-item">
-                            <a class="nav-link" href="/employee/profile">
+                            <a class="nav-link" href="<?php echo base_path('employee/profile'); ?>">
                                 <i class="fas fa-user me-2"></i> Profile
                             </a>
                         </li>
                         <li class="nav-item">
-                            <a class="nav-link text-danger" href="/employee/logout">
+                            <a class="nav-link text-danger" href="<?php echo base_path('employee/logout'); ?>">
                                 <i class="fas fa-sign-out-alt me-2"></i> Logout
                             </a>
                         </li>
@@ -141,7 +144,7 @@ $templateCategories = $templateModel->getCategories();
                 <div class="d-flex justify-content-between flex-wrap flex-md-nowrap align-items-center pt-3 pb-2 mb-3 border-bottom">
                     <h1 class="h2">Create New Campaign</h1>
                     <div class="btn-toolbar mb-2 mb-md-0">
-                        <a href="/employee/campaigns" class="btn btn-secondary">
+                        <a href="<?php echo base_path('employee/campaigns'); ?>" class="btn btn-secondary">
                             <i class="fas fa-arrow-left me-2"></i>Back to Campaigns
                         </a>
                     </div>
@@ -559,7 +562,7 @@ $templateCategories = $templateModel->getCategories();
                 
                 if (response.ok && result.success) {
                     // Redirect to campaigns list
-                    window.location.href = '/employee/campaigns';
+                    window.location.href = basePath + '/employee/campaigns';
                 } else {
                     alert(result.message || 'Failed to create campaign');
                 }

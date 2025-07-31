@@ -72,7 +72,7 @@ class BasePath {
     public static function url($path = '') {
         $basePath = self::getBasePath();
         $path = ltrim($path, '/');
-        return $basePath . '/' . $path;
+        return $basePath . ($path ? '/' . $path : '');
     }
     
     /**
@@ -81,7 +81,7 @@ class BasePath {
     public static function absoluteUrl($path = '') {
         $baseUrl = self::getBaseUrl();
         $path = ltrim($path, '/');
-        return $baseUrl . '/' . $path;
+        return $baseUrl . ($path ? '/' . $path : '');
     }
     
     /**
@@ -114,7 +114,9 @@ class BasePath {
 
 // Helper functions for easy access
 function base_path($path = '') {
-    return BasePath::url($path);
+    $basePath = BasePath::getBasePath();
+    $path = ltrim($path, '/');
+    return $basePath . ($path ? '/' . $path : '');
 }
 
 function base_url($path = '') {

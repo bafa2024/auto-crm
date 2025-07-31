@@ -2,7 +2,8 @@
 session_start();
 // Redirect if already logged in
 if (isset($_SESSION["user_id"]) && in_array($_SESSION["user_role"], ['agent', 'manager'])) {
-    header("Location: /employee/dashboard");
+    require_once __DIR__ . "/../../config/base_path.php";
+    header("Location: " . base_path('employee/dashboard'));
     exit();
 }
 
