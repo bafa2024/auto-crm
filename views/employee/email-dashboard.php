@@ -26,6 +26,11 @@ require_once __DIR__ . "/../../models/EmployeePermission.php";
 $permissionModel = new EmployeePermission($db);
 $permissions = $permissionModel->getUserPermissions($_SESSION["user_id"]);
 
+// Helper function to check permissions
+function hasPermission($permissions, $permission) {
+    return isset($permissions[$permission]) && $permissions[$permission];
+}
+
 // Get statistics for the employee
 $userId = $_SESSION["user_id"];
 
@@ -59,9 +64,12 @@ $stmt = $db->prepare("
 $stmt->execute([$userId]);
 $recentCampaigns = $stmt->fetchAll();
 
-// Get total contacts available
-$stmt = $db->query("SELECT COUNT(*) as total FROM contacts");
-$totalContacts = $stmt->fetch()['total'];
+// Get total contacts available (only if user has permission to view contacts)
+$totalContacts = 0;
+if (hasPermission($permissions, 'can_upload_contacts')) {
+    $stmt = $db->query("SELECT COUNT(*) as total FROM contacts");
+    $totalContacts = $stmt->fetch()['total'];
+}
 ?>
 
 <!DOCTYPE html>
@@ -117,21 +125,27 @@ $totalContacts = $stmt->fetch()['total'];
                                 <i class="fas fa-tachometer-alt me-2"></i> Dashboard
                             </a>
                         </li>
+                        <?php if (hasPermission($permissions, 'can_create_campaigns') || hasPermission($permissions, 'can_view_all_campaigns')): ?>
                         <li class="nav-item">
                             <a class="nav-link" href="<?php echo base_path('employee/campaigns'); ?>">
                                 <i class="fas fa-envelope me-2"></i> My Campaigns
                             </a>
                         </li>
+                        <?php endif; ?>
+                        <?php if (hasPermission($permissions, 'can_create_campaigns')): ?>
                         <li class="nav-item">
                             <a class="nav-link" href="<?php echo base_path('employee/campaigns/create'); ?>">
                                 <i class="fas fa-plus-circle me-2"></i> Create Campaign
                             </a>
                         </li>
+                        <?php endif; ?>
+                        <?php if (hasPermission($permissions, 'can_upload_contacts')): ?>
                         <li class="nav-item">
                             <a class="nav-link" href="<?php echo base_path('employee/contacts'); ?>">
                                 <i class="fas fa-address-book me-2"></i> Contacts
                             </a>
                         </li>
+                        <?php endif; ?>
                         <li class="nav-item">
                             <a class="nav-link" href="<?php echo base_path('employee/profile'); ?>">
                                 <i class="fas fa-user me-2"></i> Profile
@@ -151,7 +165,7 @@ $totalContacts = $stmt->fetch()['total'];
                 <div class="d-flex justify-content-between flex-wrap flex-md-nowrap align-items-center pt-3 pb-2 mb-3 border-bottom">
                     <h1 class="h2">Email Campaign Dashboard</h1>
                     <div class="btn-toolbar mb-2 mb-md-0">
-                        <?php if ($permissions['can_create_campaigns']): ?>
+                        <?php if (hasPermission($permissions, 'can_create_campaigns')): ?>
                         <a href="<?php echo base_path('employee/campaigns/create'); ?>" class="btn btn-primary">
                             <i class="fas fa-plus me-2"></i>New Campaign
                         </a>
@@ -161,6 +175,7 @@ $totalContacts = $stmt->fetch()['total'];
 
                 <!-- Statistics Cards -->
                 <div class="row mb-4">
+                    <?php if (hasPermission($permissions, 'can_create_campaigns') || hasPermission($permissions, 'can_view_all_campaigns')): ?>
                     <div class="col-xl-3 col-md-6 mb-4">
                         <div class="card stat-card primary h-100">
                             <div class="card-body">
@@ -214,7 +229,9 @@ $totalContacts = $stmt->fetch()['total'];
                             </div>
                         </div>
                     </div>
+                    <?php endif; ?>
 
+                    <?php if (hasPermission($permissions, 'can_upload_contacts')): ?>
                     <div class="col-xl-3 col-md-6 mb-4">
                         <div class="card stat-card warning h-100">
                             <div class="card-body">
@@ -232,9 +249,11 @@ $totalContacts = $stmt->fetch()['total'];
                             </div>
                         </div>
                     </div>
+                    <?php endif; ?>
                 </div>
 
                 <!-- Recent Campaigns -->
+                <?php if (hasPermission($permissions, 'can_create_campaigns') || hasPermission($permissions, 'can_view_all_campaigns')): ?>
                 <div class="row">
                     <div class="col-12">
                         <div class="card">
@@ -248,9 +267,11 @@ $totalContacts = $stmt->fetch()['total'];
                                     <div class="text-center text-muted py-4">
                                         <i class="fas fa-inbox fa-3x mb-3"></i>
                                         <p>No campaigns created yet.</p>
+                                        <?php if (hasPermission($permissions, 'can_create_campaigns')): ?>
                                         <a href="<?php echo base_path('employee/campaigns/create'); ?>" class="btn btn-primary">
                                             <i class="fas fa-plus me-2"></i>Create Your First Campaign
                                         </a>
+                                        <?php endif; ?>
                                     </div>
                                 <?php else: ?>
                                     <div class="table-responsive">
@@ -298,10 +319,12 @@ $totalContacts = $stmt->fetch()['total'];
                                                                class="btn btn-sm btn-outline-primary">
                                                                 <i class="fas fa-eye"></i>
                                                             </a>
+                                                            <?php if (hasPermission($permissions, 'can_edit_campaigns')): ?>
                                                             <a href="<?php echo base_path('employee/campaigns/edit/' . $campaign['id']); ?>" 
                                                                class="btn btn-sm btn-outline-secondary">
                                                                 <i class="fas fa-edit"></i>
                                                             </a>
+                                                            <?php endif; ?>
                                                         </td>
                                                     </tr>
                                                 <?php endforeach; ?>
@@ -313,6 +336,22 @@ $totalContacts = $stmt->fetch()['total'];
                         </div>
                     </div>
                 </div>
+                <?php endif; ?>
+
+                <!-- No Permissions Message -->
+                <?php if (!hasPermission($permissions, 'can_create_campaigns') && !hasPermission($permissions, 'can_view_all_campaigns') && !hasPermission($permissions, 'can_upload_contacts')): ?>
+                <div class="row">
+                    <div class="col-12">
+                        <div class="card">
+                            <div class="card-body text-center py-5">
+                                <i class="fas fa-lock fa-3x text-muted mb-3"></i>
+                                <h4 class="text-muted">No Permissions Assigned</h4>
+                                <p class="text-muted">You don't have any permissions assigned yet. Please contact your administrator to get access to campaign features.</p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                <?php endif; ?>
             </main>
         </div>
     </div>

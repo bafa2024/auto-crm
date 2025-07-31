@@ -21,34 +21,44 @@ if (!isset($_SESSION["user_id"]) || !in_array($_SESSION["user_role"], ['agent', 
 $database = new Database();
 $db = $database->getConnection();
 
-// Check if user has permission to create campaigns
+// Get user permissions
 $permissionModel = new EmployeePermission($db);
 $permissions = $permissionModel->getUserPermissions($_SESSION["user_id"]);
 
-if (!$permissions['can_create_campaigns']) {
+// Helper function to check permissions
+function hasPermission($permissions, $permission) {
+    return isset($permissions[$permission]) && $permissions[$permission];
+}
+
+// Check if user has permission to create campaigns
+if (!hasPermission($permissions, 'can_create_campaigns')) {
     $_SESSION['error'] = "You don't have permission to create campaigns.";
-    require_once __DIR__ . "/../../config/base_path.php";
     header("Location: " . base_path('employee/campaigns'));
     exit();
 }
 
-// Get total contacts
-$stmt = $db->query("SELECT COUNT(*) as total FROM contacts");
-$totalContacts = $stmt->fetch()['total'];
+// Get total contacts (only if user has permission to view contacts)
+$totalContacts = 0;
+if (hasPermission($permissions, 'can_upload_contacts')) {
+    $stmt = $db->query("SELECT COUNT(*) as total FROM contacts");
+    $totalContacts = $stmt->fetch()['total'];
+}
 
-// Get contact groups/tags for targeting
-$stmt = $db->query("SELECT DISTINCT tags FROM contacts WHERE tags IS NOT NULL AND tags != ''");
+// Get contact groups/tags for targeting (only if user has permission to view contacts)
 $tags = [];
-while ($row = $stmt->fetch()) {
-    $contactTags = explode(',', $row['tags']);
-    foreach ($contactTags as $tag) {
-        $tag = trim($tag);
-        if ($tag && !in_array($tag, $tags)) {
-            $tags[] = $tag;
+if (hasPermission($permissions, 'can_upload_contacts')) {
+    $stmt = $db->query("SELECT DISTINCT tags FROM contacts WHERE tags IS NOT NULL AND tags != ''");
+    while ($row = $stmt->fetch()) {
+        $contactTags = explode(',', $row['tags']);
+        foreach ($contactTags as $tag) {
+            $tag = trim($tag);
+            if ($tag && !in_array($tag, $tags)) {
+                $tags[] = $tag;
+            }
         }
     }
+    sort($tags);
 }
-sort($tags);
 
 // Get email templates
 $templateModel = new EmailTemplate($db);
@@ -97,47 +107,7 @@ $templateCategories = $templateModel->getCategories();
     <div class="container-fluid">
         <div class="row">
             <!-- Sidebar -->
-            <nav class="col-md-3 col-lg-2 d-md-block sidebar collapse">
-                <div class="position-sticky pt-3">
-                    <div class="text-center text-white mb-4">
-                        <i class="fas fa-user-circle fa-3x"></i>
-                        <h6 class="mt-2"><?php echo htmlspecialchars($_SESSION["user_name"]); ?></h6>
-                        <small><?php echo ucfirst($_SESSION["user_role"]); ?></small>
-                    </div>
-                    <ul class="nav flex-column">
-                        <li class="nav-item">
-                            <a class="nav-link" href="<?php echo base_path('employee/email-dashboard'); ?>">
-                                <i class="fas fa-tachometer-alt me-2"></i> Dashboard
-                            </a>
-                        </li>
-                        <li class="nav-item">
-                            <a class="nav-link" href="<?php echo base_path('employee/campaigns'); ?>">
-                                <i class="fas fa-envelope me-2"></i> My Campaigns
-                            </a>
-                        </li>
-                        <li class="nav-item">
-                            <a class="nav-link active" href="<?php echo base_path('employee/campaigns/create'); ?>">
-                                <i class="fas fa-plus-circle me-2"></i> Create Campaign
-                            </a>
-                        </li>
-                        <li class="nav-item">
-                            <a class="nav-link" href="<?php echo base_path('employee/contacts'); ?>">
-                                <i class="fas fa-address-book me-2"></i> Contacts
-                            </a>
-                        </li>
-                        <li class="nav-item">
-                            <a class="nav-link" href="<?php echo base_path('employee/profile'); ?>">
-                                <i class="fas fa-user me-2"></i> Profile
-                            </a>
-                        </li>
-                        <li class="nav-item">
-                            <a class="nav-link text-danger" href="<?php echo base_path('employee/logout'); ?>">
-                                <i class="fas fa-sign-out-alt me-2"></i> Logout
-                            </a>
-                        </li>
-                    </ul>
-                </div>
-            </nav>
+            <?php include __DIR__ . "/../components/employee-sidebar.php"; ?>
 
             <!-- Main content -->
             <main class="col-md-9 ms-sm-auto col-lg-10 px-md-4">
@@ -153,181 +123,163 @@ $templateCategories = $templateModel->getCategories();
                 <form id="campaignForm" method="POST">
                     <div class="row">
                         <div class="col-lg-8">
-                            <!-- Basic Information -->
+                            <!-- Campaign Details -->
                             <div class="form-section">
-                                <h5 class="mb-3">Campaign Details</h5>
-                                <div class="mb-3">
-                                    <label for="name" class="form-label">Campaign Name *</label>
-                                    <input type="text" class="form-control" id="name" name="name" required 
-                                           placeholder="e.g., Holiday Sale Campaign">
+                                <h5 class="mb-3">
+                                    <i class="fas fa-info-circle me-2"></i>Campaign Details
+                                </h5>
+                                <div class="row">
+                                    <div class="col-md-6 mb-3">
+                                        <label for="campaignName" class="form-label">Campaign Name *</label>
+                                        <input type="text" class="form-control" id="campaignName" name="name" required>
+                                    </div>
+                                    <div class="col-md-6 mb-3">
+                                        <label for="campaignSubject" class="form-label">Email Subject *</label>
+                                        <input type="text" class="form-control" id="campaignSubject" name="subject" required>
+                                    </div>
                                 </div>
                                 <div class="mb-3">
-                                    <label for="subject" class="form-label">Email Subject *</label>
-                                    <input type="text" class="form-control" id="subject" name="subject" required 
-                                           placeholder="e.g., Special Holiday Offer Just for You!">
-                                </div>
-                                <div class="mb-3">
-                                    <label for="from_name" class="form-label">From Name *</label>
-                                    <input type="text" class="form-control" id="from_name" name="from_name" required 
-                                           value="<?php echo htmlspecialchars($_SESSION["user_name"]); ?>">
-                                </div>
-                                <div class="mb-3">
-                                    <label for="from_email" class="form-label">From Email *</label>
-                                    <input type="email" class="form-control" id="from_email" name="from_email" required 
-                                           placeholder="noreply@company.com">
+                                    <label for="campaignDescription" class="form-label">Description</label>
+                                    <textarea class="form-control" id="campaignDescription" name="description" rows="3"></textarea>
                                 </div>
                             </div>
 
-                            <!-- Email Template Selection -->
+                            <!-- Recipients -->
+                            <?php if (hasPermission($permissions, 'can_upload_contacts')): ?>
                             <div class="form-section">
-                                <h5 class="mb-3">Email Template (Optional)</h5>
+                                <h5 class="mb-3">
+                                    <i class="fas fa-users me-2"></i>Recipients
+                                </h5>
+                                <div class="row">
+                                    <div class="col-md-6 mb-3">
+                                        <label for="recipientType" class="form-label">Recipient Type</label>
+                                        <select class="form-select" id="recipientType" name="recipient_type">
+                                            <option value="all">All Contacts (<?php echo number_format($totalContacts); ?>)</option>
+                                            <option value="tags">By Tags</option>
+                                            <option value="custom">Custom List</option>
+                                        </select>
+                                    </div>
+                                    <div class="col-md-6 mb-3">
+                                        <label for="tags" class="form-label">Tags (Optional)</label>
+                                        <select class="form-select" id="tags" name="tags[]" multiple>
+                                            <?php foreach ($tags as $tag): ?>
+                                                <option value="<?php echo htmlspecialchars($tag); ?>"><?php echo htmlspecialchars($tag); ?></option>
+                                            <?php endforeach; ?>
+                                        </select>
+                                    </div>
+                                </div>
                                 <div class="mb-3">
-                                    <select class="form-select" id="template-select" onchange="loadTemplate()">
-                                        <option value="">Start from scratch</option>
-                                        <?php foreach ($templateCategories as $category): ?>
-                                            <optgroup label="<?php echo htmlspecialchars($category); ?>">
-                                                <?php foreach ($templates as $template): ?>
-                                                    <?php if ($template['category'] === $category): ?>
-                                                        <option value="<?php echo $template['id']; ?>" 
-                                                                data-subject="<?php echo htmlspecialchars($template['subject']); ?>"
-                                                                data-content="<?php echo htmlspecialchars($template['content']); ?>">
-                                                            <?php echo htmlspecialchars($template['name']); ?>
-                                                        </option>
-                                                    <?php endif; ?>
-                                                <?php endforeach; ?>
-                                            </optgroup>
-                                        <?php endforeach; ?>
-                                    </select>
+                                    <label for="customRecipients" class="form-label">Custom Recipients (One email per line)</label>
+                                    <textarea class="form-control" id="customRecipients" name="custom_recipients" rows="5" placeholder="email1@example.com&#10;email2@example.com&#10;email3@example.com"></textarea>
                                 </div>
                             </div>
+                            <?php else: ?>
+                            <div class="form-section">
+                                <h5 class="mb-3">
+                                    <i class="fas fa-users me-2"></i>Recipients
+                                </h5>
+                                <div class="alert alert-warning">
+                                    <i class="fas fa-exclamation-triangle me-2"></i>
+                                    You don't have permission to manage contacts. Please contact your administrator to get access to contact management features.
+                                </div>
+                            </div>
+                            <?php endif; ?>
 
                             <!-- Email Content -->
                             <div class="form-section">
-                                <h5 class="mb-3">Email Content</h5>
+                                <h5 class="mb-3">
+                                    <i class="fas fa-envelope me-2"></i>Email Content
+                                </h5>
                                 <div class="mb-3">
-                                    <label for="content" class="form-label">Email Body *</label>
-                                    <div id="editor-toolbar" class="btn-toolbar mb-2">
-                                        <div class="btn-group me-2">
-                                            <button type="button" class="btn btn-sm btn-outline-secondary" onclick="formatText('bold')" title="Bold">
-                                                <i class="fas fa-bold"></i>
-                                            </button>
-                                            <button type="button" class="btn btn-sm btn-outline-secondary" onclick="formatText('italic')" title="Italic">
-                                                <i class="fas fa-italic"></i>
-                                            </button>
-                                            <button type="button" class="btn btn-sm btn-outline-secondary" onclick="formatText('underline')" title="Underline">
-                                                <i class="fas fa-underline"></i>
-                                            </button>
-                                        </div>
-                                        <div class="btn-group me-2">
-                                            <button type="button" class="btn btn-sm btn-outline-secondary" onclick="insertLink()" title="Insert Link">
-                                                <i class="fas fa-link"></i>
-                                            </button>
-                                            <button type="button" class="btn btn-sm btn-outline-secondary" onclick="formatText('insertUnorderedList')" title="Bullet List">
-                                                <i class="fas fa-list-ul"></i>
-                                            </button>
-                                            <button type="button" class="btn btn-sm btn-outline-secondary" onclick="formatText('insertOrderedList')" title="Numbered List">
-                                                <i class="fas fa-list-ol"></i>
-                                            </button>
-                                        </div>
-                                        <div class="btn-group me-2">
-                                            <button type="button" class="btn btn-sm btn-outline-secondary" onclick="insertVariable()" title="Insert Variable">
-                                                <i class="fas fa-code"></i> Variable
-                                            </button>
-                                            <button type="button" class="btn btn-sm btn-outline-secondary" onclick="previewEmail()" title="Preview">
-                                                <i class="fas fa-eye"></i> Preview
-                                            </button>
-                                            <button type="button" class="btn btn-sm btn-outline-secondary" onclick="sendTestEmail()" title="Send Test">
-                                                <i class="fas fa-paper-plane"></i> Test
-                                            </button>
-                                        </div>
-                                    </div>
-                                    <div contenteditable="true" id="content-editor" class="form-control" 
-                                         style="min-height: 300px; max-height: 500px; overflow-y: auto;"
-                                         placeholder="Write your email content here..."></div>
-                                    <textarea class="form-control d-none" id="content" name="content" required></textarea>
-                                    <div class="form-text">
-                                        You can use these variables: {{first_name}}, {{last_name}}, {{email}}, {{company}}, {{phone}}
-                                    </div>
+                                    <label for="emailTemplate" class="form-label">Email Template</label>
+                                    <select class="form-select" id="emailTemplate" name="template_id">
+                                        <option value="">Select a template</option>
+                                        <?php foreach ($templates as $template): ?>
+                                            <option value="<?php echo $template['id']; ?>"><?php echo htmlspecialchars($template['name']); ?></option>
+                                        <?php endforeach; ?>
+                                    </select>
+                                </div>
+                                <div class="mb-3">
+                                    <label for="emailContent" class="form-label">Email Content *</label>
+                                    <textarea class="form-control" id="emailContent" name="content" rows="10" required></textarea>
                                 </div>
                             </div>
 
                             <!-- Scheduling -->
                             <div class="form-section">
-                                <h5 class="mb-3">Scheduling</h5>
-                                <div class="mb-3">
-                                    <label class="form-label">Send Type *</label>
-                                    <div>
-                                        <div class="form-check form-check-inline">
-                                            <input class="form-check-input" type="radio" name="send_type" 
-                                                   id="send_immediate" value="immediate" checked>
-                                            <label class="form-check-label" for="send_immediate">
-                                                Send Immediately
-                                            </label>
-                                        </div>
-                                        <div class="form-check form-check-inline">
-                                            <input class="form-check-input" type="radio" name="send_type" 
-                                                   id="send_scheduled" value="scheduled">
-                                            <label class="form-check-label" for="send_scheduled">
-                                                Schedule for Later
-                                            </label>
-                                        </div>
+                                <h5 class="mb-3">
+                                    <i class="fas fa-clock me-2"></i>Scheduling
+                                </h5>
+                                <div class="row">
+                                    <div class="col-md-6 mb-3">
+                                        <label for="sendType" class="form-label">Send Type</label>
+                                        <select class="form-select" id="sendType" name="send_type">
+                                            <option value="immediate">Send Immediately</option>
+                                            <option value="scheduled">Schedule for Later</option>
+                                        </select>
                                     </div>
-                                </div>
-                                <div class="mb-3" id="scheduleSection" style="display: none;">
-                                    <label for="scheduled_at" class="form-label">Schedule Date & Time</label>
-                                    <input type="datetime-local" class="form-control" id="scheduled_at" name="scheduled_at">
+                                    <div class="col-md-6 mb-3">
+                                        <label for="scheduledDate" class="form-label">Scheduled Date & Time</label>
+                                        <input type="datetime-local" class="form-control" id="scheduledDate" name="scheduled_at">
+                                    </div>
                                 </div>
                             </div>
                         </div>
 
                         <div class="col-lg-4">
-                            <!-- Recipients -->
-                            <div class="form-section">
-                                <h5 class="mb-3">Recipients</h5>
-                                <div class="mb-3">
-                                    <label class="form-label">Target Audience *</label>
-                                    <div class="form-check">
-                                        <input class="form-check-input" type="radio" name="target_type" 
-                                               id="target_all" value="all" checked>
-                                        <label class="form-check-label" for="target_all">
-                                            All Contacts (<?php echo $totalContacts; ?> contacts)
-                                        </label>
+                            <!-- Preview -->
+                            <div class="preview-section">
+                                <h5 class="mb-3">
+                                    <i class="fas fa-eye me-2"></i>Preview
+                                </h5>
+                                <div id="emailPreview">
+                                    <div class="text-center text-muted py-4">
+                                        <i class="fas fa-envelope fa-3x mb-3"></i>
+                                        <p>Email preview will appear here</p>
                                     </div>
-                                    <?php if (!empty($tags)): ?>
-                                        <div class="form-check">
-                                            <input class="form-check-input" type="radio" name="target_type" 
-                                                   id="target_tags" value="tags">
-                                            <label class="form-check-label" for="target_tags">
-                                                Contacts with specific tags
-                                            </label>
-                                        </div>
-                                        <div class="mt-2" id="tagsSection" style="display: none;">
-                                            <select class="form-select" name="target_tags[]" multiple size="5">
-                                                <?php foreach ($tags as $tag): ?>
-                                                    <option value="<?php echo htmlspecialchars($tag); ?>">
-                                                        <?php echo htmlspecialchars($tag); ?>
-                                                    </option>
-                                                <?php endforeach; ?>
-                                            </select>
-                                            <div class="form-text">Hold Ctrl/Cmd to select multiple tags</div>
-                                        </div>
-                                    <?php endif; ?>
-                                </div>
-                                <div class="alert alert-info">
-                                    <i class="fas fa-info-circle"></i> 
-                                    <span id="recipientCount"><?php echo $totalContacts; ?></span> contacts will receive this campaign
                                 </div>
                             </div>
 
-                            <!-- Actions -->
-                            <div class="form-section">
-                                <h5 class="mb-3">Actions</h5>
-                                <button type="submit" name="action" value="draft" class="btn btn-secondary w-100 mb-2">
+                            <!-- Campaign Stats -->
+                            <div class="card mt-3">
+                                <div class="card-body">
+                                    <h6 class="card-title">Campaign Statistics</h6>
+                                    <div class="row text-center">
+                                        <div class="col-6">
+                                            <div class="h4 text-primary" id="recipientCount">0</div>
+                                            <small class="text-muted">Recipients</small>
+                                        </div>
+                                        <div class="col-6">
+                                            <div class="h4 text-success" id="estimatedCost">$0.00</div>
+                                            <small class="text-muted">Estimated Cost</small>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Action Buttons -->
+                    <div class="row mt-4">
+                        <div class="col-12">
+                            <div class="d-flex justify-content-between">
+                                <button type="button" class="btn btn-secondary" onclick="saveDraft()">
                                     <i class="fas fa-save me-2"></i>Save as Draft
                                 </button>
-                                <button type="submit" name="action" value="send" class="btn btn-primary w-100">
-                                    <i class="fas fa-paper-plane me-2"></i>Create & Send Campaign
-                                </button>
+                                <div>
+                                    <button type="button" class="btn btn-info me-2" onclick="previewCampaign()">
+                                        <i class="fas fa-eye me-2"></i>Preview
+                                    </button>
+                                    <?php if (hasPermission($permissions, 'can_send_campaigns')): ?>
+                                    <button type="submit" class="btn btn-primary">
+                                        <i class="fas fa-paper-plane me-2"></i>Send Campaign
+                                    </button>
+                                    <?php else: ?>
+                                    <button type="button" class="btn btn-secondary" disabled>
+                                        <i class="fas fa-lock me-2"></i>No Send Permission
+                                    </button>
+                                    <?php endif; ?>
+                                </div>
                             </div>
                         </div>
                     </div>
@@ -338,239 +290,165 @@ $templateCategories = $templateModel->getCategories();
 
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/js/bootstrap.bundle.min.js"></script>
     <script>
-        // Rich text editor functions
-        function formatText(command) {
-            document.execCommand(command, false, null);
-            document.getElementById('content-editor').focus();
-        }
+        // Auto-detect base path for live hosting compatibility
+        const basePath = window.location.pathname.includes('/acrm/') ? '/acrm' : '';
         
-        function insertLink() {
-            const url = prompt('Enter URL:');
-            if (url) {
-                document.execCommand('createLink', false, url);
-                document.getElementById('content-editor').focus();
-            }
-        }
-        
-        function insertVariable() {
-            const variables = ['{{first_name}}', '{{last_name}}', '{{email}}', '{{company}}', '{{phone}}'];
-            const variable = prompt('Choose variable:\n' + variables.join('\n'));
-            if (variable && variables.includes(variable)) {
-                document.execCommand('insertText', false, variable);
-                document.getElementById('content-editor').focus();
-            }
-        }
-        
-        // Sync content editor with textarea
-        const contentEditor = document.getElementById('content-editor');
-        const contentTextarea = document.getElementById('content');
-        
-        contentEditor.addEventListener('input', function() {
-            contentTextarea.value = contentEditor.innerHTML;
+        // Form handling
+        document.getElementById('campaignForm').addEventListener('submit', function(e) {
+            e.preventDefault();
+            sendCampaign();
         });
         
-        // Load template
-        function loadTemplate() {
-            const select = document.getElementById('template-select');
-            const selectedOption = select.options[select.selectedIndex];
-            
-            if (selectedOption.value) {
-                const subject = selectedOption.dataset.subject;
-                const content = selectedOption.dataset.content;
-                
-                // Update subject if empty
-                const subjectField = document.getElementById('subject');
-                if (!subjectField.value || confirm('Replace current subject with template subject?')) {
-                    subjectField.value = subject;
-                }
-                
-                // Update content
-                if (!contentEditor.innerHTML || confirm('Replace current content with template content?')) {
-                    contentEditor.innerHTML = content;
-                    contentTextarea.value = content;
-                }
+        // Template selection
+        document.getElementById('emailTemplate').addEventListener('change', function() {
+            const templateId = this.value;
+            if (templateId) {
+                loadTemplate(templateId);
             }
+        });
+        
+        // Recipient type change
+        document.getElementById('recipientType').addEventListener('change', function() {
+            updateRecipientFields();
+        });
+        
+        // Send type change
+        document.getElementById('sendType').addEventListener('change', function() {
+            const scheduledDateField = document.getElementById('scheduledDate');
+            if (this.value === 'scheduled') {
+                scheduledDateField.style.display = 'block';
+                scheduledDateField.required = true;
+            } else {
+                scheduledDateField.style.display = 'none';
+                scheduledDateField.required = false;
+            }
+        });
+        
+        function loadTemplate(templateId) {
+            fetch(`${basePath}/api/templates/${templateId}`)
+                .then(response => response.json())
+                .then(data => {
+                    if (data.success) {
+                        document.getElementById('campaignSubject').value = data.template.subject;
+                        document.getElementById('emailContent').value = data.template.content;
+                        updatePreview();
+                    }
+                })
+                .catch(error => {
+                    console.error('Error loading template:', error);
+                });
         }
         
-        // Preview email
-        function previewEmail() {
-            const subject = document.getElementById('subject').value;
-            const content = contentEditor.innerHTML;
-            const fromName = document.getElementById('from_name').value;
-            const fromEmail = document.getElementById('from_email').value;
+        function updateRecipientFields() {
+            const recipientType = document.getElementById('recipientType').value;
+            const tagsField = document.getElementById('tags').parentElement.parentElement;
+            const customField = document.getElementById('customRecipients').parentElement;
             
-            // Create preview modal
-            const modal = document.createElement('div');
-            modal.className = 'modal fade';
-            modal.id = 'previewModal';
-            modal.innerHTML = `
-                <div class="modal-dialog modal-lg">
-                    <div class="modal-content">
-                        <div class="modal-header">
-                            <h5 class="modal-title">Email Preview</h5>
-                            <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
-                        </div>
-                        <div class="modal-body">
-                            <div class="mb-3">
-                                <strong>From:</strong> ${fromName} &lt;${fromEmail}&gt;<br>
-                                <strong>Subject:</strong> ${subject}
-                            </div>
-                            <hr>
-                            <div class="email-preview" style="border: 1px solid #ddd; padding: 20px; background: #fff;">
-                                ${content.replace(/{{first_name}}/g, 'John')
-                                        .replace(/{{last_name}}/g, 'Doe')
-                                        .replace(/{{email}}/g, 'john.doe@example.com')
-                                        .replace(/{{company}}/g, 'Example Company')
-                                        .replace(/{{phone}}/g, '+1 234 567 8900')}
-                            </div>
-                        </div>
-                        <div class="modal-footer">
-                            <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Close</button>
-                        </div>
-                    </div>
+            if (recipientType === 'tags') {
+                tagsField.style.display = 'block';
+                customField.style.display = 'none';
+            } else if (recipientType === 'custom') {
+                tagsField.style.display = 'none';
+                customField.style.display = 'block';
+            } else {
+                tagsField.style.display = 'none';
+                customField.style.display = 'none';
+            }
+            
+            updateRecipientCount();
+        }
+        
+        function updateRecipientCount() {
+            const recipientType = document.getElementById('recipientType').value;
+            let count = 0;
+            
+            if (recipientType === 'all') {
+                count = <?php echo $totalContacts; ?>;
+            } else if (recipientType === 'tags') {
+                const selectedTags = Array.from(document.getElementById('tags').selectedOptions).map(option => option.value);
+                // This would need to be calculated via AJAX
+                count = selectedTags.length * 10; // Placeholder
+            } else if (recipientType === 'custom') {
+                const emails = document.getElementById('customRecipients').value.split('\n').filter(email => email.trim());
+                count = emails.length;
+            }
+            
+            document.getElementById('recipientCount').textContent = count;
+            document.getElementById('estimatedCost').textContent = `$${(count * 0.001).toFixed(2)}`;
+        }
+        
+        function updatePreview() {
+            const subject = document.getElementById('campaignSubject').value;
+            const content = document.getElementById('emailContent').value;
+            
+            const preview = document.getElementById('emailPreview');
+            preview.innerHTML = `
+                <div class="border-bottom pb-2 mb-3">
+                    <strong>Subject:</strong> ${subject || 'No subject'}
+                </div>
+                <div style="max-height: 300px; overflow-y: auto;">
+                    ${content || '<em>No content</em>'}
                 </div>
             `;
+        }
+        
+        function previewCampaign() {
+            updatePreview();
+        }
+        
+        function saveDraft() {
+            const formData = new FormData(document.getElementById('campaignForm'));
+            formData.append('status', 'draft');
             
-            document.body.appendChild(modal);
-            const bsModal = new bootstrap.Modal(modal);
-            bsModal.show();
-            
-            modal.addEventListener('hidden.bs.modal', () => {
-                modal.remove();
+            fetch(`${basePath}/api/campaigns`, {
+                method: 'POST',
+                body: formData
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.success) {
+                    alert('Campaign saved as draft successfully!');
+                    window.location.href = `${basePath}/employee/campaigns`;
+                } else {
+                    alert(data.message || 'Failed to save campaign');
+                }
+            })
+            .catch(error => {
+                console.error('Error:', error);
+                alert('Failed to save campaign');
             });
         }
         
-        // Send test email
-        async function sendTestEmail() {
-            const testEmail = prompt('Enter email address to send test to:');
-            if (!testEmail || !testEmail.includes('@')) {
+        function sendCampaign() {
+            if (!confirm('Are you sure you want to send this campaign?')) {
                 return;
             }
             
-            const data = {
-                to: testEmail,
-                subject: document.getElementById('subject').value,
-                content: contentEditor.innerHTML,
-                from_name: document.getElementById('from_name').value,
-                from_email: document.getElementById('from_email').value
-            };
+            const formData = new FormData(document.getElementById('campaignForm'));
+            formData.append('status', 'active');
             
-            try {
-                const response = await fetch(`${basePath}/api/campaigns/send-test`, {
-                    method: 'POST',
-                    headers: {
-                        'Content-Type': 'application/json',
-                    },
-                    body: JSON.stringify(data)
-                });
-                
-                const result = await response.json();
-                
-                if (result.success) {
-                    alert('Test email sent successfully to ' + testEmail);
+            fetch(`${basePath}/api/campaigns`, {
+                method: 'POST',
+                body: formData
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.success) {
+                    alert('Campaign sent successfully!');
+                    window.location.href = `${basePath}/employee/campaigns`;
                 } else {
-                    alert(result.message || 'Failed to send test email');
+                    alert(data.message || 'Failed to send campaign');
                 }
-            } catch (error) {
-                alert('Network error. Please try again.');
-            }
+            })
+            .catch(error => {
+                console.error('Error:', error);
+                alert('Failed to send campaign');
+            });
         }
         
-        // Toggle schedule section
-        document.querySelectorAll('input[name="send_type"]').forEach(radio => {
-            radio.addEventListener('change', function() {
-                const scheduleSection = document.getElementById('scheduleSection');
-                const scheduledInput = document.getElementById('scheduled_at');
-                
-                if (this.value === 'scheduled') {
-                    scheduleSection.style.display = 'block';
-                    scheduledInput.required = true;
-                    // Set minimum date to now
-                    const now = new Date();
-                    now.setMinutes(now.getMinutes() - now.getTimezoneOffset());
-                    scheduledInput.min = now.toISOString().slice(0, 16);
-                } else {
-                    scheduleSection.style.display = 'none';
-                    scheduledInput.required = false;
-                }
-            });
-        });
-
-        // Toggle tags section
-        document.querySelectorAll('input[name="target_type"]').forEach(radio => {
-            radio.addEventListener('change', function() {
-                const tagsSection = document.getElementById('tagsSection');
-                const tagsSelect = document.querySelector('select[name="target_tags[]"]');
-                
-                if (this.value === 'tags') {
-                    tagsSection.style.display = 'block';
-                    tagsSelect.required = true;
-                } else {
-                    tagsSection.style.display = 'none';
-                    tagsSelect.required = false;
-                }
-                
-                // Update recipient count (in real app, would make API call)
-                updateRecipientCount();
-            });
-        });
-
-        function updateRecipientCount() {
-            // This would normally make an API call to get actual count
-            const targetType = document.querySelector('input[name="target_type"]:checked').value;
-            const count = document.getElementById('recipientCount');
-            
-            if (targetType === 'all') {
-                count.textContent = '<?php echo $totalContacts; ?>';
-            } else {
-                // Would calculate based on selected tags
-                count.textContent = 'Calculating...';
-            }
-        }
-
-        // Handle form submission
-        document.getElementById('campaignForm').addEventListener('submit', async function(e) {
-            e.preventDefault();
-            
-            const formData = new FormData(this);
-            const action = e.submitter.value;
-            formData.append('status', action === 'send' ? 'active' : 'draft');
-            
-            // Convert to JSON
-            const data = {};
-            for (let [key, value] of formData.entries()) {
-                if (key.endsWith('[]')) {
-                    const realKey = key.slice(0, -2);
-                    if (!data[realKey]) data[realKey] = [];
-                    data[realKey].push(value);
-                } else {
-                    data[key] = value;
-                }
-            }
-            
-            try {
-                const basePath = window.location.pathname.includes('/acrm/') ? '/acrm' : '';
-                const response = await fetch(`${basePath}/api/campaigns`, {
-                    method: 'POST',
-                    headers: {
-                        'Content-Type': 'application/json',
-                    },
-                    body: JSON.stringify(data)
-                });
-                
-                const result = await response.json();
-                
-                if (response.ok && result.success) {
-                    // Redirect to campaigns list
-                    window.location.href = basePath + '/employee/campaigns';
-                } else {
-                    alert(result.message || 'Failed to create campaign');
-                }
-            } catch (error) {
-                console.error('Error:', error);
-                alert('Network error. Please try again.');
-            }
-        });
+        // Initialize
+        updateRecipientFields();
+        updatePreview();
     </script>
 </body>
 </html>

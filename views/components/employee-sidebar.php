@@ -1,148 +1,108 @@
 <?php
-require_once __DIR__ . '/../../config/base_path.php';
+// Get user permissions if not already loaded
+if (!isset($permissions)) {
+    require_once __DIR__ . "/../../config/database.php";
+    require_once __DIR__ . "/../../models/EmployeePermission.php";
+    
+    $database = new Database();
+    $db = $database->getConnection();
+    
+    $permissionModel = new EmployeePermission($db);
+    $permissions = $permissionModel->getUserPermissions($_SESSION["user_id"]);
+}
+
+// Helper function to check permissions
+function hasPermission($permissions, $permission) {
+    return isset($permissions[$permission]) && $permissions[$permission];
+}
+
+// Get current page for active state
+$currentPage = $_SERVER['REQUEST_URI'];
+$currentPage = str_replace('/acrm', '', $currentPage); // Remove base path if present
 ?>
 
-<div class="sidebar">
-    <div class="sidebar-header">
-        <div class="d-flex align-items-center">
-            <div class="sidebar-logo">
-                <i class="bi bi-person-badge text-primary"></i>
-            </div>
-            <div class="sidebar-title">
-                <h6 class="mb-0">Employee Portal</h6>
-                <small class="text-muted"><?php echo htmlspecialchars($_SESSION["user_name"] ?? "Employee"); ?></small>
+<nav class="col-md-3 col-lg-2 d-md-block sidebar collapse">
+    <div class="position-sticky pt-3">
+        <div class="text-center text-white mb-4">
+            <i class="fas fa-user-circle fa-3x"></i>
+            <h6 class="mt-2"><?php echo htmlspecialchars($_SESSION["user_name"]); ?></h6>
+            <small><?php echo ucfirst($_SESSION["user_role"]); ?></small>
+        </div>
+        <ul class="nav flex-column">
+            <li class="nav-item">
+                <a class="nav-link <?php echo strpos($currentPage, '/employee/email-dashboard') !== false ? 'active' : ''; ?>" 
+                   href="<?php echo base_path('employee/email-dashboard'); ?>">
+                    <i class="fas fa-tachometer-alt me-2"></i> Dashboard
+                </a>
+            </li>
+            
+            <?php if (hasPermission($permissions, 'can_create_campaigns') || hasPermission($permissions, 'can_view_all_campaigns')): ?>
+            <li class="nav-item">
+                <a class="nav-link <?php echo strpos($currentPage, '/employee/campaigns') !== false && strpos($currentPage, '/employee/campaigns/create') === false ? 'active' : ''; ?>" 
+                   href="<?php echo base_path('employee/campaigns'); ?>">
+                    <i class="fas fa-envelope me-2"></i> My Campaigns
+                </a>
+            </li>
+            <?php endif; ?>
+            
+            <?php if (hasPermission($permissions, 'can_create_campaigns')): ?>
+            <li class="nav-item">
+                <a class="nav-link <?php echo strpos($currentPage, '/employee/campaigns/create') !== false ? 'active' : ''; ?>" 
+                   href="<?php echo base_path('employee/campaigns/create'); ?>">
+                    <i class="fas fa-plus-circle me-2"></i> Create Campaign
+                </a>
+            </li>
+            <?php endif; ?>
+            
+            <?php if (hasPermission($permissions, 'can_upload_contacts')): ?>
+            <li class="nav-item">
+                <a class="nav-link <?php echo strpos($currentPage, '/employee/contacts') !== false ? 'active' : ''; ?>" 
+                   href="<?php echo base_path('employee/contacts'); ?>">
+                    <i class="fas fa-address-book me-2"></i> Contacts
+                </a>
+            </li>
+            <?php endif; ?>
+            
+            <li class="nav-item">
+                <a class="nav-link <?php echo strpos($currentPage, '/employee/profile') !== false ? 'active' : ''; ?>" 
+                   href="<?php echo base_path('employee/profile'); ?>">
+                    <i class="fas fa-user me-2"></i> Profile
+                </a>
+            </li>
+            
+            <li class="nav-item">
+                <a class="nav-link text-danger" href="<?php echo base_path('employee/logout'); ?>">
+                    <i class="fas fa-sign-out-alt me-2"></i> Logout
+                </a>
+            </li>
+        </ul>
+        
+        <!-- Permission Status -->
+        <div class="mt-4 p-3 bg-dark rounded">
+            <h6 class="text-white-50 mb-2">Your Permissions</h6>
+            <div class="small text-white-50">
+                <?php if (hasPermission($permissions, 'can_create_campaigns')): ?>
+                    <div><i class="fas fa-check text-success"></i> Create Campaigns</div>
+                <?php endif; ?>
+                <?php if (hasPermission($permissions, 'can_send_campaigns')): ?>
+                    <div><i class="fas fa-check text-success"></i> Send Campaigns</div>
+                <?php endif; ?>
+                <?php if (hasPermission($permissions, 'can_edit_campaigns')): ?>
+                    <div><i class="fas fa-check text-success"></i> Edit Campaigns</div>
+                <?php endif; ?>
+                <?php if (hasPermission($permissions, 'can_delete_campaigns')): ?>
+                    <div><i class="fas fa-check text-success"></i> Delete Campaigns</div>
+                <?php endif; ?>
+                <?php if (hasPermission($permissions, 'can_upload_contacts')): ?>
+                    <div><i class="fas fa-check text-success"></i> Manage Contacts</div>
+                <?php endif; ?>
+                <?php if (hasPermission($permissions, 'can_export_contacts')): ?>
+                    <div><i class="fas fa-check text-success"></i> Export Contacts</div>
+                <?php endif; ?>
+                <?php if (hasPermission($permissions, 'can_view_all_campaigns')): ?>
+                    <div><i class="fas fa-check text-success"></i> View All Campaigns</div>
+                <?php endif; ?>
             </div>
         </div>
     </div>
-    
-    <div class="sidebar-menu">
-        <ul class="nav flex-column">
-            <li class="nav-item">
-                <a class="nav-link <?php echo strpos($_SERVER['REQUEST_URI'], '/employee/dashboard') !== false ? 'active' : ''; ?>" href="<?php echo base_path('employee/dashboard'); ?>">
-                    <i class="bi bi-speedometer2"></i>
-                    <span>Dashboard</span>
-                </a>
-            </li>
-            
-            <li class="nav-item">
-                <a class="nav-link <?php echo strpos($_SERVER['REQUEST_URI'], '/employee/contacts') !== false ? 'active' : ''; ?>" href="<?php echo base_path('employee/contacts'); ?>">
-                    <i class="bi bi-people"></i>
-                    <span>My Contacts</span>
-                </a>
-            </li>
-            
-            <li class="nav-item">
-                <a class="nav-link <?php echo strpos($_SERVER['REQUEST_URI'], '/employee/profile') !== false ? 'active' : ''; ?>" href="<?php echo base_path('employee/profile'); ?>">
-                    <i class="bi bi-person"></i>
-                    <span>My Profile</span>
-                </a>
-            </li>
-        </ul>
-        
-        <hr class="sidebar-divider">
-        
-        <ul class="nav flex-column">
-            <li class="nav-item">
-                <a class="nav-link text-muted" href="<?php echo base_path('employee/logout'); ?>" onclick="return confirm('Are you sure you want to logout?')">
-                    <i class="bi bi-box-arrow-right"></i>
-                    <span>Logout</span>
-                </a>
-            </li>
-        </ul>
-    </div>
-</div>
-
-<style>
-.sidebar {
-    width: 250px;
-    height: 100vh;
-    background: #f8f9fa;
-    border-right: 1px solid #dee2e6;
-    position: fixed;
-    left: 0;
-    top: 0;
-    z-index: 1000;
-    overflow-y: auto;
-}
-
-.sidebar-header {
-    padding: 1rem;
-    border-bottom: 1px solid #dee2e6;
-    background: #fff;
-}
-
-.sidebar-logo {
-    width: 40px;
-    height: 40px;
-    background: #e9ecef;
-    border-radius: 8px;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    margin-right: 0.75rem;
-    font-size: 1.25rem;
-}
-
-.sidebar-title h6 {
-    font-weight: 600;
-    color: #212529;
-}
-
-.sidebar-menu {
-    padding: 1rem 0;
-}
-
-.sidebar-menu .nav-link {
-    color: #6c757d;
-    padding: 0.75rem 1rem;
-    display: flex;
-    align-items: center;
-    text-decoration: none;
-    transition: all 0.2s ease;
-}
-
-.sidebar-menu .nav-link:hover {
-    color: #495057;
-    background: #e9ecef;
-}
-
-.sidebar-menu .nav-link.active {
-    color: #0d6efd;
-    background: #e7f1ff;
-    border-right: 3px solid #0d6efd;
-}
-
-.sidebar-menu .nav-link i {
-    margin-right: 0.75rem;
-    width: 16px;
-    text-align: center;
-}
-
-.sidebar-divider {
-    margin: 1rem;
-    border-color: #dee2e6;
-}
-
-.main-content {
-    margin-left: 250px;
-    padding: 2rem;
-    min-height: 100vh;
-    background: #fff;
-}
-
-@media (max-width: 768px) {
-    .sidebar {
-        transform: translateX(-100%);
-        transition: transform 0.3s ease;
-    }
-    
-    .sidebar.show {
-        transform: translateX(0);
-    }
-    
-    .main-content {
-        margin-left: 0;
-        padding: 1rem;
-    }
-}
-</style> 
+</nav> 

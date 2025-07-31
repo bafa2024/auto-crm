@@ -25,6 +25,17 @@ require_once __DIR__ . "/../../models/EmployeePermission.php";
 $permissionModel = new EmployeePermission($db);
 $permissions = $permissionModel->getUserPermissions($userId);
 
+// Helper function to check permissions
+function hasPermission($permissions, $permission) {
+    return isset($permissions[$permission]) && $permissions[$permission];
+}
+
+// Check if user has any campaign-related permissions
+if (!hasPermission($permissions, 'can_create_campaigns') && !hasPermission($permissions, 'can_view_all_campaigns')) {
+    header("Location: " . base_path('employee/email-dashboard'));
+    exit();
+}
+
 // Get filter parameters
 $status = $_GET['status'] ?? '';
 $search = $_GET['search'] ?? '';
@@ -108,34 +119,40 @@ $campaigns = $stmt->fetchAll();
                     </div>
                     <ul class="nav flex-column">
                         <li class="nav-item">
-                                                    <a class="nav-link" href="<?php echo base_path('employee/email-dashboard'); ?>">
-                            <i class="fas fa-tachometer-alt me-2"></i> Dashboard
-                        </a>
-                    </li>
-                    <li class="nav-item">
-                        <a class="nav-link active" href="<?php echo base_path('employee/campaigns'); ?>">
-                            <i class="fas fa-envelope me-2"></i> My Campaigns
-                        </a>
-                    </li>
-                    <li class="nav-item">
-                        <a class="nav-link" href="<?php echo base_path('employee/campaigns/create'); ?>">
-                            <i class="fas fa-plus-circle me-2"></i> Create Campaign
-                        </a>
-                    </li>
-                    <li class="nav-item">
-                        <a class="nav-link" href="<?php echo base_path('employee/contacts'); ?>">
-                            <i class="fas fa-address-book me-2"></i> Contacts
-                        </a>
-                    </li>
-                    <li class="nav-item">
-                        <a class="nav-link" href="<?php echo base_path('employee/profile'); ?>">
-                            <i class="fas fa-user me-2"></i> Profile
-                        </a>
-                    </li>
-                    <li class="nav-item">
-                        <a class="nav-link text-danger" href="<?php echo base_path('employee/logout'); ?>">
-                            <i class="fas fa-sign-out-alt me-2"></i> Logout
-                        </a>
+                            <a class="nav-link" href="<?php echo base_path('employee/email-dashboard'); ?>">
+                                <i class="fas fa-tachometer-alt me-2"></i> Dashboard
+                            </a>
+                        </li>
+                        <?php if (hasPermission($permissions, 'can_create_campaigns') || hasPermission($permissions, 'can_view_all_campaigns')): ?>
+                        <li class="nav-item">
+                            <a class="nav-link active" href="<?php echo base_path('employee/campaigns'); ?>">
+                                <i class="fas fa-envelope me-2"></i> My Campaigns
+                            </a>
+                        </li>
+                        <?php endif; ?>
+                        <?php if (hasPermission($permissions, 'can_create_campaigns')): ?>
+                        <li class="nav-item">
+                            <a class="nav-link" href="<?php echo base_path('employee/campaigns/create'); ?>">
+                                <i class="fas fa-plus-circle me-2"></i> Create Campaign
+                            </a>
+                        </li>
+                        <?php endif; ?>
+                        <?php if (hasPermission($permissions, 'can_upload_contacts')): ?>
+                        <li class="nav-item">
+                            <a class="nav-link" href="<?php echo base_path('employee/contacts'); ?>">
+                                <i class="fas fa-address-book me-2"></i> Contacts
+                            </a>
+                        </li>
+                        <?php endif; ?>
+                        <li class="nav-item">
+                            <a class="nav-link" href="<?php echo base_path('employee/profile'); ?>">
+                                <i class="fas fa-user me-2"></i> Profile
+                            </a>
+                        </li>
+                        <li class="nav-item">
+                            <a class="nav-link text-danger" href="<?php echo base_path('employee/logout'); ?>">
+                                <i class="fas fa-sign-out-alt me-2"></i> Logout
+                            </a>
                         </li>
                     </ul>
                 </div>
@@ -146,7 +163,7 @@ $campaigns = $stmt->fetchAll();
                 <div class="d-flex justify-content-between flex-wrap flex-md-nowrap align-items-center pt-3 pb-2 mb-3 border-bottom">
                     <h1 class="h2">My Email Campaigns</h1>
                     <div class="btn-toolbar mb-2 mb-md-0">
-                        <?php if ($permissions['can_create_campaigns']): ?>
+                        <?php if (hasPermission($permissions, 'can_create_campaigns')): ?>
                         <a href="<?php echo base_path('employee/campaigns/create'); ?>" class="btn btn-primary">
                             <i class="fas fa-plus me-2"></i>New Campaign
                         </a>
@@ -197,9 +214,11 @@ $campaigns = $stmt->fetchAll();
                                 <i class="fas fa-inbox fa-4x text-muted mb-3"></i>
                                 <h5 class="text-muted">No campaigns found</h5>
                                 <p class="text-muted">Create your first campaign to get started!</p>
-                                                                 <a href="<?php echo base_path('employee/campaigns/create'); ?>" class="btn btn-primary">
+                                <?php if (hasPermission($permissions, 'can_create_campaigns')): ?>
+                                <a href="<?php echo base_path('employee/campaigns/create'); ?>" class="btn btn-primary">
                                     <i class="fas fa-plus me-2"></i>Create Campaign
                                 </a>
+                                <?php endif; ?>
                             </div>
                         <?php else: ?>
                             <div class="table-responsive">
@@ -209,7 +228,6 @@ $campaigns = $stmt->fetchAll();
                                             <th>Campaign Name</th>
                                             <th>Subject</th>
                                             <th>Status</th>
-                                            <th>Type</th>
                                             <th>Recipients</th>
                                             <th>Sent</th>
                                             <th>Created</th>
@@ -224,80 +242,51 @@ $campaigns = $stmt->fetchAll();
                                                 </td>
                                                 <td><?php echo htmlspecialchars($campaign['subject']); ?></td>
                                                 <td>
-                                                    <span class="badge status-badge bg-<?php 
-                                                        echo $campaign['status'] === 'active' ? 'success' : 
-                                                            ($campaign['status'] === 'paused' ? 'warning' : 
-                                                            ($campaign['status'] === 'completed' ? 'info' : 'secondary')); 
-                                                    ?>">
+                                                    <?php
+                                                    $statusClass = '';
+                                                    switch ($campaign['status']) {
+                                                        case 'active':
+                                                            $statusClass = 'badge bg-success';
+                                                            break;
+                                                        case 'paused':
+                                                            $statusClass = 'badge bg-warning';
+                                                            break;
+                                                        case 'completed':
+                                                            $statusClass = 'badge bg-info';
+                                                            break;
+                                                        default:
+                                                            $statusClass = 'badge bg-secondary';
+                                                    }
+                                                    ?>
+                                                    <span class="<?php echo $statusClass; ?>">
                                                         <?php echo ucfirst($campaign['status']); ?>
                                                     </span>
                                                 </td>
-                                                <td>
-                                                    <span class="badge bg-<?php echo $campaign['send_type'] === 'immediate' ? 'danger' : 'primary'; ?>">
-                                                        <?php echo ucfirst($campaign['send_type']); ?>
-                                                    </span>
-                                                </td>
-                                                <td>
-                                                    <?php
-                                                    $stmt = $db->prepare("SELECT COUNT(*) as total, 
-                                                                         SUM(CASE WHEN status = 'sent' THEN 1 ELSE 0 END) as sent 
-                                                                         FROM email_recipients WHERE campaign_id = ?");
-                                                    $stmt->execute([$campaign['id']]);
-                                                    $stats = $stmt->fetch();
-                                                    echo $stats['total'];
-                                                    ?>
-                                                </td>
-                                                <td><?php echo $stats['sent'] ?? 0; ?></td>
-                                                <td><?php echo date('M d, Y', strtotime($campaign['created_at'])); ?></td>
+                                                <td><?php echo number_format($campaign['recipient_count'] ?? 0); ?></td>
+                                                <td><?php echo number_format($campaign['sent_count'] ?? 0); ?></td>
+                                                <td><?php echo date('M j, Y', strtotime($campaign['created_at'])); ?></td>
                                                 <td class="campaign-actions">
-                                                                                                         <a href="<?php echo base_path('employee/campaigns/view/' . $campaign['id']); ?>"  
-                                                       class="btn btn-sm btn-info" title="View">
+                                                    <a href="<?php echo base_path('employee/campaigns/view/' . $campaign['id']); ?>" 
+                                                       class="btn btn-sm btn-outline-primary" title="View">
                                                         <i class="fas fa-eye"></i>
                                                     </a>
-                                                    <?php if ($campaign['status'] === 'draft'): ?>
-                                                        <?php if ($permissions['can_edit_campaigns']): ?>
-                                                                                                                 <a href="<?php echo base_path('employee/campaigns/edit/' . $campaign['id']); ?>"  
-                                                           class="btn btn-sm btn-warning" title="Edit">
-                                                            <i class="fas fa-edit"></i>
-                                                        </a>
-                                                        <?php endif; ?>
-                                                        <?php if ($permissions['can_send_campaigns']): ?>
-                                                        <button class="btn btn-sm btn-success" 
-                                                                onclick="activateCampaign(<?php echo $campaign['id']; ?>)" 
-                                                                title="Activate">
-                                                            <i class="fas fa-play"></i>
-                                                        </button>
-                                                        <?php endif; ?>
-                                                    <?php elseif ($campaign['status'] === 'active'): ?>
-                                                        <?php if ($permissions['can_send_campaigns']): ?>
-                                                        <button class="btn btn-sm btn-warning" 
-                                                                onclick="pauseCampaign(<?php echo $campaign['id']; ?>)" 
-                                                                title="Pause">
-                                                            <i class="fas fa-pause"></i>
-                                                        </button>
-                                                        <?php endif; ?>
-                                                    <?php elseif ($campaign['status'] === 'paused'): ?>
-                                                        <?php if ($permissions['can_send_campaigns']): ?>
-                                                        <button class="btn btn-sm btn-success" 
-                                                                onclick="resumeCampaign(<?php echo $campaign['id']; ?>)" 
-                                                                title="Resume">
-                                                            <i class="fas fa-play"></i>
-                                                        </button>
-                                                        <?php endif; ?>
+                                                    <?php if (hasPermission($permissions, 'can_edit_campaigns')): ?>
+                                                    <a href="<?php echo base_path('employee/campaigns/edit/' . $campaign['id']); ?>" 
+                                                       class="btn btn-sm btn-outline-secondary" title="Edit">
+                                                        <i class="fas fa-edit"></i>
+                                                    </a>
                                                     <?php endif; ?>
-                                                    <?php if ($permissions['can_create_campaigns']): ?>
-                                                    <button class="btn btn-sm btn-secondary" 
-                                                            onclick="duplicateCampaign(<?php echo $campaign['id']; ?>)" 
-                                                            title="Duplicate">
-                                                        <i class="fas fa-copy"></i>
+                                                    <?php if (hasPermission($permissions, 'can_send_campaigns') && $campaign['status'] === 'draft'): ?>
+                                                    <button onclick="sendCampaign(<?php echo $campaign['id']; ?>)" 
+                                                            class="btn btn-sm btn-outline-success" title="Send">
+                                                        <i class="fas fa-paper-plane"></i>
                                                     </button>
                                                     <?php endif; ?>
-                                                    <?php if ($permissions['can_delete_campaigns']): ?>
-                                                        <button class="btn btn-sm btn-danger" 
-                                                                onclick="deleteCampaign(<?php echo $campaign['id']; ?>)" 
-                                                                title="Delete">
-                                                            <i class="fas fa-trash"></i>
-                                                        </button>
+                                                    <?php if (hasPermission($permissions, 'can_delete_campaigns')): ?>
+                                                    <button onclick="deleteCampaign(<?php echo $campaign['id']; ?>)" 
+                                                            class="btn btn-sm btn-outline-danger" title="Delete">
+                                                        <i class="fas fa-trash"></i>
+                                                    </button>
                                                     <?php endif; ?>
                                                 </td>
                                             </tr>
@@ -308,21 +297,33 @@ $campaigns = $stmt->fetchAll();
 
                             <!-- Pagination -->
                             <?php if ($totalPages > 1): ?>
-                                <nav aria-label="Page navigation" class="mt-4">
-                                    <ul class="pagination justify-content-center">
-                                        <li class="page-item <?php echo $page <= 1 ? 'disabled' : ''; ?>">
-                                                                                         <a class="page-link" href="<?php echo base_path('employee/campaigns?page=' . ($page - 1) . '&status=' . $status . '&search=' . $search); ?>">Previous</a>
+                            <nav aria-label="Campaigns pagination" class="mt-4">
+                                <ul class="pagination justify-content-center">
+                                    <?php if ($page > 1): ?>
+                                        <li class="page-item">
+                                            <a class="page-link" href="?page=<?php echo $page - 1; ?>&status=<?php echo urlencode($status); ?>&search=<?php echo urlencode($search); ?>">
+                                                Previous
+                                            </a>
                                         </li>
-                                        <?php for ($i = 1; $i <= $totalPages; $i++): ?>
-                                            <li class="page-item <?php echo $i === $page ? 'active' : ''; ?>">
-                                                                                                 <a class="page-link" href="<?php echo base_path('employee/campaigns?page=' . $i . '&status=' . $status . '&search=' . $search); ?>"><?php echo $i; ?></a>
-                                            </li>
-                                        <?php endfor; ?>
-                                                                                 <li class="page-item <?php echo $page >= $totalPages ? 'disabled' : ''; ?>">
-                                             <a class="page-link" href="<?php echo base_path('employee/campaigns?page=' . ($page + 1) . '&status=' . $status . '&search=' . $search); ?>">Next</a>
+                                    <?php endif; ?>
+                                    
+                                    <?php for ($i = max(1, $page - 2); $i <= min($totalPages, $page + 2); $i++): ?>
+                                        <li class="page-item <?php echo $i === $page ? 'active' : ''; ?>">
+                                            <a class="page-link" href="?page=<?php echo $i; ?>&status=<?php echo urlencode($status); ?>&search=<?php echo urlencode($search); ?>">
+                                                <?php echo $i; ?>
+                                            </a>
                                         </li>
-                                    </ul>
-                                </nav>
+                                    <?php endfor; ?>
+                                    
+                                    <?php if ($page < $totalPages): ?>
+                                        <li class="page-item">
+                                            <a class="page-link" href="?page=<?php echo $page + 1; ?>&status=<?php echo urlencode($status); ?>&search=<?php echo urlencode($search); ?>">
+                                                Next
+                                            </a>
+                                        </li>
+                                    <?php endif; ?>
+                                </ul>
+                            </nav>
                             <?php endif; ?>
                         <?php endif; ?>
                     </div>
@@ -333,100 +334,51 @@ $campaigns = $stmt->fetchAll();
 
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/js/bootstrap.bundle.min.js"></script>
     <script>
-        // Auto-detect base path
-        const basePath = window.location.pathname.includes('/acrm/') ? '/acrm' : '';
-        
-        async function updateCampaignStatus(campaignId, status) {
-            try {
-                const response = await fetch(`${basePath}/api/campaigns/${campaignId}/status`, {
-                    method: 'PUT',
+        function sendCampaign(campaignId) {
+            if (confirm('Are you sure you want to send this campaign?')) {
+                fetch(`<?php echo base_path('api/campaigns'); ?>/${campaignId}/send`, {
+                    method: 'POST',
                     headers: {
                         'Content-Type': 'application/json',
-                    },
-                    body: JSON.stringify({ status: status })
+                    }
+                })
+                .then(response => response.json())
+                .then(data => {
+                    if (data.success) {
+                        alert('Campaign sent successfully!');
+                        location.reload();
+                    } else {
+                        alert(data.message || 'Failed to send campaign');
+                    }
+                })
+                .catch(error => {
+                    console.error('Error:', error);
+                    alert('Failed to send campaign');
                 });
-                
-                if (response.ok) {
-                    location.reload();
-                } else {
-                    alert('Failed to update campaign status');
-                }
-            } catch (error) {
-                alert('Network error. Please try again.');
             }
         }
-        
-        function activateCampaign(id) {
-            <?php if (!$permissions['can_send_campaigns']): ?>
-            alert('You do not have permission to send campaigns.');
-            return;
-            <?php endif; ?>
-            if (confirm('Are you sure you want to activate this campaign?')) {
-                updateCampaignStatus(id, 'active');
-            }
-        }
-        
-        function pauseCampaign(id) {
-            <?php if (!$permissions['can_send_campaigns']): ?>
-            alert('You do not have permission to manage campaigns.');
-            return;
-            <?php endif; ?>
-            if (confirm('Are you sure you want to pause this campaign?')) {
-                updateCampaignStatus(id, 'paused');
-            }
-        }
-        
-        function resumeCampaign(id) {
-            <?php if (!$permissions['can_send_campaigns']): ?>
-            alert('You do not have permission to send campaigns.');
-            return;
-            <?php endif; ?>
-            if (confirm('Are you sure you want to resume this campaign?')) {
-                updateCampaignStatus(id, 'active');
-            }
-        }
-        
-        async function duplicateCampaign(id) {
-            <?php if (!$permissions['can_create_campaigns']): ?>
-            alert('You do not have permission to create campaigns.');
-            return;
-            <?php endif; ?>
-            if (confirm('Are you sure you want to duplicate this campaign?')) {
-                try {
-                    const response = await fetch(`${basePath}/api/campaigns/${id}/duplicate`, {
-                        method: 'POST'
-                    });
-                    
-                    if (response.ok) {
-                        location.reload();
-                    } else {
-                        alert('Failed to duplicate campaign');
-                    }
-                } catch (error) {
-                    alert('Network error. Please try again.');
-                }
-            }
-        }
-        
-        async function deleteCampaign(id) {
-            <?php if (!$permissions['can_delete_campaigns']): ?>
-            alert('You do not have permission to delete campaigns.');
-            return;
-            <?php endif; ?>
+
+        function deleteCampaign(campaignId) {
             if (confirm('Are you sure you want to delete this campaign? This action cannot be undone.')) {
-                try {
-                    const response = await fetch(`${basePath}/api/campaigns/${id}`, {
-                        method: 'DELETE'
-                    });
-                    
-                    if (response.ok) {
+                fetch(`<?php echo base_path('api/campaigns'); ?>/${campaignId}`, {
+                    method: 'DELETE',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    }
+                })
+                .then(response => response.json())
+                .then(data => {
+                    if (data.success) {
+                        alert('Campaign deleted successfully!');
                         location.reload();
                     } else {
-                        alert('Failed to delete campaign');
+                        alert(data.message || 'Failed to delete campaign');
                     }
-                } catch (error) {
-                    alert('Network error. Please try again.');
-                }
+                })
+                .catch(error => {
+                    console.error('Error:', error);
+                    alert('Failed to delete campaign');
+                });
             }
         }
     </script>
