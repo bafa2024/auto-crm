@@ -4,9 +4,11 @@ if (session_status() === PHP_SESSION_NONE) {
     session_start();
 }
 
+require_once __DIR__ . "/../../config/base_path.php";
+
 // Redirect if already logged in
 if (isset($_SESSION["user_id"]) && in_array($_SESSION["user_role"], ['agent', 'manager'])) {
-    header("Location: /employee/email-dashboard");
+    header("Location: " . base_path() . "/employee/email-dashboard");
     exit();
 }
 
@@ -35,7 +37,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['email']) && isset($_P
         $_SESSION["login_method"] = "email_password";
         
         // Redirect to email dashboard
-        header("Location: /employee/email-dashboard");
+        header("Location: " . base_path() . "/employee/email-dashboard");
         exit();
     } else {
         $error = "Invalid email or password. Please try again.";
@@ -99,46 +101,63 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['email']) && isset($_P
                 <div class="card-body p-4">
                     <?php if (isset($error)): ?>
                         <div class="alert alert-danger">
-                            <i class="fas fa-exclamation-circle"></i> <?php echo htmlspecialchars($error); ?>
+                            <i class="fas fa-exclamation-triangle me-2"></i>
+                            <?php echo htmlspecialchars($error); ?>
                         </div>
                     <?php endif; ?>
                     
-                    <form method="POST">
+                    <form method="POST" action="">
                         <div class="mb-3">
-                            <label for="email" class="form-label">Employee Email</label>
-                            <input type="email" class="form-control" id="email" name="email" required 
-                                   placeholder="Enter your employee email" autofocus>
-                            <div class="form-text">Enter your registered employee email address</div>
+                            <label for="email" class="form-label">Email Address</label>
+                            <div class="input-group">
+                                <span class="input-group-text">
+                                    <i class="fas fa-envelope"></i>
+                                </span>
+                                <input type="email" class="form-control" id="email" name="email" 
+                                       value="<?php echo isset($_POST['email']) ? htmlspecialchars($_POST['email']) : ''; ?>" 
+                                       required>
+                            </div>
                         </div>
+                        
                         <div class="mb-3">
                             <label for="password" class="form-label">Password</label>
-                            <div class="password-toggle">
-                                <input type="password" class="form-control" id="password" name="password" required 
-                                       placeholder="Enter your password">
+                            <div class="input-group password-toggle">
+                                <span class="input-group-text">
+                                    <i class="fas fa-lock"></i>
+                                </span>
+                                <input type="password" class="form-control" id="password" name="password" required>
                                 <button type="button" class="btn" onclick="togglePassword()">
-                                    <i class="fas fa-eye" id="passwordToggleIcon"></i>
+                                    <i class="fas fa-eye" id="toggleIcon"></i>
                                 </button>
                             </div>
-                            <div class="form-text">Enter your employee password</div>
                         </div>
-                        <button type="submit" class="btn btn-primary w-100">
-                            <i class="fas fa-sign-in-alt me-2"></i>Login
-                        </button>
+                        
+                        <div class="d-grid">
+                            <button type="submit" class="btn btn-primary">
+                                <i class="fas fa-sign-in-alt me-2"></i>Login
+                            </button>
+                        </div>
                     </form>
                     
                     <hr class="my-4">
                     
-                    <div class="text-center text-muted">
-                        <small>
-                            <i class="fas fa-info-circle"></i> 
-                            Only registered employees (agents/managers) can login
-                        </small>
+                    <div class="text-center">
+                        <p class="text-muted mb-2">Other login options:</p>
+                        <div class="d-grid gap-2">
+                            <a href="<?php echo base_path(); ?>/employee/login/otp" class="btn btn-outline-secondary">
+                                <i class="fas fa-mobile-alt me-2"></i>Login with OTP
+                            </a>
+                            <a href="<?php echo base_path(); ?>/employee/login/link" class="btn btn-outline-info">
+                                <i class="fas fa-link me-2"></i>Magic Link Login
+                            </a>
+                        </div>
                     </div>
-                </div>
-                <div class="card-footer text-center">
-                    <a href="/" class="text-decoration-none">
-                        <i class="fas fa-arrow-left"></i> Back to Home
-                    </a>
+                    
+                    <div class="text-center mt-4">
+                        <a href="<?php echo base_path(); ?>/" class="text-decoration-none">
+                            <i class="fas fa-arrow-left me-2"></i>Back to Home
+                        </a>
+                    </div>
                 </div>
             </div>
         </div>
@@ -148,7 +167,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['email']) && isset($_P
     <script>
         function togglePassword() {
             const passwordInput = document.getElementById('password');
-            const toggleIcon = document.getElementById('passwordToggleIcon');
+            const toggleIcon = document.getElementById('toggleIcon');
             
             if (passwordInput.type === 'password') {
                 passwordInput.type = 'text';

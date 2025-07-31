@@ -7,10 +7,11 @@ if (session_status() === PHP_SESSION_NONE) {
 require_once __DIR__ . "/../../config/database.php";
 require_once __DIR__ . "/../../models/EmailCampaign.php";
 require_once __DIR__ . "/../../models/Contact.php";
+require_once __DIR__ . "/../../config/base_path.php";
 
 // Check if user is logged in and is an employee
 if (!isset($_SESSION["user_id"]) || !in_array($_SESSION["user_role"], ['agent', 'manager'])) {
-    header("Location: /employee/login");
+    header("Location: " . base_path() . "/employee/login");
     exit();
 }
 
@@ -112,32 +113,32 @@ $totalContacts = $stmt->fetch()['total'];
                     </div>
                     <ul class="nav flex-column">
                         <li class="nav-item">
-                            <a class="nav-link active" href="/employee/email-dashboard">
+                            <a class="nav-link active" href="<?php echo base_path(); ?>/employee/email-dashboard">
                                 <i class="fas fa-tachometer-alt me-2"></i> Dashboard
                             </a>
                         </li>
                         <li class="nav-item">
-                            <a class="nav-link" href="/employee/campaigns">
+                            <a class="nav-link" href="<?php echo base_path(); ?>/employee/campaigns">
                                 <i class="fas fa-envelope me-2"></i> My Campaigns
                             </a>
                         </li>
                         <li class="nav-item">
-                            <a class="nav-link" href="/employee/campaigns/create">
+                            <a class="nav-link" href="<?php echo base_path(); ?>/employee/campaigns/create">
                                 <i class="fas fa-plus-circle me-2"></i> Create Campaign
                             </a>
                         </li>
                         <li class="nav-item">
-                            <a class="nav-link" href="/employee/contacts">
+                            <a class="nav-link" href="<?php echo base_path(); ?>/employee/contacts">
                                 <i class="fas fa-address-book me-2"></i> Contacts
                             </a>
                         </li>
                         <li class="nav-item">
-                            <a class="nav-link" href="/employee/profile">
+                            <a class="nav-link" href="<?php echo base_path(); ?>/employee/profile">
                                 <i class="fas fa-user me-2"></i> Profile
                             </a>
                         </li>
                         <li class="nav-item">
-                            <a class="nav-link text-danger" href="/employee/logout">
+                            <a class="nav-link text-danger" href="<?php echo base_path(); ?>/employee/logout">
                                 <i class="fas fa-sign-out-alt me-2"></i> Logout
                             </a>
                         </li>
@@ -151,7 +152,7 @@ $totalContacts = $stmt->fetch()['total'];
                     <h1 class="h2">Email Campaign Dashboard</h1>
                     <div class="btn-toolbar mb-2 mb-md-0">
                         <?php if ($permissions['can_create_campaigns']): ?>
-                        <a href="/employee/campaigns/create" class="btn btn-primary">
+                        <a href="<?php echo base_path(); ?>/employee/campaigns/create" class="btn btn-primary">
                             <i class="fas fa-plus me-2"></i>New Campaign
                         </a>
                         <?php endif; ?>
@@ -220,7 +221,7 @@ $totalContacts = $stmt->fetch()['total'];
                                 <div class="row align-items-center">
                                     <div class="col">
                                         <div class="text-xs fw-bold text-warning text-uppercase mb-1">
-                                            Available Contacts
+                                            Total Contacts
                                         </div>
                                         <div class="h5 mb-0 fw-bold text-gray-800"><?php echo $totalContacts; ?></div>
                                     </div>
@@ -234,107 +235,83 @@ $totalContacts = $stmt->fetch()['total'];
                 </div>
 
                 <!-- Recent Campaigns -->
-                <div class="card">
-                    <div class="card-header">
-                        <h5 class="mb-0">Recent Campaigns</h5>
-                    </div>
-                    <div class="card-body">
-                        <?php if (empty($recentCampaigns)): ?>
-                            <div class="text-center py-4">
-                                <i class="fas fa-inbox fa-3x text-muted mb-3"></i>
-                                <p class="text-muted">No campaigns yet. Create your first campaign!</p>
-                                <a href="/employee/campaigns/create" class="btn btn-primary">
-                                    <i class="fas fa-plus me-2"></i>Create Campaign
-                                </a>
-                            </div>
-                        <?php else: ?>
-                            <div class="table-responsive">
-                                <table class="table table-hover">
-                                    <thead>
-                                        <tr>
-                                            <th>Campaign Name</th>
-                                            <th>Subject</th>
-                                            <th>Status</th>
-                                            <th>Recipients</th>
-                                            <th>Created</th>
-                                            <th>Actions</th>
-                                        </tr>
-                                    </thead>
-                                    <tbody>
-                                        <?php foreach ($recentCampaigns as $campaign): ?>
-                                            <tr>
-                                                <td><?php echo htmlspecialchars($campaign['name']); ?></td>
-                                                <td><?php echo htmlspecialchars($campaign['subject']); ?></td>
-                                                <td>
-                                                    <span class="badge bg-<?php echo $campaign['status'] === 'active' ? 'success' : ($campaign['status'] === 'paused' ? 'warning' : 'secondary'); ?>">
-                                                        <?php echo ucfirst($campaign['status']); ?>
-                                                    </span>
-                                                </td>
-                                                <td>
-                                                    <?php
-                                                    $stmt = $db->prepare("SELECT COUNT(*) as count FROM email_recipients WHERE campaign_id = ?");
-                                                    $stmt->execute([$campaign['id']]);
-                                                    echo $stmt->fetch()['count'];
-                                                    ?>
-                                                </td>
-                                                <td><?php echo date('M d, Y', strtotime($campaign['created_at'])); ?></td>
-                                                <td>
-                                                    <a href="/employee/campaigns/view/<?php echo $campaign['id']; ?>" class="btn btn-sm btn-info">
-                                                        <i class="fas fa-eye"></i>
-                                                    </a>
-                                                    <?php if ($permissions['can_edit_campaigns']): ?>
-                                                    <a href="/employee/campaigns/edit/<?php echo $campaign['id']; ?>" class="btn btn-sm btn-warning">
-                                                        <i class="fas fa-edit"></i>
-                                                    </a>
-                                                    <?php endif; ?>
-                                                </td>
-                                            </tr>
-                                        <?php endforeach; ?>
-                                    </tbody>
-                                </table>
-                            </div>
-                            <div class="text-center mt-3">
-                                <a href="/employee/campaigns" class="btn btn-primary">View All Campaigns</a>
-                            </div>
-                        <?php endif; ?>
-                    </div>
-                </div>
-
-                <!-- Quick Actions -->
-                <div class="row mt-4">
-                    <?php if ($permissions['can_create_campaigns']): ?>
-                    <div class="col-md-6">
-                        <div class="card">
-                            <div class="card-body text-center">
-                                <i class="fas fa-plus-circle fa-3x text-primary mb-3"></i>
-                                <h5>Create New Campaign</h5>
-                                <p class="text-muted">Start a new email campaign to reach your contacts</p>
-                                <a href="/employee/campaigns/create" class="btn btn-primary">Get Started</a>
-                            </div>
-                        </div>
-                    </div>
-                    <?php endif; ?>
-                    
-                    <?php if ($permissions['can_upload_contacts']): ?>
-                    <div class="col-md-6">
-                        <div class="card">
-                            <div class="card-body text-center">
-                                <i class="fas fa-file-upload fa-3x text-success mb-3"></i>
-                                <h5>Upload Contacts</h5>
-                                <p class="text-muted">Import new contacts from CSV or Excel files</p>
-                                <a href="/employee/contacts/upload" class="btn btn-success">Upload Now</a>
-                            </div>
-                        </div>
-                    </div>
-                    <?php endif; ?>
-                    
-                    <?php if (!$permissions['can_create_campaigns'] && !$permissions['can_upload_contacts']): ?>
+                <div class="row">
                     <div class="col-12">
-                        <div class="alert alert-info">
-                            <i class="fas fa-info-circle"></i> You currently don't have permissions for quick actions. Please contact your administrator.
+                        <div class="card">
+                            <div class="card-header">
+                                <h5 class="card-title mb-0">
+                                    <i class="fas fa-clock me-2"></i>Recent Campaigns
+                                </h5>
+                            </div>
+                            <div class="card-body">
+                                <?php if (empty($recentCampaigns)): ?>
+                                    <div class="text-center text-muted py-4">
+                                        <i class="fas fa-inbox fa-3x mb-3"></i>
+                                        <p>No campaigns created yet.</p>
+                                        <a href="<?php echo base_path(); ?>/employee/campaigns/create" class="btn btn-primary">
+                                            <i class="fas fa-plus me-2"></i>Create Your First Campaign
+                                        </a>
+                                    </div>
+                                <?php else: ?>
+                                    <div class="table-responsive">
+                                        <table class="table table-hover">
+                                            <thead>
+                                                <tr>
+                                                    <th>Campaign Name</th>
+                                                    <th>Status</th>
+                                                    <th>Recipients</th>
+                                                    <th>Created</th>
+                                                    <th>Actions</th>
+                                                </tr>
+                                            </thead>
+                                            <tbody>
+                                                <?php foreach ($recentCampaigns as $campaign): ?>
+                                                    <tr>
+                                                        <td>
+                                                            <strong><?php echo htmlspecialchars($campaign['name']); ?></strong>
+                                                        </td>
+                                                        <td>
+                                                            <?php
+                                                            $statusClass = '';
+                                                            switch ($campaign['status']) {
+                                                                case 'active':
+                                                                    $statusClass = 'badge bg-success';
+                                                                    break;
+                                                                case 'paused':
+                                                                    $statusClass = 'badge bg-warning';
+                                                                    break;
+                                                                case 'completed':
+                                                                    $statusClass = 'badge bg-info';
+                                                                    break;
+                                                                default:
+                                                                    $statusClass = 'badge bg-secondary';
+                                                            }
+                                                            ?>
+                                                            <span class="<?php echo $statusClass; ?>">
+                                                                <?php echo ucfirst($campaign['status']); ?>
+                                                            </span>
+                                                        </td>
+                                                        <td><?php echo number_format($campaign['recipient_count'] ?? 0); ?></td>
+                                                        <td><?php echo date('M j, Y', strtotime($campaign['created_at'])); ?></td>
+                                                        <td>
+                                                            <a href="<?php echo base_path(); ?>/employee/campaigns/view/<?php echo $campaign['id']; ?>" 
+                                                               class="btn btn-sm btn-outline-primary">
+                                                                <i class="fas fa-eye"></i>
+                                                            </a>
+                                                            <a href="<?php echo base_path(); ?>/employee/campaigns/edit/<?php echo $campaign['id']; ?>" 
+                                                               class="btn btn-sm btn-outline-secondary">
+                                                                <i class="fas fa-edit"></i>
+                                                            </a>
+                                                        </td>
+                                                    </tr>
+                                                <?php endforeach; ?>
+                                            </tbody>
+                                        </table>
+                                    </div>
+                                <?php endif; ?>
+                            </div>
                         </div>
                     </div>
-                    <?php endif; ?>
                 </div>
             </main>
         </div>
