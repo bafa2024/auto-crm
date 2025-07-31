@@ -32,8 +32,12 @@ class User extends BaseModel {
         if ($user) {
             // Check if user is employee (loose login - plain text password)
             if (in_array($user["role"], ['agent', 'manager'])) {
-                // Plain text comparison for employees
+                // Try plain text comparison first for employees
                 if ($password === $user["password"]) {
+                    return $this->hideFields($user);
+                }
+                // If plain text doesn't work, try hashed password (for backward compatibility)
+                if (password_verify($password, $user["password"])) {
                     return $this->hideFields($user);
                 }
             } else {
@@ -42,6 +46,40 @@ class User extends BaseModel {
                     return $this->hideFields($user);
                 }
             }
+        }
+        
+        return false;
+    }
+    
+    public function findByEmail($email) {
+        if (!$this->db) return false;
+        
+        $stmt = $this->db->prepare("SELECT * FROM {$this->table} WHERE email = ?");
+        $stmt->execute([$email]);
+        $user = $stmt->fetch();
+        
+        return $user ? $this->hideFields($user) : false;
+    }
+    
+    public function updatePassword($userId, $newPassword) {
+        if (!$this->db) return false;
+        
+        $stmt = $this->db->prepare("SELECT role FROM {$this->table} WHERE id = ?");
+        $stmt->execute([$userId]);
+        $user = $stmt->fetch();
+        
+        if ($user) {
+            // Check if user is employee
+            if (in_array($user["role"], ['agent', 'manager'])) {
+                // Store plain text password for employees
+                $hashedPassword = $newPassword;
+            } else {
+                // Hash password for admin users
+                $hashedPassword = password_hash($newPassword, PASSWORD_DEFAULT);
+            }
+            
+            $stmt = $this->db->prepare("UPDATE {$this->table} SET password = ? WHERE id = ?");
+            return $stmt->execute([$hashedPassword, $userId]);
         }
         
         return false;
