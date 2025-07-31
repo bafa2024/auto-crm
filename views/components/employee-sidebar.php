@@ -12,8 +12,10 @@ if (!isset($permissions)) {
 }
 
 // Helper function to check permissions
-function hasPermission($permissions, $permission) {
-    return isset($permissions[$permission]) && $permissions[$permission];
+if (!function_exists('hasPermission')) {
+    function hasPermission($permissions, $permission) {
+        return isset($permissions[$permission]) && $permissions[$permission];
+    }
 }
 
 // Get current page for active state
@@ -21,15 +23,19 @@ $currentPage = $_SERVER['REQUEST_URI'];
 $currentPage = str_replace('/acrm', '', $currentPage); // Remove base path if present
 
 // Helper function to check if current page matches pattern
-function isCurrentPage($pattern) {
-    global $currentPage;
-    return strpos($currentPage, $pattern) !== false;
+if (!function_exists('isCurrentPage')) {
+    function isCurrentPage($pattern) {
+        global $currentPage;
+        return strpos($currentPage, $pattern) !== false;
+    }
 }
 
 // Helper function to check if current page is exactly
-function isExactPage($pattern) {
-    global $currentPage;
-    return $currentPage === $pattern;
+if (!function_exists('isExactPage')) {
+    function isExactPage($pattern) {
+        global $currentPage;
+        return $currentPage === $pattern;
+    }
 }
 ?>
 

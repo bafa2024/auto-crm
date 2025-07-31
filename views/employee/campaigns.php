@@ -26,8 +26,10 @@ $permissionModel = new EmployeePermission($db);
 $permissions = $permissionModel->getUserPermissions($userId);
 
 // Helper function to check permissions
-function hasPermission($permissions, $permission) {
-    return isset($permissions[$permission]) && $permissions[$permission];
+if (!function_exists('hasPermission')) {
+    function hasPermission($permissions, $permission) {
+        return isset($permissions[$permission]) && $permissions[$permission];
+    }
 }
 
 // Check if user has any campaign-related permissions

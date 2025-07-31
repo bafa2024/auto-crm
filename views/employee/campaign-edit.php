@@ -25,8 +25,10 @@ $permissionModel = new EmployeePermission($db);
 $permissions = $permissionModel->getUserPermissions($_SESSION["user_id"]);
 
 // Helper function to check permissions
-function hasPermission($permissions, $permission) {
-    return isset($permissions[$permission]) && $permissions[$permission];
+if (!function_exists('hasPermission')) {
+    function hasPermission($permissions, $permission) {
+        return isset($permissions[$permission]) && $permissions[$permission];
+    }
 }
 
 // Check if user has permission to edit campaigns
