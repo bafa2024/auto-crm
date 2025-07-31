@@ -244,4 +244,61 @@ if (session_status() === PHP_SESSION_NONE) {
         
         $this->sendSuccess($stats);
     }
+
+    public function exportContacts() {
+        try {
+            // Get search parameters
+            $search = $_GET['search'] ?? '';
+            $status = $_GET['status'] ?? '';
+            
+            // Build query
+            $sql = "SELECT first_name, last_name, email, phone, company, status, created_at FROM contacts WHERE 1=1";
+            $params = [];
+            
+            if ($search) {
+                $sql .= " AND (first_name LIKE ? OR last_name LIKE ? OR email LIKE ? OR company LIKE ?)";
+                $searchLike = "%$search%";
+                $params = array_merge($params, [$searchLike, $searchLike, $searchLike, $searchLike]);
+            }
+            
+            if ($status) {
+                $sql .= " AND status = ?";
+                $params[] = $status;
+            }
+            
+            $sql .= " ORDER BY created_at DESC";
+            
+            $stmt = $this->db->prepare($sql);
+            $stmt->execute($params);
+            $contacts = $stmt->fetchAll();
+            
+            // Set headers for CSV download
+            header('Content-Type: text/csv');
+            header('Content-Disposition: attachment; filename="contacts_' . date('Y-m-d_H-i-s') . '.csv"');
+            
+            // Create CSV output
+            $output = fopen('php://output', 'w');
+            
+            // Add headers
+            fputcsv($output, ['First Name', 'Last Name', 'Email', 'Phone', 'Company', 'Status', 'Created Date']);
+            
+            // Add data
+            foreach ($contacts as $contact) {
+                fputcsv($output, [
+                    $contact['first_name'],
+                    $contact['last_name'],
+                    $contact['email'],
+                    $contact['phone'],
+                    $contact['company'],
+                    $contact['status'],
+                    $contact['created_at']
+                ]);
+            }
+            
+            fclose($output);
+            exit;
+        } catch (Exception $e) {
+            $this->sendError('Failed to export contacts: ' . $e->getMessage());
+        }
+    }
 } 

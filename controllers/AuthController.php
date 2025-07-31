@@ -894,4 +894,251 @@ class AuthController extends BaseController {
             "expires_at" => $tokenData['expires_at']
         ], "Token is valid");
     }
+    
+    /**
+     * Employee forgot password request
+     */
+    public function employeeForgotPassword($request = null) {
+        // Set CORS headers
+        header("Access-Control-Allow-Origin: *");
+        header("Access-Control-Allow-Methods: POST, OPTIONS");
+        header("Access-Control-Allow-Headers: Content-Type, Authorization");
+        
+        if ($_SERVER["REQUEST_METHOD"] === "OPTIONS") {
+            http_response_code(200);
+            exit;
+        }
+        
+        if ($_SERVER["REQUEST_METHOD"] !== "POST") {
+            $this->sendError("Method not allowed", 405);
+        }
+        
+        // Get input data
+        if ($request && isset($request->body)) {
+            $input = $request->body;
+        } else {
+            $input = json_decode(file_get_contents("php://input"), true);
+        }
+        
+        if (!$input) {
+            $this->sendError("Invalid JSON data", 400);
+        }
+        
+        $email = $this->sanitizeInput($input["email"] ?? "");
+        
+        if (empty($email)) {
+            $this->sendError("Email is required");
+        }
+        
+        if (!filter_var($email, FILTER_VALIDATE_EMAIL)) {
+            $this->sendError("Invalid email format");
+        }
+        
+        // Check if database is connected
+        if (!$this->db) {
+            $this->sendError("Database connection error", 500);
+        }
+        
+        // Check if user exists and is an employee
+        $stmt = $this->db->prepare("SELECT id, email, first_name, last_name FROM users WHERE email = ? AND role IN ('agent', 'manager') AND status = 'active'");
+        $stmt->execute([$email]);
+        $user = $stmt->fetch();
+        
+        if (!$user) {
+            // Don't reveal if email exists or not for security
+            $this->sendSuccess([
+                "message" => "If an employee account with that email exists, a password reset link has been sent"
+            ], "Password reset email sent");
+        }
+        
+        // Generate password reset token
+        $tokenData = $this->passwordResetModel->generateToken($email);
+        
+        if (!$tokenData) {
+            // Don't reveal if email exists or not for security
+            $this->sendSuccess([
+                "message" => "If an employee account with that email exists, a password reset link has been sent"
+            ], "Password reset email sent");
+        }
+        
+        // Build reset URL for employees
+        $protocol = isset($_SERVER['HTTPS']) && $_SERVER['HTTPS'] === 'on' ? 'https' : 'http';
+        $host = $_SERVER['HTTP_HOST'];
+        $basePath = $this->getBasePath();
+        $resetUrl = "{$protocol}://{$host}{$basePath}/employee/reset-password?token={$tokenData['token']}";
+        
+        // Send email with reset link
+        require_once __DIR__ . "/../services/EmailService.php";
+        $database_obj = new \stdClass();
+        $database_obj->getConnection = function() { return $this->db; };
+        $emailService = new EmailService($database_obj);
+        
+        $emailSent = $emailService->sendEmployeePasswordResetEmail(
+            $email, 
+            $resetUrl, 
+            $tokenData['expires_at'],
+            $user['first_name'] . " " . $user['last_name']
+        );
+        
+        // Log the reset URL in development mode
+        if (($_ENV['APP_ENV'] ?? 'development') === 'development') {
+            error_log("Employee password reset URL for {$email}: {$resetUrl}");
+            
+            // Also write to a log file
+            $logDir = dirname(__DIR__) . '/logs';
+            if (!is_dir($logDir)) {
+                mkdir($logDir, 0777, true);
+            }
+            
+            $logFile = $logDir . '/employee_password_reset_links.log';
+            $logEntry = date('Y-m-d H:i:s') . " - {$email}: {$resetUrl}\n";
+            file_put_contents($logFile, $logEntry, FILE_APPEND);
+        }
+        
+        $this->sendSuccess([
+            "message" => "If an employee account with that email exists, a password reset link has been sent"
+        ], "Password reset email sent");
+    }
+    
+    /**
+     * Employee reset password with token
+     */
+    public function employeeResetPassword($request = null) {
+        // Set CORS headers
+        header("Access-Control-Allow-Origin: *");
+        header("Access-Control-Allow-Methods: POST, OPTIONS");
+        header("Access-Control-Allow-Headers: Content-Type, Authorization");
+        
+        if ($_SERVER["REQUEST_METHOD"] === "OPTIONS") {
+            http_response_code(200);
+            exit;
+        }
+        
+        if ($_SERVER["REQUEST_METHOD"] !== "POST") {
+            $this->sendError("Method not allowed", 405);
+        }
+        
+        // Get input data
+        if ($request && isset($request->body)) {
+            $input = $request->body;
+        } else {
+            $input = json_decode(file_get_contents("php://input"), true);
+        }
+        
+        if (!$input) {
+            $this->sendError("Invalid JSON data", 400);
+        }
+        
+        $token = $this->sanitizeInput($input["token"] ?? "");
+        $password = $input["password"] ?? "";
+        $confirmPassword = $input["confirm_password"] ?? "";
+        
+        if (empty($token)) {
+            $this->sendError("Reset token is required");
+        }
+        
+        if (empty($password)) {
+            $this->sendError("New password is required");
+        }
+        
+        if (strlen($password) < 6) {
+            $this->sendError("Password must be at least 6 characters long");
+        }
+        
+        if ($password !== $confirmPassword) {
+            $this->sendError("Passwords do not match");
+        }
+        
+        // Check if database is connected
+        if (!$this->db) {
+            $this->sendError("Database connection error", 500);
+        }
+        
+        // Validate token
+        $tokenData = $this->passwordResetModel->validateToken($token);
+        
+        if (!$tokenData) {
+            $this->sendError("Invalid or expired reset token", 400);
+        }
+        
+        // Verify the user is an employee
+        $stmt = $this->db->prepare("SELECT id, role FROM users WHERE id = ? AND role IN ('agent', 'manager') AND status = 'active'");
+        $stmt->execute([$tokenData['user_id']]);
+        $user = $stmt->fetch();
+        
+        if (!$user) {
+            $this->sendError("Invalid reset token for employee account", 400);
+        }
+        
+        // Update user password
+        $hashedPassword = password_hash($password, PASSWORD_DEFAULT);
+        $stmt = $this->db->prepare("UPDATE users SET password = ? WHERE id = ?");
+        $result = $stmt->execute([$hashedPassword, $tokenData['user_id']]);
+        
+        if (!$result) {
+            $this->sendError("Failed to update password", 500);
+        }
+        
+        // Mark token as used
+        $this->passwordResetModel->markTokenAsUsed($token);
+        
+        // Clean up expired tokens
+        $this->passwordResetModel->cleanupExpiredTokens();
+        
+        $this->sendSuccess([
+            "message" => "Password has been reset successfully"
+        ], "Password reset successful");
+    }
+    
+    /**
+     * Employee validate reset token (for frontend validation)
+     */
+    public function employeeValidateResetToken($request = null) {
+        // Set CORS headers
+        header("Access-Control-Allow-Origin: *");
+        header("Access-Control-Allow-Methods: GET, OPTIONS");
+        header("Access-Control-Allow-Headers: Content-Type, Authorization");
+        
+        if ($_SERVER["REQUEST_METHOD"] === "OPTIONS") {
+            http_response_code(200);
+            exit;
+        }
+        
+        if ($_SERVER["REQUEST_METHOD"] !== "GET") {
+            $this->sendError("Method not allowed", 405);
+        }
+        
+        $token = $_GET["token"] ?? "";
+        
+        if (empty($token)) {
+            $this->sendError("Reset token is required");
+        }
+        
+        // Check if database is connected
+        if (!$this->db) {
+            $this->sendError("Database connection error", 500);
+        }
+        
+        // Validate token
+        $tokenData = $this->passwordResetModel->validateToken($token);
+        
+        if (!$tokenData) {
+            $this->sendError("Invalid or expired reset token", 400);
+        }
+        
+        // Verify the user is an employee
+        $stmt = $this->db->prepare("SELECT id, role FROM users WHERE id = ? AND role IN ('agent', 'manager') AND status = 'active'");
+        $stmt->execute([$tokenData['user_id']]);
+        $user = $stmt->fetch();
+        
+        if (!$user) {
+            $this->sendError("Invalid reset token for employee account", 400);
+        }
+        
+        $this->sendSuccess([
+            "email" => $tokenData['email'],
+            "name" => $tokenData['first_name'] . " " . $tokenData['last_name'],
+            "expires_at" => $tokenData['expires_at']
+        ], "Token is valid");
+    }
 }

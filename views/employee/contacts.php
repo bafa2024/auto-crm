@@ -31,7 +31,7 @@ include __DIR__ . "/../components/header.php";
 include __DIR__ . "/../components/employee-sidebar.php";
 ?>
 
-<div class="main-content">
+<div class="main-content" style="margin-left: 260px;">
     <div class="container-fluid">
         <!-- Header -->
         <div class="d-flex justify-content-between align-items-center mb-4">

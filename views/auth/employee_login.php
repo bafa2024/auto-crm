@@ -140,6 +140,18 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['email']) && isset($_P
                             </div>
                         </div>
                         
+                        <div class="d-flex justify-content-between mb-3">
+                            <div class="form-check">
+                                <input class="form-check-input" type="checkbox" id="remember">
+                                <label class="form-check-label" for="remember">
+                                    Remember me
+                                </label>
+                            </div>
+                            <a href="<?php echo base_path('employee/forgot-password'); ?>" class="text-decoration-none">
+                                <i class="fas fa-key me-1"></i>Forgot password?
+                            </a>
+                        </div>
+                        
                         <div class="d-grid">
                             <button type="submit" class="btn btn-primary">
                                 <i class="fas fa-sign-in-alt me-2"></i>Login

@@ -252,4 +252,81 @@ class UserController extends BaseController {
             $this->sendError("Failed to update permissions: " . $e->getMessage());
         }
     }
+
+    // GET /api/employee/profile
+    public function getEmployeeProfile() {
+        if ($_SERVER['REQUEST_METHOD'] !== 'GET') {
+            $this->sendError('Method not allowed', 405);
+        }
+        
+        if (!isset($_SESSION['user_id'])) {
+            $this->sendError('Not authenticated', 401);
+        }
+        
+        try {
+            $sql = "SELECT id, first_name, last_name, email, role, status, phone, company_name FROM users WHERE id = ?";
+            $stmt = $this->db->prepare($sql);
+            $stmt->execute([$_SESSION['user_id']]);
+            $user = $stmt->fetch();
+            
+            if ($user) {
+                $this->sendSuccess(['profile' => $user]);
+            } else {
+                $this->sendError('Profile not found', 404);
+            }
+        } catch (Exception $e) {
+            error_log("Error fetching employee profile: " . $e->getMessage());
+            $this->sendError("Failed to fetch profile", 500);
+        }
+    }
+
+    // PUT /api/employee/profile
+    public function updateEmployeeProfile($request = null) {
+        if ($_SERVER['REQUEST_METHOD'] !== 'PUT') {
+            $this->sendError('Method not allowed', 405);
+        }
+        
+        if (!isset($_SESSION['user_id'])) {
+            $this->sendError('Not authenticated', 401);
+        }
+        
+        $input = $request && isset($request->body) ? $request->body : json_decode(file_get_contents('php://input'), true);
+        $data = $this->sanitizeInput($input);
+        
+        // Only allow updating certain fields
+        $allowedFields = ['first_name', 'last_name', 'phone', 'company_name'];
+        $updateData = array_intersect_key($data, array_flip($allowedFields));
+        
+        if (empty($updateData)) {
+            $this->sendError('No valid fields to update', 400);
+        }
+        
+        try {
+            $sql = "UPDATE users SET ";
+            $fields = [];
+            $values = [];
+            
+            foreach ($updateData as $field => $value) {
+                $fields[] = "$field = ?";
+                $values[] = $value;
+            }
+            
+            $sql .= implode(', ', $fields);
+            $sql .= ", updated_at = ? WHERE id = ?";
+            $values[] = date('Y-m-d H:i:s');
+            $values[] = $_SESSION['user_id'];
+            
+            $stmt = $this->db->prepare($sql);
+            $result = $stmt->execute($values);
+            
+            if ($result) {
+                $this->sendSuccess(null, 'Profile updated successfully');
+            } else {
+                $this->sendError('Failed to update profile', 500);
+            }
+        } catch (Exception $e) {
+            error_log("Error updating employee profile: " . $e->getMessage());
+            $this->sendError("Failed to update profile", 500);
+        }
+    }
 } 

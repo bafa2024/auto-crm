@@ -13,7 +13,6 @@ require_once __DIR__ . "/../../models/EmailTemplate.php";
 
 // Check if user is logged in and is an employee
 if (!isset($_SESSION["user_id"]) || !in_array($_SESSION["user_role"], ['agent', 'manager'])) {
-    require_once __DIR__ . "/../../config/base_path.php";
     header("Location: " . base_path('employee/login'));
     exit();
 }
@@ -30,10 +29,35 @@ function hasPermission($permissions, $permission) {
     return isset($permissions[$permission]) && $permissions[$permission];
 }
 
-// Check if user has permission to create campaigns
-if (!hasPermission($permissions, 'can_create_campaigns')) {
-    $_SESSION['error'] = "You don't have permission to create campaigns.";
+// Check if user has permission to edit campaigns
+if (!hasPermission($permissions, 'can_edit_campaigns')) {
+    $_SESSION['error'] = "You don't have permission to edit campaigns.";
     header("Location: " . base_path('employee/campaigns'));
+    exit();
+}
+
+// Get campaign ID
+$campaignId = $_GET['id'] ?? 0;
+if (!$campaignId) {
+    header("Location: " . base_path('employee/campaigns'));
+    exit();
+}
+
+// Get campaign details
+$campaignModel = new EmailCampaign($db);
+$campaign = $campaignModel->findById($campaignId);
+
+// Check if campaign exists and belongs to this user
+if (!$campaign || $campaign['created_by'] != $_SESSION["user_id"]) {
+    $_SESSION['error'] = "Campaign not found or you don't have permission to edit it.";
+    header("Location: " . base_path('employee/campaigns'));
+    exit();
+}
+
+// Check if campaign can be edited (only draft campaigns can be edited)
+if ($campaign['status'] !== 'draft') {
+    $_SESSION['error'] = "Only draft campaigns can be edited.";
+    header("Location: " . base_path('employee/campaigns/view/' . $campaignId));
     exit();
 }
 
@@ -80,7 +104,6 @@ if (hasPermission($permissions, 'can_upload_contacts')) {
 // Get email templates
 $templateModel = new EmailTemplate($db);
 $templates = $templateModel->getAvailableTemplates($_SESSION["user_id"]);
-$templateCategories = $templateModel->getCategories();
 ?>
 
 <!DOCTYPE html>
@@ -88,7 +111,7 @@ $templateCategories = $templateModel->getCategories();
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Create Campaign - Email Campaign Management</title>
+    <title>Edit Campaign - Email Campaign Management</title>
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/css/bootstrap.min.css" rel="stylesheet">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
     <style>
@@ -129,7 +152,7 @@ $templateCategories = $templateModel->getCategories();
             <!-- Main content -->
             <main class="col-md-9 ms-sm-auto col-lg-10 px-md-4" style="margin-left: 260px;">
                 <div class="d-flex justify-content-between flex-wrap flex-md-nowrap align-items-center pt-3 pb-2 mb-3 border-bottom">
-                    <h1 class="h2">Create New Campaign</h1>
+                    <h1 class="h2">Edit Campaign</h1>
                     <div class="btn-toolbar mb-2 mb-md-0">
                         <a href="<?php echo base_path('employee/campaigns'); ?>" class="btn btn-secondary">
                             <i class="fas fa-arrow-left me-2"></i>Back to Campaigns
@@ -138,6 +161,7 @@ $templateCategories = $templateModel->getCategories();
                 </div>
 
                 <form id="campaignForm" method="POST">
+                    <input type="hidden" name="campaign_id" value="<?php echo $campaignId; ?>">
                     <div class="row">
                         <div class="col-lg-8">
                             <!-- Campaign Details -->
@@ -148,16 +172,18 @@ $templateCategories = $templateModel->getCategories();
                                 <div class="row">
                                     <div class="col-md-6 mb-3">
                                         <label for="campaignName" class="form-label">Campaign Name *</label>
-                                        <input type="text" class="form-control" id="campaignName" name="name" required>
+                                        <input type="text" class="form-control" id="campaignName" name="name" 
+                                               value="<?php echo htmlspecialchars($campaign['name']); ?>" required>
                                     </div>
                                     <div class="col-md-6 mb-3">
                                         <label for="campaignSubject" class="form-label">Email Subject *</label>
-                                        <input type="text" class="form-control" id="campaignSubject" name="subject" required>
+                                        <input type="text" class="form-control" id="campaignSubject" name="subject" 
+                                               value="<?php echo htmlspecialchars($campaign['subject']); ?>" required>
                                     </div>
                                 </div>
                                 <div class="mb-3">
                                     <label for="campaignDescription" class="form-label">Description</label>
-                                    <textarea class="form-control" id="campaignDescription" name="description" rows="3"></textarea>
+                                    <textarea class="form-control" id="campaignDescription" name="description" rows="3"><?php echo htmlspecialchars($campaign['description'] ?? ''); ?></textarea>
                                 </div>
                             </div>
 
@@ -172,9 +198,9 @@ $templateCategories = $templateModel->getCategories();
                                         <label for="recipientType" class="form-label">Recipient Type</label>
                                         <select class="form-select" id="recipientType" name="recipient_type" required>
                                             <option value="">Select Recipient Type</option>
-                                            <option value="all">All Contacts</option>
+                                            <option value="all" <?php echo ($campaign['recipient_type'] ?? '') === 'all' ? 'selected' : ''; ?>>All Contacts</option>
                                             <?php if (!empty($tags)): ?>
-                                            <option value="tags">By Tags</option>
+                                            <option value="tags" <?php echo ($campaign['recipient_type'] ?? '') === 'tags' ? 'selected' : ''; ?>>By Tags</option>
                                             <?php endif; ?>
                                         </select>
                                     </div>
@@ -183,7 +209,10 @@ $templateCategories = $templateModel->getCategories();
                                         <label for="tags" class="form-label">Tags (Optional)</label>
                                         <select class="form-select" id="tags" name="tags[]" multiple>
                                             <?php foreach ($tags as $tag): ?>
-                                            <option value="<?php echo htmlspecialchars($tag); ?>"><?php echo htmlspecialchars($tag); ?></option>
+                                            <option value="<?php echo htmlspecialchars($tag); ?>" 
+                                                <?php echo in_array($tag, explode(',', $campaign['target_tags'] ?? '')) ? 'selected' : ''; ?>>
+                                                <?php echo htmlspecialchars($tag); ?>
+                                            </option>
                                             <?php endforeach; ?>
                                         </select>
                                         <small class="text-muted">Hold Ctrl/Cmd to select multiple tags</small>
@@ -192,7 +221,8 @@ $templateCategories = $templateModel->getCategories();
                                 </div>
                                 <div class="mb-3">
                                     <label for="customRecipients" class="form-label">Custom Recipients (One email per line)</label>
-                                    <textarea class="form-control" id="customRecipients" name="custom_recipients" rows="5" placeholder="email1@example.com&#10;email2@example.com&#10;email3@example.com"></textarea>
+                                    <textarea class="form-control" id="customRecipients" name="custom_recipients" rows="5" 
+                                              placeholder="email1@example.com&#10;email2@example.com&#10;email3@example.com"><?php echo htmlspecialchars($campaign['custom_recipients'] ?? ''); ?></textarea>
                                 </div>
                             </div>
                             <?php else: ?>
@@ -202,7 +232,7 @@ $templateCategories = $templateModel->getCategories();
                                 </h5>
                                 <div class="alert alert-warning">
                                     <i class="fas fa-exclamation-triangle me-2"></i>
-                                    You don't have permission to manage contacts. Please contact your administrator to get access to contact management features.
+                                    You don't have permission to manage contacts. The current recipient settings will be preserved.
                                 </div>
                             </div>
                             <?php endif; ?>
@@ -217,13 +247,16 @@ $templateCategories = $templateModel->getCategories();
                                     <select class="form-select" id="emailTemplate" name="template_id">
                                         <option value="">Select a template</option>
                                         <?php foreach ($templates as $template): ?>
-                                            <option value="<?php echo $template['id']; ?>"><?php echo htmlspecialchars($template['name']); ?></option>
+                                            <option value="<?php echo $template['id']; ?>" 
+                                                    <?php echo $campaign['template_id'] == $template['id'] ? 'selected' : ''; ?>>
+                                                <?php echo htmlspecialchars($template['name']); ?>
+                                            </option>
                                         <?php endforeach; ?>
                                     </select>
                                 </div>
                                 <div class="mb-3">
                                     <label for="emailContent" class="form-label">Email Content *</label>
-                                    <textarea class="form-control" id="emailContent" name="content" rows="10" required></textarea>
+                                    <textarea class="form-control" id="emailContent" name="content" rows="10" required><?php echo htmlspecialchars($campaign['content']); ?></textarea>
                                 </div>
                             </div>
 
@@ -236,13 +269,14 @@ $templateCategories = $templateModel->getCategories();
                                     <div class="col-md-6 mb-3">
                                         <label for="sendType" class="form-label">Send Type</label>
                                         <select class="form-select" id="sendType" name="send_type">
-                                            <option value="immediate">Send Immediately</option>
-                                            <option value="scheduled">Schedule for Later</option>
+                                            <option value="immediate" <?php echo ($campaign['send_type'] ?? 'immediate') === 'immediate' ? 'selected' : ''; ?>>Send Immediately</option>
+                                            <option value="scheduled" <?php echo ($campaign['send_type'] ?? '') === 'scheduled' ? 'selected' : ''; ?>>Schedule for Later</option>
                                         </select>
                                     </div>
                                     <div class="col-md-6 mb-3">
                                         <label for="scheduledDate" class="form-label">Scheduled Date & Time</label>
-                                        <input type="datetime-local" class="form-control" id="scheduledDate" name="scheduled_at">
+                                        <input type="datetime-local" class="form-control" id="scheduledDate" name="scheduled_at" 
+                                               value="<?php echo $campaign['scheduled_at'] ? date('Y-m-d\TH:i', strtotime($campaign['scheduled_at'])) : ''; ?>">
                                     </div>
                                 </div>
                             </div>
@@ -255,9 +289,11 @@ $templateCategories = $templateModel->getCategories();
                                     <i class="fas fa-eye me-2"></i>Preview
                                 </h5>
                                 <div id="emailPreview">
-                                    <div class="text-center text-muted py-4">
-                                        <i class="fas fa-envelope fa-3x mb-3"></i>
-                                        <p>Email preview will appear here</p>
+                                    <div class="border-bottom pb-2 mb-3">
+                                        <strong>Subject:</strong> <?php echo htmlspecialchars($campaign['subject']); ?>
+                                    </div>
+                                    <div style="max-height: 300px; overflow-y: auto;">
+                                        <?php echo $campaign['content']; ?>
                                     </div>
                                 </div>
                             </div>
@@ -265,15 +301,19 @@ $templateCategories = $templateModel->getCategories();
                             <!-- Campaign Stats -->
                             <div class="card mt-3">
                                 <div class="card-body">
-                                    <h6 class="card-title">Campaign Statistics</h6>
-                                    <div class="row text-center">
-                                        <div class="col-6">
-                                            <div class="h4 text-primary" id="recipientCount">0</div>
-                                            <small class="text-muted">Recipients</small>
+                                    <h6 class="card-title">Campaign Information</h6>
+                                    <div class="small">
+                                        <div class="mb-2">
+                                            <strong>Status:</strong> 
+                                            <span class="badge bg-<?php echo $campaign['status'] === 'draft' ? 'secondary' : 'success'; ?>">
+                                                <?php echo ucfirst($campaign['status']); ?>
+                                            </span>
                                         </div>
-                                        <div class="col-6">
-                                            <div class="h4 text-success" id="estimatedCost">$0.00</div>
-                                            <small class="text-muted">Estimated Cost</small>
+                                        <div class="mb-2">
+                                            <strong>Created:</strong> <?php echo date('M j, Y', strtotime($campaign['created_at'])); ?>
+                                        </div>
+                                        <div class="mb-2">
+                                            <strong>Last Updated:</strong> <?php echo date('M j, Y', strtotime($campaign['updated_at'])); ?>
                                         </div>
                                     </div>
                                 </div>
@@ -294,7 +334,7 @@ $templateCategories = $templateModel->getCategories();
                                     </button>
                                     <?php if (hasPermission($permissions, 'can_send_campaigns')): ?>
                                     <button type="submit" class="btn btn-primary">
-                                        <i class="fas fa-paper-plane me-2"></i>Send Campaign
+                                        <i class="fas fa-paper-plane me-2"></i>Update & Send Campaign
                                     </button>
                                     <?php else: ?>
                                     <button type="button" class="btn btn-secondary" disabled>
@@ -318,7 +358,7 @@ $templateCategories = $templateModel->getCategories();
         // Form handling
         document.getElementById('campaignForm').addEventListener('submit', function(e) {
             e.preventDefault();
-            sendCampaign();
+            updateCampaign();
         });
         
         // Template selection
@@ -331,7 +371,7 @@ $templateCategories = $templateModel->getCategories();
         
         // Recipient type change
         document.getElementById('recipientType').addEventListener('change', function() {
-            updateRecipientFields();
+            updateRecipientType();
         });
         
         // Send type change
@@ -361,39 +401,15 @@ $templateCategories = $templateModel->getCategories();
                 });
         }
         
-        function updateRecipientFields() {
+        function updateRecipientType() {
             const recipientType = document.getElementById('recipientType').value;
             const tagsField = document.getElementById('tags')?.parentElement?.parentElement;
-            const customField = document.getElementById('customRecipients').parentElement;
             
             if (recipientType === 'tags' && tagsField) {
                 tagsField.style.display = 'block';
             } else if (tagsField) {
                 tagsField.style.display = 'none';
             }
-            
-            if (recipientType === 'custom') {
-                customField.style.display = 'block';
-            } else {
-                customField.style.display = 'none';
-            }
-            
-            updateRecipientCount();
-        }
-        
-        function updateRecipientCount() {
-            const recipientType = document.getElementById('recipientType').value;
-            let count = 0;
-            
-            if (recipientType === 'all') {
-                count = <?php echo $totalContacts; ?>;
-            } else if (recipientType === 'tags') {
-                const selectedTags = document.getElementById('tags') ? 
-                    Array.from(document.getElementById('tags').selectedOptions).map(option => option.value) : [];
-                count = selectedTags.length * 10; // Placeholder - in real implementation, you'd query the database
-            }
-            
-            document.getElementById('recipientCount').textContent = count.toLocaleString();
         }
         
         function updatePreview() {
@@ -419,55 +435,55 @@ $templateCategories = $templateModel->getCategories();
             const formData = new FormData(document.getElementById('campaignForm'));
             formData.append('status', 'draft');
             
-            fetch(`${basePath}/api/campaigns`, {
-                method: 'POST',
+            fetch(`${basePath}/api/campaigns/${<?php echo $campaignId; ?>}`, {
+                method: 'PUT',
                 body: formData
             })
             .then(response => response.json())
             .then(data => {
                 if (data.success) {
-                    alert('Campaign saved as draft successfully!');
+                    alert('Campaign updated successfully!');
                     window.location.href = `${basePath}/employee/campaigns`;
                 } else {
-                    alert(data.message || 'Failed to save campaign');
+                    alert(data.message || 'Failed to update campaign');
                 }
             })
             .catch(error => {
                 console.error('Error:', error);
-                alert('Failed to save campaign');
+                alert('Failed to update campaign');
             });
         }
         
-        function sendCampaign() {
-            if (!confirm('Are you sure you want to send this campaign?')) {
+        function updateCampaign() {
+            if (!confirm('Are you sure you want to update this campaign?')) {
                 return;
             }
             
             const formData = new FormData(document.getElementById('campaignForm'));
             formData.append('status', 'active');
             
-            fetch(`${basePath}/api/campaigns`, {
-                method: 'POST',
+            fetch(`${basePath}/api/campaigns/${<?php echo $campaignId; ?>}`, {
+                method: 'PUT',
                 body: formData
             })
             .then(response => response.json())
             .then(data => {
                 if (data.success) {
-                    alert('Campaign sent successfully!');
+                    alert('Campaign updated and sent successfully!');
                     window.location.href = `${basePath}/employee/campaigns`;
                 } else {
-                    alert(data.message || 'Failed to send campaign');
+                    alert(data.message || 'Failed to update campaign');
                 }
             })
             .catch(error => {
                 console.error('Error:', error);
-                alert('Failed to send campaign');
+                alert('Failed to update campaign');
             });
         }
         
         // Initialize
-        updateRecipientFields();
+        updateRecipientType();
         updatePreview();
     </script>
 </body>
-</html>
+</html> 

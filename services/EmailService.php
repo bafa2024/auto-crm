@@ -530,6 +530,73 @@ class EmailService {
     }
     
     /**
+     * Send employee password reset email
+     */
+    public function sendEmployeePasswordResetEmail($email, $resetUrl, $expiresAt, $userName) {
+        $subject = "Employee Password Reset - AutoDial Pro";
+        
+        $body = "
+        <!DOCTYPE html>
+        <html>
+        <head>
+            <meta charset='UTF-8'>
+            <meta name='viewport' content='width=device-width, initial-scale=1.0'>
+            <title>Employee Password Reset</title>
+            <style>
+                body { font-family: Arial, sans-serif; line-height: 1.6; color: #333; }
+                .container { max-width: 600px; margin: 0 auto; padding: 20px; }
+                .header { background: #6c757d; color: white; padding: 20px; text-align: center; border-radius: 5px 5px 0 0; }
+                .content { background: #f8f9fa; padding: 20px; border-radius: 0 0 5px 5px; }
+                .button { display: inline-block; background: #6c757d; color: white; padding: 12px 24px; text-decoration: none; border-radius: 5px; margin: 20px 0; }
+                .footer { text-align: center; margin-top: 20px; font-size: 12px; color: #666; }
+                .warning { background: #fff3cd; border: 1px solid #ffeaa7; padding: 15px; border-radius: 5px; margin: 20px 0; }
+            </style>
+        </head>
+        <body>
+            <div class='container'>
+                <div class='header'>
+                    <h1>🔐 Employee Password Reset</h1>
+                </div>
+                <div class='content'>
+                    <p>Hello {$userName},</p>
+                    <p>You requested a password reset for your AutoDial Pro employee account.</p>
+                    
+                    <div style='text-align: center;'>
+                        <a href='{$resetUrl}' class='button'>Reset Your Password</a>
+                    </div>
+                    
+                    <p>If the button above doesn't work, you can copy and paste this link into your browser:</p>
+                    <p style='word-break: break-all; background: #f1f1f1; padding: 10px; border-radius: 3px;'>{$resetUrl}</p>
+                    
+                    <div class='warning'>
+                        <strong>⚠️ Important:</strong>
+                        <ul>
+                            <li>This link will expire on: {$expiresAt}</li>
+                            <li>This link can only be used once</li>
+                            <li>If you didn't request this reset, please ignore this email</li>
+                        </ul>
+                    </div>
+                    
+                    <p>For security reasons, this link will expire in 1 hour.</p>
+                    
+                    <p>Best regards,<br>The AutoDial Pro Team</p>
+                </div>
+                <div class='footer'>
+                    <p>This is an automated message. Please do not reply to this email.</p>
+                    <p>If you have any questions, please contact your system administrator.</p>
+                </div>
+            </div>
+        </body>
+        </html>
+        ";
+        
+        return $this->send($email, $subject, $body, [
+            'from_email' => $this->config['smtp']['from']['address'] ?? 'noreply@autodialpro.com',
+            'from_name' => $this->config['smtp']['from']['name'] ?? 'AutoDial Pro'
+        ]);
+    }
+    
+    /**
      * Send instant email to a custom email address
      */
     public function sendInstantEmail($data) {

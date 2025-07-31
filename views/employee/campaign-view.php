@@ -165,50 +165,10 @@ $recentActivity = $stmt->fetchAll();
     <div class="container-fluid">
         <div class="row">
             <!-- Sidebar -->
-            <nav class="col-md-3 col-lg-2 d-md-block sidebar collapse">
-                <div class="position-sticky pt-3">
-                    <div class="text-center text-white mb-4">
-                        <i class="fas fa-user-circle fa-3x"></i>
-                        <h6 class="mt-2"><?php echo htmlspecialchars($_SESSION["user_name"]); ?></h6>
-                        <small><?php echo ucfirst($_SESSION["user_role"]); ?></small>
-                    </div>
-                    <ul class="nav flex-column">
-                        <li class="nav-item">
-                            <a class="nav-link" href="<?php echo base_path('employee/email-dashboard'); ?>">
-                                <i class="fas fa-tachometer-alt me-2"></i> Dashboard
-                            </a>
-                        </li>
-                        <li class="nav-item">
-                            <a class="nav-link active" href="<?php echo base_path('employee/campaigns'); ?>">
-                                <i class="fas fa-envelope me-2"></i> My Campaigns
-                            </a>
-                        </li>
-                        <li class="nav-item">
-                            <a class="nav-link" href="<?php echo base_path('employee/campaigns/create'); ?>">
-                                <i class="fas fa-plus-circle me-2"></i> Create Campaign
-                            </a>
-                        </li>
-                        <li class="nav-item">
-                            <a class="nav-link" href="<?php echo base_path('employee/contacts'); ?>">
-                                <i class="fas fa-address-book me-2"></i> Contacts
-                            </a>
-                        </li>
-                        <li class="nav-item">
-                            <a class="nav-link" href="<?php echo base_path('employee/profile'); ?>">
-                                <i class="fas fa-user me-2"></i> Profile
-                            </a>
-                        </li>
-                        <li class="nav-item">
-                            <a class="nav-link text-danger" href="<?php echo base_path('employee/logout'); ?>">
-                                <i class="fas fa-sign-out-alt me-2"></i> Logout
-                            </a>
-                        </li>
-                    </ul>
-                </div>
-            </nav>
+            <?php include __DIR__ . "/../components/employee-sidebar.php"; ?>
 
             <!-- Main content -->
-            <main class="col-md-9 ms-sm-auto col-lg-10 px-md-4">
+            <main class="col-md-9 ms-sm-auto col-lg-10 px-md-4" style="margin-left: 260px;">
                 <div class="d-flex justify-content-between flex-wrap flex-md-nowrap align-items-center pt-3 pb-2 mb-3 border-bottom">
                     <h1 class="h2"><?php echo htmlspecialchars($campaign['name']); ?></h1>
                     <div class="btn-toolbar mb-2 mb-md-0">

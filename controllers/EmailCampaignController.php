@@ -204,19 +204,43 @@ class EmailCampaignController extends BaseController {
             ");
             $stmt->execute([$campaignId]);
         } elseif ($targetType === "tags" && !empty($targetTags)) {
-            // Add contacts with specific tags
-            $tagPlaceholders = str_repeat("?,", count($targetTags) - 1) . "?";
-            $stmt = $db->prepare("
-                INSERT INTO email_recipients (campaign_id, contact_id, email, status)
-                SELECT DISTINCT ?, id, email, 'pending' 
-                FROM contacts 
-                WHERE " . implode(" OR ", array_fill(0, count($targetTags), "FIND_IN_SET(?, tags)"))
-            );
-            $params = [$campaignId];
-            foreach ($targetTags as $tag) {
-                $params[] = $tag;
+            // Check if tags column exists in contacts table
+            try {
+                $stmt = $db->query("SHOW COLUMNS FROM contacts LIKE 'tags'");
+                $tagsColumnExists = $stmt->rowCount() > 0;
+            } catch (Exception $e) {
+                // For SQLite or if SHOW COLUMNS doesn't work
+                try {
+                    $stmt = $db->query("PRAGMA table_info(contacts)");
+                    $columns = $stmt->fetchAll(PDO::FETCH_COLUMN, 1);
+                    $tagsColumnExists = in_array('tags', $columns);
+                } catch (Exception $e2) {
+                    $tagsColumnExists = false;
+                }
             }
-            $stmt->execute($params);
+            
+            if ($tagsColumnExists) {
+                // Add contacts with specific tags
+                $tagPlaceholders = str_repeat("?,", count($targetTags) - 1) . "?";
+                $stmt = $db->prepare("
+                    INSERT INTO email_recipients (campaign_id, contact_id, email, status)
+                    SELECT DISTINCT ?, id, email, 'pending' 
+                    FROM contacts 
+                    WHERE " . implode(" OR ", array_fill(0, count($targetTags), "FIND_IN_SET(?, tags)"))
+                );
+                $params = [$campaignId];
+                foreach ($targetTags as $tag) {
+                    $params[] = $tag;
+                }
+                $stmt->execute($params);
+            } else {
+                // Tags column doesn't exist, add all contacts as fallback
+                $stmt = $db->prepare("
+                    INSERT INTO email_recipients (campaign_id, contact_id, email, status)
+                    SELECT ?, id, email, 'pending' FROM contacts
+                ");
+                $stmt->execute([$campaignId]);
+            }
         }
     }
     

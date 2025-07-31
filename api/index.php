@@ -91,6 +91,11 @@ try {
             $controller = new UserController($db);
             handleEmployeeRoutes($controller, $id, $action);
             break;
+        case 'employee':
+            require_once __DIR__ . '/../controllers/UserController.php';
+            $controller = new UserController($db);
+            handleEmployeeProfileRoutes($controller, $id, $action);
+            break;
         case 'settings':
             $controller = new SettingsController($db);
             handleSettingsRoutes($controller, $id, $action);
@@ -150,6 +155,10 @@ function handleContactRoutes($controller, $id, $action) {
     }
     if ($id === 'stats') {
         $controller->getStats();
+        return;
+    }
+    if ($id === 'export') {
+        $controller->exportContacts();
         return;
     }
     if ($id && !$action) {
@@ -455,5 +464,26 @@ function handleEmployeeRoutes($controller, $action, $subAction) {
                 http_response_code(404);
                 echo json_encode(['error' => 'Employee endpoint not found']);
             }
+    }
+}
+
+function handleEmployeeProfileRoutes($controller, $action, $subAction) {
+    switch ($action) {
+        case 'profile':
+            if ($_SERVER['REQUEST_METHOD'] === 'GET') {
+                $controller->getEmployeeProfile();
+            } elseif ($_SERVER['REQUEST_METHOD'] === 'PUT') {
+                $input = json_decode(file_get_contents('php://input'), true);
+                $request = new stdClass();
+                $request->body = $input;
+                $controller->updateEmployeeProfile($request);
+            } else {
+                http_response_code(405);
+                echo json_encode(['error' => 'Method not allowed']);
+            }
+            break;
+        default:
+            http_response_code(404);
+            echo json_encode(['error' => 'Employee profile endpoint not found']);
     }
 } 

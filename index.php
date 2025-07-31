@@ -61,6 +61,9 @@ if (preg_match("/\.(css|js|jpg|jpeg|png|gif|ico|woff|woff2|ttf|svg)$/i", $reques
     }
 }
 
+// Load base path configuration
+require_once __DIR__ . "/config/base_path.php";
+
 // Initialize database connection
 require_once __DIR__ . "/config/database.php";
 $database = new Database();
@@ -101,12 +104,20 @@ try {
             require_once __DIR__ . "/views/auth/employee_login.php";
             break;
             
+        case $requestUri === "/employee/forgot-password":
+            require_once __DIR__ . "/views/auth/employee_forgot_password.php";
+            break;
+            
+        case strpos($requestUri, "/employee/reset-password") === 0:
+            require_once __DIR__ . "/views/auth/employee_reset_password.php";
+            break;
+            
         case $requestUri === "/employee/logout":
             if (session_status() === PHP_SESSION_NONE) {
                 session_start();
             }
             session_destroy();
-            header("Location: /");
+            header("Location: " . base_path('employee/login'));
             exit;
             
         // Contacts page
@@ -335,6 +346,30 @@ try {
                                 $request = new stdClass();
                                 $request->body = $input;
                                 $controller->employeeSendLink($request);
+                            }
+                            break;
+                            
+                        case "employee-forgot-password":
+                            if ($requestMethod === "POST") {
+                                $input = json_decode(file_get_contents("php://input"), true);
+                                $request = new stdClass();
+                                $request->body = $input;
+                                $controller->employeeForgotPassword($request);
+                            }
+                            break;
+                            
+                        case "employee-reset-password":
+                            if ($requestMethod === "POST") {
+                                $input = json_decode(file_get_contents("php://input"), true);
+                                $request = new stdClass();
+                                $request->body = $input;
+                                $controller->employeeResetPassword($request);
+                            }
+                            break;
+                            
+                        case "employee-validate-reset-token":
+                            if ($requestMethod === "GET") {
+                                $controller->employeeValidateResetToken();
                             }
                             break;
                             
