@@ -656,6 +656,243 @@ try {
         const basePath = '<?php echo rtrim(base_path(''), '/'); ?>';
         console.log('Base path:', basePath);
         
+        // Global variables for contacts management
+        let currentPage = 1;
+        let currentFilters = {
+            search: '',
+            dateFrom: '',
+            dateTo: ''
+        };
+        
+        // Load contacts with search and filtering
+        function loadContacts(page = 1) {
+            const loadingEl = document.getElementById('contactsLoading');
+            const tableContainer = document.getElementById('contactsTableContainer');
+            const noContactsEl = document.getElementById('noContactsMessage');
+            
+            // Show loading
+            loadingEl.style.display = 'block';
+            tableContainer.style.display = 'none';
+            noContactsEl.style.display = 'none';
+            
+            // Build query parameters
+            const params = new URLSearchParams({
+                page: page,
+                per_page: 20
+            });
+            
+            if (currentFilters.search) {
+                params.append('search', currentFilters.search);
+            }
+            if (currentFilters.dateFrom) {
+                params.append('date_from', currentFilters.dateFrom);
+            }
+            if (currentFilters.dateTo) {
+                params.append('date_to', currentFilters.dateTo);
+            }
+            
+            // Fetch contacts from API
+            fetch(`${basePath}/api/contacts?${params.toString()}`)
+                .then(response => {
+                    if (!response.ok) {
+                        throw new Error(`HTTP error! status: ${response.status}`);
+                    }
+                    return response.json();
+                })
+                .then(data => {
+                    loadingEl.style.display = 'none';
+                    
+                    if (data.success && data.data && data.data.length > 0) {
+                        renderContacts(data.data);
+                        renderPagination(data.pagination);
+                        updateContactCount(data.pagination);
+                        tableContainer.style.display = 'block';
+                    } else {
+                        noContactsEl.style.display = 'block';
+                    }
+                })
+                .catch(error => {
+                    console.error('Error loading contacts:', error);
+                    loadingEl.style.display = 'none';
+                    noContactsEl.style.display = 'block';
+                    alert('Error loading contacts: ' + error.message);
+                });
+        }
+        
+        // Render contacts in the table
+        function renderContacts(contacts) {
+            const tbody = document.getElementById('contactsTableBody');
+            tbody.innerHTML = '';
+            
+            contacts.forEach(contact => {
+                const row = document.createElement('tr');
+                row.innerHTML = `
+                    <td>
+                        <input type="checkbox" class="form-check-input contact-checkbox" value="${contact.id}" onchange="updateSelectedCount()">
+                    </td>
+                    <td>
+                        <strong>${escapeHtml(contact.name)}</strong>
+                    </td>
+                    <td>
+                        <a href="mailto:${escapeHtml(contact.email)}">
+                            ${escapeHtml(contact.email)}
+                        </a>
+                    </td>
+                    <td>${escapeHtml(contact.company || '-')}</td>
+                    <td>${escapeHtml(contact.dot || '-')}</td>
+                    <td>
+                        ${contact.campaign_name ? 
+                            `<span class="badge bg-info">${escapeHtml(contact.campaign_name)}</span>` : 
+                            '<span class="text-muted">-</span>'
+                        }
+                    </td>
+                    <td>
+                        <small class="text-muted">
+                            ${formatDate(contact.created_at)}
+                        </small>
+                    </td>
+                    <td>
+                        <div class="btn-group btn-group-sm">
+                            <button class="btn btn-outline-primary" onclick="editContact(${contact.id})">
+                                <i class="bi bi-pencil"></i>
+                            </button>
+                            <button class="btn btn-outline-danger" onclick="deleteContact(${contact.id})">
+                                <i class="bi bi-trash"></i>
+                            </button>
+                        </div>
+                    </td>
+                `;
+                tbody.appendChild(row);
+            });
+        }
+        
+        // Render pagination
+        function renderPagination(pagination) {
+            const paginationEl = document.getElementById('pagination');
+            paginationEl.innerHTML = '';
+            
+            if (pagination.total_pages <= 1) return;
+            
+            // Previous button
+            const prevLi = document.createElement('li');
+            prevLi.className = `page-item ${pagination.current_page <= 1 ? 'disabled' : ''}`;
+            prevLi.innerHTML = `<a class="page-link" href="#" onclick="loadContacts(${pagination.current_page - 1})">Previous</a>`;
+            paginationEl.appendChild(prevLi);
+            
+            // Page numbers
+            const startPage = Math.max(1, pagination.current_page - 2);
+            const endPage = Math.min(pagination.total_pages, pagination.current_page + 2);
+            
+            for (let i = startPage; i <= endPage; i++) {
+                const li = document.createElement('li');
+                li.className = `page-item ${i === pagination.current_page ? 'active' : ''}`;
+                li.innerHTML = `<a class="page-link" href="#" onclick="loadContacts(${i})">${i}</a>`;
+                paginationEl.appendChild(li);
+            }
+            
+            // Next button
+            const nextLi = document.createElement('li');
+            nextLi.className = `page-item ${pagination.current_page >= pagination.total_pages ? 'disabled' : ''}`;
+            nextLi.innerHTML = `<a class="page-link" href="#" onclick="loadContacts(${pagination.current_page + 1})">Next</a>`;
+            paginationEl.appendChild(nextLi);
+        }
+        
+        // Update contact count display
+        function updateContactCount(pagination) {
+            const start = (pagination.current_page - 1) * pagination.per_page + 1;
+            const end = Math.min(start + pagination.per_page - 1, pagination.total);
+            
+            document.getElementById('showingStart').textContent = start;
+            document.getElementById('showingEnd').textContent = end;
+            document.getElementById('totalContacts').textContent = pagination.total;
+            document.getElementById('contactsCount').textContent = `${pagination.total} total contacts`;
+        }
+        
+        // Apply filters
+        function applyFilters() {
+            currentFilters.search = document.getElementById('searchContacts').value.trim();
+            currentFilters.dateFrom = document.getElementById('dateFrom').value;
+            currentFilters.dateTo = document.getElementById('dateTo').value;
+            
+            // Update active filters display
+            updateActiveFiltersDisplay();
+            
+            // Reset to first page and load contacts
+            currentPage = 1;
+            loadContacts(1);
+        }
+        
+        // Clear filters
+        function clearFilters() {
+            document.getElementById('searchContacts').value = '';
+            document.getElementById('dateFrom').value = '';
+            document.getElementById('dateTo').value = '';
+            
+            currentFilters = {
+                search: '',
+                dateFrom: '',
+                dateTo: ''
+            };
+            
+            updateActiveFiltersDisplay();
+            currentPage = 1;
+            loadContacts(1);
+        }
+        
+        // Update active filters display
+        function updateActiveFiltersDisplay() {
+            const activeFiltersEl = document.getElementById('activeFilters');
+            const filters = [];
+            
+            if (currentFilters.search) {
+                filters.push(`Search: "${currentFilters.search}"`);
+            }
+            if (currentFilters.dateFrom) {
+                filters.push(`From: ${formatDate(currentFilters.dateFrom)}`);
+            }
+            if (currentFilters.dateTo) {
+                filters.push(`To: ${formatDate(currentFilters.dateTo)}`);
+            }
+            
+            if (filters.length > 0) {
+                activeFiltersEl.textContent = `Active filters: ${filters.join(', ')}`;
+            } else {
+                activeFiltersEl.textContent = '';
+            }
+        }
+        
+        // Utility functions
+        function escapeHtml(text) {
+            const div = document.createElement('div');
+            div.textContent = text;
+            return div.innerHTML;
+        }
+        
+        function formatDate(dateString) {
+            if (!dateString) return '';
+            const date = new Date(dateString);
+            return date.toLocaleDateString('en-US', {
+                year: 'numeric',
+                month: 'short',
+                day: 'numeric'
+            });
+        }
+        
+        // Search on Enter key
+        document.addEventListener('DOMContentLoaded', function() {
+            const searchInput = document.getElementById('searchContacts');
+            if (searchInput) {
+                searchInput.addEventListener('keypress', function(e) {
+                    if (e.key === 'Enter') {
+                        applyFilters();
+                    }
+                });
+            }
+            
+            // Initial load
+            loadContacts(1);
+        });
+        
         // Debug: Check if JavaScript is running
         console.log('JavaScript loaded successfully');
         
@@ -799,7 +1036,7 @@ try {
                     
                     if (data.success) {
                         alert('Contact deleted successfully!');
-                        location.reload();
+                        reloadContacts();
                     } else {
                         alert('Error: ' + (data.message || data.error || 'Unknown error'));
                     }
@@ -856,8 +1093,8 @@ try {
                     // Close the modal
                     const editModal = bootstrap.Modal.getInstance(document.getElementById('editContactModal'));
                     editModal.hide();
-                    // Reload the page to refresh the contact list
-                    location.reload();
+                    // Reload contacts to refresh the list
+                    reloadContacts();
                 } else {
                     alert('Error updating contact: ' + data.message);
                 }
@@ -954,8 +1191,8 @@ try {
                             alert(`${successCount} contacts deleted successfully!`);
                         }
                         
-                        // Reload the page to refresh the contact list
-                        location.reload();
+                        // Reload contacts to refresh the list
+                        reloadContacts();
                     })
                     .catch(error => {
                         console.error('Bulk delete error:', error);
@@ -1023,8 +1260,8 @@ try {
                         document.body.removeChild(loadingOverlay);
                         if (data.success) {
                             alert(`✅ ${data.message}`);
-                            // Reload the page
-                            location.reload();
+                            // Reload contacts
+                            reloadContacts();
                         } else {
                             alert('❌ Error: ' + (data.message || 'Failed to delete all contacts'));
                         }
