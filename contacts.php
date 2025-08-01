@@ -313,51 +313,6 @@ try {
                         <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
                     </div>
                     
-                    <?php if ($messageType === 'success' && strpos($message, 'Upload successful') !== false): ?>
-                        <div class="alert alert-info alert-dismissible fade show" role="alert">
-                            <i class="bi bi-info-circle"></i> 
-                            Page will refresh in <span id="countdown">3</span> seconds to show newly uploaded contacts.
-                            <button type="button" class="btn-close" data-bs-dismiss="alert" onclick="cancelRefresh()"></button>
-                        </div>
-                        
-                        <script>
-                            let countdown = 3;
-                            let refreshTimeout;
-                            
-                            function startCountdown() {
-                                const countdownElement = document.getElementById('countdown');
-                                refreshTimeout = setTimeout(function() {
-                                    window.location.reload();
-                                }, 3000);
-                                
-                                const countdownInterval = setInterval(function() {
-                                    countdown--;
-                                    if (countdownElement) {
-                                        countdownElement.textContent = countdown;
-                                    }
-                                    if (countdown <= 0) {
-                                        clearInterval(countdownInterval);
-                                    }
-                                }, 1000);
-                            }
-                            
-                            function cancelRefresh() {
-                                if (refreshTimeout) {
-                                    clearTimeout(refreshTimeout);
-                                }
-                                // Hide the countdown alert
-                                const alert = document.querySelector('.alert-info');
-                                if (alert) {
-                                    alert.style.display = 'none';
-                                }
-                            }
-                            
-                            // Start countdown when page loads
-                            document.addEventListener('DOMContentLoaded', function() {
-                                startCountdown();
-                            });
-                        </script>
-                    <?php endif; ?>
                 <?php endif; ?>
                 
             <div class="row">
@@ -391,39 +346,8 @@ try {
                                 <div class="progress-bar progress-bar-striped progress-bar-animated" role="progressbar" style="width: 0%"></div>
                             </div>
                             
-                            <button type="submit" class="btn btn-primary" id="uploadBtn">
-                                <i class="bi bi-cloud-upload"></i> Upload Contacts
-                            </button>
-                            
-                            <button type="submit" class="btn btn-success" onclick="document.getElementById('uploadForm').submit(); return false;">
+                            <button type="submit" class="btn btn-success">
                                 <i class="bi bi-cloud-arrow-up"></i> Direct Upload
-                            </button>
-                            
-                            <a href="<?php echo base_path('simple_upload.php'); ?>" class="btn btn-info">
-                                <i class="bi bi-upload"></i> Simple Upload
-                            </a>
-                            
-                            <a href="<?php echo base_path('download_template.php'); ?>" class="btn btn-secondary">
-                                <i class="bi bi-download"></i> Download Template
-                            </a>
-                            
-                            <div class="float-end">
-                                <a href="<?php echo base_path('test_upload.php'); ?>" class="btn btn-warning btn-sm">
-                                    <i class="bi bi-bug"></i> Test Upload
-                                </a>
-                                <a href="<?php echo base_path('install_composer.php'); ?>" class="btn btn-info btn-sm">
-                                    <i class="bi bi-download"></i> Install Dependencies
-                                </a>
-                                <a href="<?php echo base_path('fix_upload_limits.php'); ?>" class="btn btn-secondary btn-sm">
-                                    <i class="bi bi-gear"></i> Fix Limits
-                                </a>
-                                <a href="<?php echo base_path('test_upload_debug.php'); ?>" class="btn btn-danger btn-sm">
-                                    <i class="bi bi-exclamation-triangle"></i> Debug
-                                </a>
-                            </div>
-                            
-                            <button type="button" class="btn btn-secondary btn-sm" onclick="testDebugUpload()">
-                                <i class="bi bi-bug-fill"></i> Debug Upload
                             </button>
                             
                             <noscript>
@@ -502,7 +426,7 @@ try {
                 <!-- Contacts List -->
                 <div class="card mt-4">
                     <div class="card-header d-flex justify-content-between align-items-center">
-                        <h5 class="mb-0">Recent Contacts</h5>
+                        <h5 class="mb-0">Contacts</h5>
                         <div class="d-flex align-items-center gap-2">
                             <button class="btn btn-sm btn-danger" id="bulkDeleteBtn" style="display: none;" onclick="bulkDeleteContacts()">
                                 <i class="bi bi-trash"></i> Delete Selected (<span id="selectedCount">0</span>)
@@ -517,13 +441,51 @@ try {
                                 <i class="bi bi-trash-fill"></i> Delete All (<?php echo $totalContacts; ?>)
                             </button>
                             <?php endif; ?>
-                            <span class="badge bg-primary"><?php echo count($contacts); ?> contacts shown</span>
+                            <span class="badge bg-primary" id="contactsCount"><?php echo count($contacts); ?> contacts shown</span>
+                        </div>
+                    </div>
+                    
+                    <!-- Search and Filter Controls -->
+                    <div class="card-body border-bottom">
+                        <div class="row">
+                            <div class="col-md-4">
+                                <div class="input-group">
+                                    <span class="input-group-text"><i class="bi bi-search"></i></span>
+                                    <input type="text" class="form-control" id="searchContacts" placeholder="Search contacts...">
+                                </div>
+                            </div>
+                            <div class="col-md-3">
+                                <input type="date" class="form-control" id="dateFrom" placeholder="From Date">
+                            </div>
+                            <div class="col-md-3">
+                                <input type="date" class="form-control" id="dateTo" placeholder="To Date">
+                            </div>
+                            <div class="col-md-2">
+                                <button class="btn btn-primary w-100" onclick="applyFilters()">
+                                    <i class="bi bi-funnel"></i> Filter
+                                </button>
+                            </div>
+                        </div>
+                        <div class="row mt-2">
+                            <div class="col-12">
+                                <button class="btn btn-sm btn-outline-secondary" onclick="clearFilters()">
+                                    <i class="bi bi-x-circle"></i> Clear Filters
+                                </button>
+                                <span id="activeFilters" class="ms-2 text-muted"></span>
+                            </div>
                         </div>
                     </div>
                     <div class="card-body">
-                        <?php if (!empty($contacts)): ?>
+                        <div id="contactsLoading" class="text-center py-4" style="display: none;">
+                            <div class="spinner-border" role="status">
+                                <span class="visually-hidden">Loading...</span>
+                            </div>
+                            <p class="mt-2">Loading contacts...</p>
+                        </div>
+                        
+                        <div id="contactsTableContainer">
                             <div class="table-responsive">
-                                <table class="table table-hover">
+                                <table class="table table-hover" id="contactsTable">
                                     <thead>
                                         <tr>
                                             <th>
@@ -538,59 +500,33 @@ try {
                                             <th>Actions</th>
                                         </tr>
                                     </thead>
-                                    <tbody>
-                                        <?php foreach ($contacts as $contact): ?>
-                                        <tr>
-                                            <td>
-                                                <input type="checkbox" class="form-check-input contact-checkbox" value="<?php echo $contact['id']; ?>" onchange="updateSelectedCount()">
-                                            </td>
-                                            <td>
-                                                <strong><?php echo htmlspecialchars($contact['name']); ?></strong>
-                                            </td>
-                                            <td>
-                                                <a href="mailto:<?php echo htmlspecialchars($contact['email']); ?>">
-                                                    <?php echo htmlspecialchars($contact['email']); ?>
-                                                </a>
-                                            </td>
-                                            <td><?php echo htmlspecialchars($contact['company'] ?? '-'); ?></td>
-                                            <td><?php echo htmlspecialchars($contact['dot'] ?? '-'); ?></td>
-                                            <td>
-                                                <?php if ($contact['campaign_name']): ?>
-                                                    <span class="badge bg-info"><?php echo htmlspecialchars($contact['campaign_name']); ?></span>
-                                                <?php else: ?>
-                                                    <span class="text-muted">-</span>
-                                                <?php endif; ?>
-                                            </td>
-                                            <td>
-                                                <small class="text-muted">
-                                                    <?php echo date('M d, Y', strtotime($contact['created_at'])); ?>
-                                                </small>
-                                            </td>
-                                            <td>
-                                                <div class="btn-group btn-group-sm">
-                                                    <button class="btn btn-outline-primary" onclick="editContact(<?php echo $contact['id']; ?>)">
-                                                        <i class="bi bi-pencil"></i>
-                                                    </button>
-                                                    <button class="btn btn-outline-danger" onclick="deleteContact(<?php echo $contact['id']; ?>)">
-                                                        <i class="bi bi-trash"></i>
-                                                    </button>
-                                                </div>
-                                            </td>
-                                        </tr>
-                                        <?php endforeach; ?>
+                                    <tbody id="contactsTableBody">
+                                        <!-- Contacts will be loaded here via JavaScript -->
                                     </tbody>
                                 </table>
                             </div>
-                        <?php else: ?>
-                            <div class="text-center py-4">
-                                <i class="bi bi-people display-1 text-muted"></i>
-                                <h5 class="mt-3">No contacts yet</h5>
-                                <p class="text-muted">Create your first contact or upload a file to get started</p>
-                                <button class="btn btn-primary" data-bs-toggle="modal" data-bs-target="#createContactModal">
-                                    <i class="bi bi-person-plus"></i> Create Contact
-                                </button>
+                            
+                            <!-- Pagination -->
+                            <div class="d-flex justify-content-between align-items-center mt-3">
+                                <div>
+                                    <small class="text-muted">Showing <span id="showingStart">0</span> to <span id="showingEnd">0</span> of <span id="totalContacts">0</span> contacts</small>
+                                </div>
+                                <nav aria-label="Contacts pagination">
+                                    <ul class="pagination pagination-sm mb-0" id="pagination">
+                                        <!-- Pagination will be generated here -->
+                                    </ul>
+                                </nav>
                             </div>
-                        <?php endif; ?>
+                        </div>
+                        
+                        <div id="noContactsMessage" class="text-center py-4" style="display: none;">
+                            <i class="bi bi-people display-1 text-muted"></i>
+                            <h5 class="mt-3">No contacts found</h5>
+                            <p class="text-muted">Try adjusting your search criteria or create your first contact</p>
+                            <button class="btn btn-primary" data-bs-toggle="modal" data-bs-target="#createContactModal">
+                                <i class="bi bi-person-plus"></i> Create Contact
+                            </button>
+                        </div>
                     </div>
                 </div>
                 </div>
@@ -1145,150 +1081,8 @@ try {
             });
         }
         
-        // Add upload form handler with AJAX option
-        const uploadForm = document.getElementById('uploadForm');
-        if (uploadForm) {
-            // Check if we should use AJAX or regular submission
-            const useAjax = true; // Set to false to use regular form submission
-            
-            if (useAjax) {
-                uploadForm.addEventListener('submit', function(e) {
-                    e.preventDefault(); // Prevent default form submission
-            
-            const fileInput = document.getElementById('email_file');
-            const uploadBtn = document.getElementById('uploadBtn');
-            const progressDiv = document.getElementById('uploadProgress');
-            const campaignId = document.getElementById('campaign_id').value;
-            
-            if (fileInput.files.length === 0) {
-                alert('Please select a file to upload');
-                return;
-            }
-            
-            const file = fileInput.files[0];
-            const maxSize = 10 * 1024 * 1024; // 10MB
-            
-            if (file.size > maxSize) {
-                alert('File size exceeds 10MB limit. Please choose a smaller file.');
-                return;
-            }
-            
-            // Use AJAX upload for better error handling
-            const formData = new FormData();
-            formData.append('email_file', file);
-            formData.append('campaign_id', campaignId);
-            
-            // Show progress bar
-            progressDiv.style.display = 'block';
-            uploadBtn.disabled = true;
-            uploadBtn.innerHTML = '<span class="spinner-border spinner-border-sm" role="status"></span> Uploading...';
-            
-            // Start upload progress
-            let progress = 0;
-            const progressInterval = setInterval(function() {
-                progress += 5;
-                if (progress <= 80) {
-                    progressDiv.querySelector('.progress-bar').style.width = progress + '%';
-                }
-            }, 100);
-            
-            // First try debug endpoint to see what's happening
-            console.log('Starting upload to:', `${basePath}/ajax_upload.php`);
-            
-            // Perform AJAX upload
-            fetch(`${basePath}/ajax_upload.php`, {
-                method: 'POST',
-                body: formData,
-                credentials: 'same-origin'
-            })
-            .then(response => {
-                clearInterval(progressInterval);
-                progressDiv.querySelector('.progress-bar').style.width = '90%';
-                
-                console.log('Response status:', response.status);
-                console.log('Response headers:', response.headers.get('content-type'));
-                
-                if (!response.ok) {
-                    throw new Error(`HTTP error! status: ${response.status}`);
-                }
-                
-                // Check if response is JSON
-                const contentType = response.headers.get('content-type');
-                if (!contentType || !contentType.includes('application/json')) {
-                    return response.text().then(text => {
-                        console.error('Non-JSON response:', text);
-                        throw new Error('Server returned non-JSON response. Check console for details.');
-                    });
-                }
-                
-                return response.json();
-            })
-            .then(data => {
-                progressDiv.querySelector('.progress-bar').style.width = '100%';
-                
-                if (data.success) {
-                    // Show success message
-                    let alertHtml = `<div class="alert alert-success alert-dismissible fade show" role="alert">
-                        ${data.message}
-                        <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
-                    </div>`;
-                    
-                    // Show errors if any
-                    if (data.errors && data.errors.length > 0) {
-                        alertHtml += `<div class="alert alert-warning alert-dismissible fade show" role="alert">
-                            <strong>Some issues occurred:</strong><br>
-                            ${data.errors.slice(0, 5).join('<br>')}
-                            ${data.errors.length > 5 ? `<br>... and ${data.errors.length - 5} more errors` : ''}
-                            <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
-                        </div>`;
-                    }
-                    
-                    // Insert alert at the beginning of main-content
-                    const mainContent = document.querySelector('.main-content .container-fluid');
-                    const tempDiv = document.createElement('div');
-                    tempDiv.innerHTML = alertHtml;
-                    mainContent.insertBefore(tempDiv.firstChild, mainContent.firstChild);
-                    if (tempDiv.children.length > 0) {
-                        mainContent.insertBefore(tempDiv.firstChild, mainContent.firstChild);
-                    }
-                    
-                    // Reset form
-                    fileInput.value = '';
-                    uploadBtn.disabled = false;
-                    uploadBtn.innerHTML = '<i class="bi bi-cloud-upload"></i> Upload Contacts';
-                    progressDiv.style.display = 'none';
-                    progressDiv.querySelector('.progress-bar').style.width = '0%';
-                    
-                    // Reload page after 2 seconds to show new contacts
-                    setTimeout(() => location.reload(), 2000);
-                } else {
-                    throw new Error(data.message || 'Upload failed');
-                }
-            })
-            .catch(error => {
-                clearInterval(progressInterval);
-                console.error('Upload error:', error);
-                
-                // Show error message
-                const alertHtml = `<div class="alert alert-danger alert-dismissible fade show" role="alert">
-                    <strong>Upload Error:</strong> ${error.message}
-                    <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
-                </div>`;
-                
-                const mainContent = document.querySelector('.main-content .container-fluid');
-                const tempDiv = document.createElement('div');
-                tempDiv.innerHTML = alertHtml;
-                mainContent.insertBefore(tempDiv.firstChild, mainContent.firstChild);
-                
-                // Reset form
-                uploadBtn.disabled = false;
-                uploadBtn.innerHTML = '<i class="bi bi-cloud-upload"></i> Upload Contacts';
-                progressDiv.style.display = 'none';
-                progressDiv.querySelector('.progress-bar').style.width = '0%';
-            });
-                });
-            }
-        }
+        // Direct form submission - no AJAX
+        console.log('Upload form configured for direct submission');
     </script>
 </body>
 </html>

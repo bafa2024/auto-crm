@@ -14,25 +14,95 @@ class ContactController extends BaseController {
         $searchParams = $this->getSearchParams();
         
         $conditions = [];
+        $search = '';
+        $dateFrom = '';
+        $dateTo = '';
         
-        // Add search conditions
-        if (!empty($searchParams['search'])) {
-            // This would need to be implemented in the model
-            $contacts = $this->contactModel->search($searchParams['search']);
-            $this->sendSuccess($contacts);
-            return;
+        // Get search parameters from query string
+        if (isset($_GET['search'])) {
+            $search = trim($_GET['search']);
         }
         
-        // Add filters
-        if (!empty($searchParams['filter']['status'])) {
-            $conditions['status'] = $searchParams['filter']['status'];
+        if (isset($_GET['date_from'])) {
+            $dateFrom = trim($_GET['date_from']);
         }
         
-        if (!empty($searchParams['filter']['assigned_agent_id'])) {
-            $conditions['assigned_agent_id'] = $searchParams['filter']['assigned_agent_id'];
+        if (isset($_GET['date_to'])) {
+            $dateTo = trim($_GET['date_to']);
         }
         
-        $result = $this->contactModel->paginate($page, $perPage, $conditions);
+        // Build query with search and date filters
+        $sql = "SELECT 
+                    er.id,
+                    er.email,
+                    er.name,
+                    er.company,
+                    er.dot,
+                    er.created_at,
+                    ec.name as campaign_name
+                FROM email_recipients er
+                LEFT JOIN email_campaigns ec ON er.campaign_id = ec.id
+                WHERE 1=1";
+        
+        $params = [];
+        
+        // Add search condition
+        if (!empty($search)) {
+            $sql .= " AND (er.name LIKE ? OR er.email LIKE ? OR er.company LIKE ? OR er.dot LIKE ?)";
+            $searchParam = "%{$search}%";
+            $params[] = $searchParam;
+            $params[] = $searchParam;
+            $params[] = $searchParam;
+            $params[] = $searchParam;
+        }
+        
+        // Add date range conditions
+        if (!empty($dateFrom)) {
+            $sql .= " AND DATE(er.created_at) >= ?";
+            $params[] = $dateFrom;
+        }
+        
+        if (!empty($dateTo)) {
+            $sql .= " AND DATE(er.created_at) <= ?";
+            $params[] = $dateTo;
+        }
+        
+        // Add ordering and pagination
+        $sql .= " ORDER BY er.created_at DESC";
+        
+        // Get total count for pagination
+        $countSql = str_replace("SELECT er.id, er.email, er.name, er.company, er.dot, er.created_at, ec.name as campaign_name", "SELECT COUNT(*) as total", $sql);
+        $countSql = preg_replace('/ORDER BY.*$/', '', $countSql);
+        
+        $stmt = $this->db->prepare($countSql);
+        $stmt->execute($params);
+        $totalCount = $stmt->fetch(PDO::FETCH_ASSOC)['total'];
+        
+        // Add pagination
+        $offset = ($page - 1) * $perPage;
+        $sql .= " LIMIT ? OFFSET ?";
+        $params[] = $perPage;
+        $params[] = $offset;
+        
+        $stmt = $this->db->prepare($sql);
+        $stmt->execute($params);
+        $contacts = $stmt->fetchAll(PDO::FETCH_ASSOC);
+        
+        $result = [
+            'data' => $contacts,
+            'pagination' => [
+                'current_page' => $page,
+                'per_page' => $perPage,
+                'total' => $totalCount,
+                'total_pages' => ceil($totalCount / $perPage)
+            ],
+            'filters' => [
+                'search' => $search,
+                'date_from' => $dateFrom,
+                'date_to' => $dateTo
+            ]
+        ];
+        
         $this->sendSuccess($result);
     }
     
