@@ -4,7 +4,138 @@ require_once "BaseModel.php";
 class Contact extends BaseModel {
     protected $table = "contacts";
     protected $fillable = [
-        "first_name", "last_name", "email", "phone", "company", "job_title",
-        "lead_source", "interest_level", "status", "notes", "assigned_agent_id", "created_by"
+        "first_name", "last_name", "email", "phone", "company", "position", "status"
     ];
+    
+    public function search($searchTerm) {
+        if (!$this->db) return [];
+        
+        $sql = "SELECT * FROM {$this->table} WHERE 
+                first_name LIKE ? OR 
+                last_name LIKE ? OR 
+                email LIKE ? OR 
+                company LIKE ? OR 
+                phone LIKE ?";
+        
+        $searchLike = "%{$searchTerm}%";
+        $stmt = $this->db->prepare($sql);
+        $stmt->execute([$searchLike, $searchLike, $searchLike, $searchLike, $searchLike]);
+        
+        return array_map([$this, 'hideFields'], $stmt->fetchAll());
+    }
+    
+    public function paginate($page = 1, $perPage = 10, $conditions = []) {
+        if (!$this->db) return ['data' => [], 'total' => 0, 'page' => $page, 'per_page' => $perPage];
+        
+        $offset = ($page - 1) * $perPage;
+        
+        // Build WHERE clause
+        $whereClause = '';
+        $params = [];
+        if (!empty($conditions)) {
+            $whereParts = [];
+            foreach ($conditions as $field => $value) {
+                $whereParts[] = "{$field} = ?";
+                $params[] = $value;
+            }
+            $whereClause = 'WHERE ' . implode(' AND ', $whereParts);
+        }
+        
+        // Get total count
+        $countSql = "SELECT COUNT(*) as total FROM {$this->table} {$whereClause}";
+        $countStmt = $this->db->prepare($countSql);
+        $countStmt->execute($params);
+        $total = $countStmt->fetch()['total'];
+        
+        // Get paginated data
+        $sql = "SELECT * FROM {$this->table} {$whereClause} ORDER BY created_at DESC LIMIT {$perPage} OFFSET {$offset}";
+        $stmt = $this->db->prepare($sql);
+        $stmt->execute($params);
+        $data = array_map([$this, 'hideFields'], $stmt->fetchAll());
+        
+        return [
+            'data' => $data,
+            'total' => $total,
+            'page' => $page,
+            'per_page' => $perPage,
+            'total_pages' => ceil($total / $perPage)
+        ];
+    }
+    
+    public function count() {
+        if (!$this->db) return 0;
+        
+        $sql = "SELECT COUNT(*) as count FROM {$this->table}";
+        $stmt = $this->db->prepare($sql);
+        $stmt->execute();
+        $result = $stmt->fetch();
+        return $result ? (int)$result['count'] : 0;
+    }
+    
+    public function all($limit = null) {
+        if (!$this->db) return [];
+        
+        $sql = "SELECT * FROM {$this->table} ORDER BY created_at DESC";
+        if ($limit) {
+            $sql .= " LIMIT {$limit}";
+        }
+        
+        $stmt = $this->db->prepare($sql);
+        $stmt->execute();
+        return array_map([$this, 'hideFields'], $stmt->fetchAll());
+    }
+    
+    public function getLeadsByStatus() {
+        if (!$this->db) return [];
+        
+        $sql = "SELECT status, COUNT(*) as count FROM {$this->table} GROUP BY status";
+        $stmt = $this->db->prepare($sql);
+        $stmt->execute();
+        return $stmt->fetchAll();
+    }
+    
+    public function getLeadsBySource() {
+        if (!$this->db) return [];
+        
+        $sql = "SELECT lead_source, COUNT(*) as count FROM {$this->table} GROUP BY lead_source";
+        $stmt = $this->db->prepare($sql);
+        $stmt->execute();
+        return $stmt->fetchAll();
+    }
+    
+    public function bulkInsert($contacts) {
+        if (!$this->db || empty($contacts)) {
+            return ['imported' => 0, 'errors' => []];
+        }
+        
+        $imported = 0;
+        $errors = [];
+        
+        foreach ($contacts as $index => $contact) {
+            try {
+                $data = $this->filterFillable($contact);
+                $data['created_at'] = date('Y-m-d H:i:s');
+                $data['updated_at'] = date('Y-m-d H:i:s');
+                
+                $fields = array_keys($data);
+                $placeholders = str_repeat("?,", count($fields) - 1) . "?";
+                
+                $sql = "INSERT INTO {$this->table} (" . implode(",", $fields) . ") VALUES ({$placeholders})";
+                $stmt = $this->db->prepare($sql);
+                
+                if ($stmt->execute(array_values($data))) {
+                    $imported++;
+                } else {
+                    $errors[] = "Row " . ($index + 1) . ": Failed to insert";
+                }
+            } catch (Exception $e) {
+                $errors[] = "Row " . ($index + 1) . ": " . $e->getMessage();
+            }
+        }
+        
+        return [
+            'imported' => $imported,
+            'errors' => $errors
+        ];
+    }
 }

@@ -157,4 +157,23 @@ abstract class BaseModel {
         $stmt = $this->db->prepare($sql);
         return $stmt->execute([$id]);
     }
+    
+    public function getTotalCount() {
+        if (!$this->db) return 0;
+        
+        $sql = "SELECT COUNT(*) as count FROM {$this->table}";
+        $stmt = $this->db->prepare($sql);
+        $stmt->execute();
+        $result = $stmt->fetch();
+        return $result ? (int)$result['count'] : 0;
+    }
+    
+    public function deleteAll() {
+        if (!$this->db) return 0;
+        
+        $sql = "DELETE FROM {$this->table}";
+        $stmt = $this->db->prepare($sql);
+        $stmt->execute();
+        return $stmt->rowCount();
+    }
 }

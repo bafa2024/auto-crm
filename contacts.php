@@ -3,6 +3,10 @@ ini_set('display_errors', 1);
 ini_set('display_startup_errors', 1);
 error_reporting(E_ALL);
 
+// Increase memory limit and execution time for uploads
+ini_set('memory_limit', '512M');
+ini_set('max_execution_time', 300);
+
 // Start session
 if (session_status() === PHP_SESSION_NONE) {
     session_start();
@@ -17,12 +21,31 @@ if (!isset($_SESSION["user_id"])) {
     exit;
 }
 
-require_once 'config/database.php';
-$database = (new Database())->getConnection();
-require_once 'services/EmailUploadService.php';
+try {
+    require_once 'config/database.php';
+    $database = (new Database())->getConnection();
+    
+    // Check if vendor autoload exists before requiring EmailUploadService
+    $vendorPath = __DIR__ . '/vendor/autoload.php';
+    if (!file_exists($vendorPath)) {
+        throw new Exception('Vendor autoload not found. Please run: composer install');
+    }
+    
+    require_once 'services/EmailUploadService.php';
+} catch (Exception $e) {
+    die("<div class='alert alert-danger'>System Error: " . htmlspecialchars($e->getMessage()) . "</div>");
+}
 
 $message = '';
 $messageType = '';
+
+// Check for session messages
+if (isset($_SESSION['message'])) {
+    $message = $_SESSION['message'];
+    $messageType = $_SESSION['messageType'] ?? 'info';
+    unset($_SESSION['message']);
+    unset($_SESSION['messageType']);
+}
 
 // Handle contact creation
 if (isset($_SERVER['REQUEST_METHOD']) && $_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action']) && $_POST['action'] === 'create_contact') {
@@ -79,45 +102,72 @@ if (isset($_SERVER['REQUEST_METHOD']) && $_SERVER['REQUEST_METHOD'] === 'POST' &
 
 // Handle file upload
 if (isset($_SERVER['REQUEST_METHOD']) && $_SERVER['REQUEST_METHOD'] === 'POST' && isset($_FILES['email_file'])) {
-    $uploadService = new EmailUploadService($database);
-    
-    $file = $_FILES['email_file'];
-    $campaignId = $_POST['campaign_id'] ?? null;
-    
-    // Validate file upload
-    if ($file['error'] !== UPLOAD_ERR_OK) {
-        $message = 'File upload failed: ' . $file['error'];
-        $messageType = 'danger';
-    } else {
-        // Check file extension only
-        $extension = strtolower(pathinfo($file['name'], PATHINFO_EXTENSION));
-        if (!in_array($extension, ['csv', 'xlsx', 'xls'])) {
-            $message = 'Invalid file type. Please upload CSV or Excel file.';
+    try {
+        // Check which service to use
+        $vendorPath = __DIR__ . '/vendor/autoload.php';
+        if (!file_exists($vendorPath)) {
+            // Use simple service that doesn't require PhpSpreadsheet
+            require_once 'services/SimpleEmailUploadService.php';
+            $uploadService = new SimpleEmailUploadService($database);
+        } else {
+            $uploadService = new EmailUploadService($database);
+        }
+        
+        $file = $_FILES['email_file'];
+        $campaignId = $_POST['campaign_id'] ?? null;
+        
+        // Validate file upload
+        if ($file['error'] !== UPLOAD_ERR_OK) {
+            $uploadErrors = [
+                UPLOAD_ERR_INI_SIZE => 'File exceeds upload_max_filesize in php.ini',
+                UPLOAD_ERR_FORM_SIZE => 'File exceeds MAX_FILE_SIZE in form',
+                UPLOAD_ERR_PARTIAL => 'File was only partially uploaded',
+                UPLOAD_ERR_NO_FILE => 'No file was uploaded',
+                UPLOAD_ERR_NO_TMP_DIR => 'Missing temporary folder',
+                UPLOAD_ERR_CANT_WRITE => 'Failed to write file to disk',
+                UPLOAD_ERR_EXTENSION => 'File upload stopped by extension'
+            ];
+            $errorMsg = $uploadErrors[$file['error']] ?? 'Unknown upload error';
+            $message = 'File upload failed: ' . $errorMsg;
             $messageType = 'danger';
         } else {
-            // Process the file
-            $result = $uploadService->processUploadedFile($file['tmp_name'], $campaignId, $file['name']);
-            
-            if ($result['success']) {
-                $message = "Upload successful! Imported: {$result['imported']} contacts";
-                if ($result['skipped'] > 0) {
-                    $message .= ", Skipped: {$result['skipped']} (already imported)";
-                }
-                if ($result['failed'] > 0) {
-                    $message .= ", Failed: {$result['failed']}";
-                }
-                if (!empty($result['errors'])) {
-                    $message .= "<br>Errors:<br>" . implode("<br>", array_slice($result['errors'], 0, 5));
-                    if (count($result['errors']) > 5) {
-                        $message .= "<br>... and " . (count($result['errors']) - 5) . " more errors";
-                    }
-                }
-                $messageType = 'success';
-            } else {
-                $message = 'Upload failed: ' . $result['message'];
+            // Check file extension only
+            $extension = strtolower(pathinfo($file['name'], PATHINFO_EXTENSION));
+            if (!in_array($extension, ['csv', 'xlsx', 'xls'])) {
+                $message = 'Invalid file type. Please upload CSV or Excel file.';
                 $messageType = 'danger';
+            } else {
+                // Log the upload attempt
+                error_log("Processing upload: " . $file['name'] . " (" . $file['size'] . " bytes)");
+                
+                // Process the file
+                $result = $uploadService->processUploadedFile($file['tmp_name'], $campaignId, $file['name']);
+                
+                if ($result['success']) {
+                    $message = "Upload successful! Imported: {$result['imported']} contacts";
+                    if ($result['skipped'] > 0) {
+                        $message .= ", Skipped: {$result['skipped']} (already imported)";
+                    }
+                    if ($result['failed'] > 0) {
+                        $message .= ", Failed: {$result['failed']}";
+                    }
+                    if (!empty($result['errors'])) {
+                        $message .= "<br>Errors:<br>" . implode("<br>", array_slice($result['errors'], 0, 5));
+                        if (count($result['errors']) > 5) {
+                            $message .= "<br>... and " . (count($result['errors']) - 5) . " more errors";
+                        }
+                    }
+                    $messageType = 'success';
+                } else {
+                    $message = 'Upload failed: ' . $result['message'];
+                    $messageType = 'danger';
+                }
             }
         }
+    } catch (Exception $e) {
+        error_log("Upload exception: " . $e->getMessage());
+        $message = 'Upload error: ' . htmlspecialchars($e->getMessage());
+        $messageType = 'danger';
     }
 }
 
@@ -317,7 +367,7 @@ try {
                         <h5 class="card-title">Upload Email Contacts</h5>
                         <p class="text-muted">Upload a CSV or Excel file with columns: DOT, Company Name, Customer Name, Email. Extra columns will be ignored.</p>
                         
-                        <form method="POST" enctype="multipart/form-data">
+                        <form method="POST" enctype="multipart/form-data" id="uploadForm">
                             <div class="mb-3">
                                 <label for="campaign_id" class="form-label">Campaign (Optional)</label>
                                 <select class="form-select" id="campaign_id" name="campaign_id">
@@ -334,16 +384,53 @@ try {
                             <div class="mb-3">
                                 <label for="email_file" class="form-label">Email List File</label>
                                 <input type="file" class="form-control" id="email_file" name="email_file" accept=".csv,.xlsx,.xls" required>
-                                <div class="form-text">Supported formats: CSV, Excel (.xlsx, .xls)</div>
+                                <div class="form-text">Supported formats: CSV, Excel (.xlsx, .xls). Max size: 10MB</div>
                             </div>
                             
-                            <button type="submit" class="btn btn-primary">
+                            <div class="progress mb-3" style="display: none;" id="uploadProgress">
+                                <div class="progress-bar progress-bar-striped progress-bar-animated" role="progressbar" style="width: 0%"></div>
+                            </div>
+                            
+                            <button type="submit" class="btn btn-primary" id="uploadBtn">
                                 <i class="bi bi-cloud-upload"></i> Upload Contacts
                             </button>
                             
-                                <a href="<?php echo base_path('download_template.php'); ?>" class="btn btn-secondary">
+                            <button type="submit" class="btn btn-success" onclick="document.getElementById('uploadForm').submit(); return false;">
+                                <i class="bi bi-cloud-arrow-up"></i> Direct Upload
+                            </button>
+                            
+                            <a href="<?php echo base_path('simple_upload.php'); ?>" class="btn btn-info">
+                                <i class="bi bi-upload"></i> Simple Upload
+                            </a>
+                            
+                            <a href="<?php echo base_path('download_template.php'); ?>" class="btn btn-secondary">
                                 <i class="bi bi-download"></i> Download Template
                             </a>
+                            
+                            <div class="float-end">
+                                <a href="<?php echo base_path('test_upload.php'); ?>" class="btn btn-warning btn-sm">
+                                    <i class="bi bi-bug"></i> Test Upload
+                                </a>
+                                <a href="<?php echo base_path('install_composer.php'); ?>" class="btn btn-info btn-sm">
+                                    <i class="bi bi-download"></i> Install Dependencies
+                                </a>
+                                <a href="<?php echo base_path('fix_upload_limits.php'); ?>" class="btn btn-secondary btn-sm">
+                                    <i class="bi bi-gear"></i> Fix Limits
+                                </a>
+                                <a href="<?php echo base_path('test_upload_debug.php'); ?>" class="btn btn-danger btn-sm">
+                                    <i class="bi bi-exclamation-triangle"></i> Debug
+                                </a>
+                            </div>
+                            
+                            <button type="button" class="btn btn-secondary btn-sm" onclick="testDebugUpload()">
+                                <i class="bi bi-bug-fill"></i> Debug Upload
+                            </button>
+                            
+                            <noscript>
+                                <div class="alert alert-warning mt-3">
+                                    JavaScript is disabled. The form will submit normally without progress tracking.
+                                </div>
+                            </noscript>
                         </form>
                     </div>
                 </div>
@@ -519,7 +606,7 @@ try {
                     <h5 class="modal-title">Create New Contact</h5>
                     <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
                 </div>
-                <form method="POST">
+                <form method="POST" action="<?php echo base_path('create_contact.php'); ?>">
                     <input type="hidden" name="action" value="create_contact">
                     <div class="modal-body">
                         <div class="row">
@@ -633,18 +720,33 @@ try {
         const basePath = '<?php echo rtrim(base_path(''), '/'); ?>';
         console.log('Base path:', basePath);
         
+        // Debug: Check if JavaScript is running
+        console.log('JavaScript loaded successfully');
+        
+        // Check for any JavaScript errors
+        window.addEventListener('error', function(e) {
+            console.error('JavaScript Error:', e.message, 'at', e.filename, ':', e.lineno);
+        });
+        
         // Test API connectivity
         window.addEventListener('load', function() {
             console.log('Testing API connectivity...');
-            fetch(`${basePath}/api/campaigns`)
+            console.log('Base path:', basePath);
+            
+            // Test recipients API specifically
+            fetch(`${basePath}/api/recipients/1`)
                 .then(response => {
-                    console.log('API test response:', response.status);
-                    if (!response.ok) {
-                        console.error('API test failed with status:', response.status);
+                    console.log('Recipients API test response:', response.status);
+                    if (response.status === 404) {
+                        console.log('Recipients API is accessible (404 is expected for non-existent ID)');
+                    } else if (!response.ok) {
+                        console.error('Recipients API test failed with status:', response.status);
+                    } else {
+                        console.log('Recipients API is accessible');
                     }
                 })
                 .catch(error => {
-                    console.error('API connectivity test failed:', error);
+                    console.error('Recipients API connectivity test failed:', error);
                     console.error('This might indicate the API endpoint is not accessible');
                 });
         });
@@ -694,66 +796,98 @@ try {
             if (confirm("Are you sure you want to delete this contact? This action cannot be undone.")) {
                 console.log('Deleting contact ID:', contactId);
                 
-                // Try different API endpoints
-                const apiUrl = `${basePath}/api/recipients/${contactId}`;
-                console.log('Trying API URL:', apiUrl);
+                // Try multiple API endpoint variations
+                const apiUrls = [
+                    `${basePath}/api/recipients/${contactId}`,
+                    `${basePath}/api/test_direct.php?id=${contactId}`,
+                    `/acrm/api/recipients/${contactId}`,
+                    `/api/recipients/${contactId}`,
+                    `${basePath}/delete_contact.php` // Fallback POST endpoint
+                ];
                 
-                // First test if API is accessible
-                fetch(`${basePath}/api/test.php`)
-                    .then(response => response.json())
-                    .then(testData => {
-                        console.log('API test successful:', testData);
-                        
-                        // Now try the actual delete
-                        return fetch(apiUrl, {
-                            method: 'DELETE',
-                            headers: {
-                                'Content-Type': 'application/json',
-                            },
-                            credentials: 'same-origin' // Include cookies for session
-                        });
-                    })
-                    .then(response => {
-                        console.log('Delete response status:', response.status);
-                        console.log('Delete response headers:', response.headers);
-                        
-                        if (!response.ok) {
-                            return response.text().then(text => {
-                                console.error('Response text:', text);
-                                // Check if it's HTML (likely 404 or error page)
-                                if (text.includes('<!DOCTYPE') || text.includes('<html')) {
-                                    throw new Error('API endpoint not found - received HTML instead of JSON');
-                                }
-                                throw new Error(`HTTP error! status: ${response.status}, message: ${text}`);
-                            });
-                        }
-                        return response.json();
-                    })
-                    .then(data => {
-                        console.log('Response data:', data);
-                        if (data.success) {
-                            alert('Contact deleted successfully!');
-                            // Reload the page to refresh the contact list
-                            location.reload();
-                        } else {
-                            alert('Error deleting contact: ' + (data.message || data.error || 'Unknown error'));
-                        }
-                    })
-                    .catch(error => {
-                        console.error('Fetch error:', error);
-                        console.error('Error details:', error.message);
-                        
-                        // Provide more helpful error messages
-                        if (error.message.includes('Failed to fetch')) {
-                            alert('Network error: Could not connect to the API. Please check if the server is running and the API path is correct.');
-                            console.error('API URL was:', apiUrl);
-                        } else if (error.message.includes('API endpoint not found')) {
-                            alert('API endpoint not found. The server might be misconfigured.');
-                        } else {
-                            alert('Error deleting contact: ' + error.message);
-                        }
-                    });
+                console.log('Trying API URLs:', apiUrls);
+                
+                // Try the first URL that works
+                tryDelete(apiUrls, 0, contactId);
             }
+        }
+        
+        function tryDelete(urls, index, contactId) {
+            if (index >= urls.length) {
+                alert('Failed to delete contact. All API endpoints failed.');
+                return;
+            }
+            
+            const apiUrl = urls[index];
+            console.log(`Trying API URL ${index + 1}/${urls.length}:`, apiUrl);
+            
+            // Use POST for the fallback endpoint
+            const isPost = apiUrl.includes('delete_contact.php');
+            const fetchOptions = {
+                method: isPost ? 'POST' : 'DELETE',
+                headers: isPost ? {
+                    'Content-Type': 'application/x-www-form-urlencoded',
+                    'X-Requested-With': 'XMLHttpRequest'
+                } : {
+                    'Content-Type': 'application/json',
+                    'X-Requested-With': 'XMLHttpRequest'
+                },
+                credentials: 'same-origin'
+            };
+            
+            if (isPost) {
+                fetchOptions.body = `id=${contactId}`;
+            }
+            
+            fetch(apiUrl, fetchOptions)
+            .then(response => {
+                console.log(`Response from ${apiUrl}:`, response.status);
+                
+                if (!response.ok && index < urls.length - 1) {
+                    // Try next URL
+                    console.log('Failed, trying next URL...');
+                    tryDelete(urls, index + 1, contactId);
+                    return null;
+                }
+                
+                return response.text();
+            })
+            .then(text => {
+                if (!text) return; // Skip if we're trying next URL
+                
+                console.log('Response text:', text);
+                
+                try {
+                    const data = JSON.parse(text);
+                    console.log('Parsed data:', data);
+                    
+                    if (data.success) {
+                        alert('Contact deleted successfully!');
+                        location.reload();
+                    } else {
+                        alert('Error: ' + (data.message || data.error || 'Unknown error'));
+                    }
+                } catch (e) {
+                    console.error('JSON parse error:', e);
+                    if (text.includes('<!DOCTYPE') || text.includes('<html')) {
+                        if (index < urls.length - 1) {
+                            tryDelete(urls, index + 1, contactId);
+                        } else {
+                            alert('API returned HTML instead of JSON. Check server configuration.');
+                        }
+                    } else {
+                        alert('Invalid response from server');
+                    }
+                }
+            })
+            .catch(error => {
+                console.error(`Error with ${apiUrl}:`, error);
+                if (index < urls.length - 1) {
+                    tryDelete(urls, index + 1, contactId);
+                } else {
+                    alert('Network error: ' + error.message);
+                }
+            });
         }
         
         // Handle edit contact form submission
@@ -763,11 +897,14 @@ try {
             const contactId = document.getElementById('edit_contact_id').value;
             const formData = new FormData(this);
             
-            // Convert form data to JSON
-            const data = {};
-            formData.forEach((value, key) => {
-                data[key] = value;
-            });
+            // Convert form data to JSON with correct field names
+            const data = {
+                dot: formData.get('dot'),
+                company_name: formData.get('company_name'),
+                customer_name: formData.get('customer_name'),
+                email: formData.get('email'),
+                campaign_id: formData.get('campaign_id')
+            };
             
             fetch(`${basePath}/api/recipients/${contactId}`, {
                 method: 'PUT',
@@ -842,13 +979,16 @@ try {
                 bulkDeleteBtn.disabled = true;
                 bulkDeleteBtn.innerHTML = '<i class="bi bi-hourglass-split"></i> Deleting...';
                 
-                // Delete all selected contacts
+                // Delete all selected recipients using the fallback endpoint
                 const deletePromises = selectedIds.map(id => 
-                    fetch(`${basePath}/api/recipients/${id}`, {
-                        method: 'DELETE',
+                    fetch(`${basePath}/delete_contact.php`, {
+                        method: 'POST',
                         headers: {
-                            'Content-Type': 'application/json',
-                        }
+                            'Content-Type': 'application/x-www-form-urlencoded',
+                            'X-Requested-With': 'XMLHttpRequest'
+                        },
+                        body: `id=${id}`,
+                        credentials: 'same-origin'
                     })
                 );
                 
@@ -925,11 +1065,12 @@ try {
                     `;
                     document.body.appendChild(loadingOverlay);
                     
-                    // Call the delete all API
-                    fetch(`${basePath}/api/recipients/delete-all`, {
-                        method: 'DELETE',
+                    // Call the delete all API with fallback
+                    fetch(`${basePath}/delete_all_contacts.php`, {
+                        method: 'POST',
                         headers: {
                             'Content-Type': 'application/json',
+                            'X-Requested-With': 'XMLHttpRequest'
                         },
                         credentials: 'same-origin'
                     })
@@ -960,6 +1101,192 @@ try {
                 } else {
                     alert('Deletion cancelled. You must type "DELETE ALL" exactly to confirm.');
                 }
+            }
+        }
+        
+        // Debug upload function
+        function testDebugUpload() {
+            const fileInput = document.getElementById('email_file');
+            if (fileInput.files.length === 0) {
+                alert('Please select a file first');
+                return;
+            }
+            
+            const formData = new FormData();
+            formData.append('email_file', fileInput.files[0]);
+            formData.append('campaign_id', document.getElementById('campaign_id').value);
+            
+            console.log('Testing debug upload...');
+            
+            fetch(`${basePath}/debug_upload.php`, {
+                method: 'POST',
+                body: formData,
+                credentials: 'same-origin'
+            })
+            .then(response => {
+                console.log('Debug response:', response);
+                return response.text();
+            })
+            .then(text => {
+                console.log('Raw response:', text);
+                try {
+                    const data = JSON.parse(text);
+                    console.log('Parsed debug data:', data);
+                    alert('Debug info logged to console. Check browser console for details.');
+                } catch (e) {
+                    console.error('Failed to parse response:', e);
+                    console.error('Raw text:', text);
+                    alert('Error: Response is not valid JSON. Check console for raw response.');
+                }
+            })
+            .catch(error => {
+                console.error('Debug error:', error);
+                alert('Debug error: ' + error.message);
+            });
+        }
+        
+        // Add upload form handler with AJAX option
+        const uploadForm = document.getElementById('uploadForm');
+        if (uploadForm) {
+            // Check if we should use AJAX or regular submission
+            const useAjax = true; // Set to false to use regular form submission
+            
+            if (useAjax) {
+                uploadForm.addEventListener('submit', function(e) {
+                    e.preventDefault(); // Prevent default form submission
+            
+            const fileInput = document.getElementById('email_file');
+            const uploadBtn = document.getElementById('uploadBtn');
+            const progressDiv = document.getElementById('uploadProgress');
+            const campaignId = document.getElementById('campaign_id').value;
+            
+            if (fileInput.files.length === 0) {
+                alert('Please select a file to upload');
+                return;
+            }
+            
+            const file = fileInput.files[0];
+            const maxSize = 10 * 1024 * 1024; // 10MB
+            
+            if (file.size > maxSize) {
+                alert('File size exceeds 10MB limit. Please choose a smaller file.');
+                return;
+            }
+            
+            // Use AJAX upload for better error handling
+            const formData = new FormData();
+            formData.append('email_file', file);
+            formData.append('campaign_id', campaignId);
+            
+            // Show progress bar
+            progressDiv.style.display = 'block';
+            uploadBtn.disabled = true;
+            uploadBtn.innerHTML = '<span class="spinner-border spinner-border-sm" role="status"></span> Uploading...';
+            
+            // Start upload progress
+            let progress = 0;
+            const progressInterval = setInterval(function() {
+                progress += 5;
+                if (progress <= 80) {
+                    progressDiv.querySelector('.progress-bar').style.width = progress + '%';
+                }
+            }, 100);
+            
+            // First try debug endpoint to see what's happening
+            console.log('Starting upload to:', `${basePath}/ajax_upload.php`);
+            
+            // Perform AJAX upload
+            fetch(`${basePath}/ajax_upload.php`, {
+                method: 'POST',
+                body: formData,
+                credentials: 'same-origin'
+            })
+            .then(response => {
+                clearInterval(progressInterval);
+                progressDiv.querySelector('.progress-bar').style.width = '90%';
+                
+                console.log('Response status:', response.status);
+                console.log('Response headers:', response.headers.get('content-type'));
+                
+                if (!response.ok) {
+                    throw new Error(`HTTP error! status: ${response.status}`);
+                }
+                
+                // Check if response is JSON
+                const contentType = response.headers.get('content-type');
+                if (!contentType || !contentType.includes('application/json')) {
+                    return response.text().then(text => {
+                        console.error('Non-JSON response:', text);
+                        throw new Error('Server returned non-JSON response. Check console for details.');
+                    });
+                }
+                
+                return response.json();
+            })
+            .then(data => {
+                progressDiv.querySelector('.progress-bar').style.width = '100%';
+                
+                if (data.success) {
+                    // Show success message
+                    let alertHtml = `<div class="alert alert-success alert-dismissible fade show" role="alert">
+                        ${data.message}
+                        <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+                    </div>`;
+                    
+                    // Show errors if any
+                    if (data.errors && data.errors.length > 0) {
+                        alertHtml += `<div class="alert alert-warning alert-dismissible fade show" role="alert">
+                            <strong>Some issues occurred:</strong><br>
+                            ${data.errors.slice(0, 5).join('<br>')}
+                            ${data.errors.length > 5 ? `<br>... and ${data.errors.length - 5} more errors` : ''}
+                            <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+                        </div>`;
+                    }
+                    
+                    // Insert alert at the beginning of main-content
+                    const mainContent = document.querySelector('.main-content .container-fluid');
+                    const tempDiv = document.createElement('div');
+                    tempDiv.innerHTML = alertHtml;
+                    mainContent.insertBefore(tempDiv.firstChild, mainContent.firstChild);
+                    if (tempDiv.children.length > 0) {
+                        mainContent.insertBefore(tempDiv.firstChild, mainContent.firstChild);
+                    }
+                    
+                    // Reset form
+                    fileInput.value = '';
+                    uploadBtn.disabled = false;
+                    uploadBtn.innerHTML = '<i class="bi bi-cloud-upload"></i> Upload Contacts';
+                    progressDiv.style.display = 'none';
+                    progressDiv.querySelector('.progress-bar').style.width = '0%';
+                    
+                    // Reload page after 2 seconds to show new contacts
+                    setTimeout(() => location.reload(), 2000);
+                } else {
+                    throw new Error(data.message || 'Upload failed');
+                }
+            })
+            .catch(error => {
+                clearInterval(progressInterval);
+                console.error('Upload error:', error);
+                
+                // Show error message
+                const alertHtml = `<div class="alert alert-danger alert-dismissible fade show" role="alert">
+                    <strong>Upload Error:</strong> ${error.message}
+                    <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+                </div>`;
+                
+                const mainContent = document.querySelector('.main-content .container-fluid');
+                const tempDiv = document.createElement('div');
+                tempDiv.innerHTML = alertHtml;
+                mainContent.insertBefore(tempDiv.firstChild, mainContent.firstChild);
+                
+                // Reset form
+                uploadBtn.disabled = false;
+                uploadBtn.innerHTML = '<i class="bi bi-cloud-upload"></i> Upload Contacts';
+                progressDiv.style.display = 'none';
+                progressDiv.querySelector('.progress-bar').style.width = '0%';
+            });
+                });
             }
         }
     </script>

@@ -45,4 +45,20 @@ abstract class BaseController {
         }
         return htmlspecialchars(strip_tags(trim($data)), ENT_QUOTES, "UTF-8");
     }
+    
+    protected function getPaginationParams() {
+        $page = isset($_GET['page']) ? max(1, (int)$_GET['page']) : 1;
+        $perPage = isset($_GET['per_page']) ? max(1, min(100, (int)$_GET['per_page'])) : 10;
+        return [$page, $perPage];
+    }
+    
+    protected function getSearchParams() {
+        return [
+            'search' => $_GET['search'] ?? '',
+            'filter' => [
+                'status' => $_GET['status'] ?? '',
+                'assigned_agent_id' => $_GET['assigned_agent_id'] ?? ''
+            ]
+        ];
+    }
 }

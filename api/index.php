@@ -6,6 +6,7 @@ require_once __DIR__ . '/../config/database.php';
 require_once __DIR__ . '/../controllers/BaseController.php';
 require_once __DIR__ . '/../controllers/AuthController.php';
 require_once __DIR__ . '/../controllers/ContactController.php';
+require_once __DIR__ . '/../controllers/ContactHistoryController.php';
 require_once __DIR__ . '/../controllers/EmailRecipientController.php';
 require_once __DIR__ . '/../controllers/EmailCampaignController.php';
 require_once __DIR__ . '/../controllers/SettingsController.php';
@@ -17,6 +18,12 @@ define('API_MODE', true);
 // Start session if not already started
 if (session_status() === PHP_SESSION_NONE) {
     session_start();
+}
+
+// Ensure session user_id is available for API requests
+if (!isset($_SESSION['user_id']) && isset($_COOKIE['PHPSESSID'])) {
+    // Try to restore session from cookie
+    session_id($_COOKIE['PHPSESSID']);
 }
 
 // CORS headers
@@ -70,6 +77,10 @@ try {
         case 'contacts':
             $controller = new ContactController($db);
             handleContactRoutes($controller, $id, $action);
+            break;
+        case 'contact-history':
+            $controller = new ContactHistoryController($db);
+            handleContactHistoryRoutes($controller, $id, $action);
             break;
         case 'recipients':
             $controller = new EmailRecipientController($db);
@@ -161,6 +172,10 @@ function handleContactRoutes($controller, $id, $action) {
         $controller->exportContacts();
         return;
     }
+    if ($id === 'delete-all') {
+        $controller->deleteAllContacts();
+        return;
+    }
     if ($id && !$action) {
         // Single contact operations
         switch ($_SERVER['REQUEST_METHOD']) {
@@ -190,6 +205,45 @@ function handleContactRoutes($controller, $id, $action) {
                 http_response_code(405);
                 echo json_encode(['error' => 'Method not allowed']);
         }
+    }
+}
+
+function handleContactHistoryRoutes($controller, $id, $action) {
+    if ($id === 'recent-uploads') {
+        $controller->getRecentUploads();
+        return;
+    }
+    if ($id === 'upload-statistics') {
+        $controller->getUploadStatistics();
+        return;
+    }
+    if ($id === 'by-batch') {
+        $controller->getContactsByBatch();
+        return;
+    }
+    if ($id === 'delete-batch') {
+        $controller->deleteContactsByBatch();
+        return;
+    }
+    if ($id === 'archive-batch') {
+        $controller->archiveContactsByBatch();
+        return;
+    }
+    if ($id === 'management-stats') {
+        $controller->getDataManagementStats();
+        return;
+    }
+    if ($id && !$action) {
+        // Get contact history for specific contact
+        if ($_SERVER['REQUEST_METHOD'] === 'GET') {
+            $controller->getContactHistory($id);
+        } else {
+            http_response_code(405);
+            echo json_encode(['error' => 'Method not allowed']);
+        }
+    } else {
+        http_response_code(404);
+        echo json_encode(['error' => 'Contact history endpoint not found']);
     }
 }
 

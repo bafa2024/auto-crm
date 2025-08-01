@@ -1,5 +1,12 @@
 RewriteEngine On
 
+# PHP Upload Settings (if allowed by server)
+php_value upload_max_filesize 10M
+php_value post_max_size 12M
+php_value max_execution_time 300
+php_value max_input_time 300
+php_value memory_limit 256M
+
 # Handle Authorization Header
 RewriteCond %{HTTP:Authorization} .
 RewriteRule .* - [E=HTTP_AUTHORIZATION:%{HTTP:Authorization}]
@@ -17,7 +24,16 @@ RewriteCond %{REQUEST_URI} !^/api-employee-send-link\.php$
 RewriteCond %{REQUEST_URI} !^/test-magic-link\.php$
 RewriteCond %{REQUEST_URI} !^/api-test\.php$
 
-# Route all requests through index.php (including API requests)
+# Handle API routes separately
+RewriteCond %{REQUEST_URI} ^/api/
+RewriteRule ^api/(.*)$ api/index.php [QSA,L]
+
+# Handle ACRM subdirectory API routes
+RewriteCond %{REQUEST_URI} ^/acrm/api/
+RewriteRule ^api/(.*)$ api/index.php [QSA,L]
+
+# Route all other requests through index.php
 RewriteCond %{REQUEST_FILENAME} !-f
 RewriteCond %{REQUEST_FILENAME} !-d
+RewriteCond %{REQUEST_URI} !^/api/
 RewriteRule ^(.*)$ index.php [QSA,L]

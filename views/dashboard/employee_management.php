@@ -325,7 +325,6 @@ function editEmployee(id) {
                         <select class="form-select" id="edit-role">
                             <option value="agent" ${employee.role === 'agent' ? 'selected' : ''}>Agent (Employee)</option>
                             <option value="manager" ${employee.role === 'manager' ? 'selected' : ''}>Manager (Employee)</option>
-                            <option value="user" ${employee.role === 'user' ? 'selected' : ''}>User</option>
                             <option value="admin" ${employee.role === 'admin' ? 'selected' : ''}>Admin</option>
                         </select>
                     </div>
@@ -725,7 +724,6 @@ function showAddEmployeeModal() {
                                 <option value="">Select Role</option>
                                 <option value="agent">Agent (Employee)</option>
                                 <option value="manager">Manager (Employee)</option>
-                                <option value="user">User</option>
                                 <option value="admin">Admin</option>
                             </select>
                         </div>

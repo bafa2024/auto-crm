@@ -61,12 +61,7 @@ class ContactController extends BaseController {
             $this->sendError('Validation failed', 400, $errors);
         }
         
-        // Add created_by from session
-// Start session
-if (session_status() === PHP_SESSION_NONE) {
-    session_start();
-}
-        $data['created_by'] = $_SESSION['user_id'] ?? 1;
+        // Note: created_by field doesn't exist in contacts table
         
         $contact = $this->contactModel->create($data);
         
@@ -86,7 +81,7 @@ if (session_status() === PHP_SESSION_NONE) {
         $data = $this->sanitizeInput($input);
         
         // Remove fields that shouldn't be updated
-        unset($data['id'], $data['created_by'], $data['created_at']);
+        unset($data['id'], $data['created_at']);
         
         $contact = $this->contactModel->update($id, $data);
         
@@ -106,6 +101,35 @@ if (session_status() === PHP_SESSION_NONE) {
             $this->sendSuccess([], 'Contact deleted successfully');
         } else {
             $this->sendError('Failed to delete contact', 500);
+        }
+    }
+    
+    public function deleteAllContacts() {
+        if ($_SERVER['REQUEST_METHOD'] !== 'DELETE') {
+            $this->sendError('Method not allowed', 405);
+        }
+        
+        try {
+            // Get total count before deletion
+            $totalCount = $this->contactModel->getTotalCount();
+            
+            if ($totalCount === 0) {
+                $this->sendError('No contacts to delete', 400);
+            }
+            
+            // Delete all contacts
+            $deletedCount = $this->contactModel->deleteAll();
+            
+            if ($deletedCount > 0) {
+                $this->sendSuccess([
+                    'deleted_count' => $deletedCount,
+                    'total_count' => $totalCount
+                ], "Successfully deleted all {$deletedCount} contacts");
+            } else {
+                $this->sendError('Failed to delete contacts', 500);
+            }
+        } catch (Exception $e) {
+            $this->sendError('Error deleting all contacts: ' . $e->getMessage(), 500);
         }
     }
     
