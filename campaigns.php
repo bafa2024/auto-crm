@@ -111,26 +111,7 @@ if (isset($_SERVER['REQUEST_METHOD']) && $_SERVER['REQUEST_METHOD'] === 'POST') 
                 }
                 break;
                 
-            case 'send_campaign_to_all':
-                $campaignId = $_POST['campaign_id'];
-                // Get all recipients for this campaign
-                $allRecipients = $campaignService->getAllCampaignRecipients($campaignId);
-                $recipientIds = array_column($allRecipients, 'id');
-                
-                if (empty($recipientIds)) {
-                    $message = 'No unsent recipients found for this campaign. All recipients have already received this campaign.';
-                    $messageType = 'warning';
-                } else {
-                    $result = $campaignService->sendCampaign($campaignId, $recipientIds);
-                    if ($result['success']) {
-                        $message = "Campaign sent to ALL recipients successfully!";
-                        $messageType = 'success';
-                    } else {
-                        $message = 'Campaign sending failed: ' . $result['message'];
-                        $messageType = 'danger';
-                    }
-                }
-                break;
+
             case 'schedule_campaign':
                 $campaignId = $_POST['campaign_id'];
                 $scheduleType = $_POST['schedule_type'];
@@ -760,9 +741,6 @@ try {
                     </div>
                     <div class="modal-footer">
                         <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
-                        <button type="button" class="btn btn-warning" onclick="sendToAllRecipients()">
-                            <i class="bi bi-send-all"></i> Send to All Unique Emails (Batches of 200)
-                        </button>
                         <button type="submit" class="btn btn-primary">Send Campaign</button>
                     </div>
                 </form>
@@ -1235,9 +1213,8 @@ try {
                                 <small class="text-muted">No unsent recipients found.</small>
                             </div>
                         `;
-                        // Disable send buttons if no recipients
+                        // Disable send button if no recipients
                         document.querySelector('#sendCampaignForm button[type="submit"]').disabled = true;
-                        document.querySelector('#sendCampaignForm button[onclick*="sendToAllRecipients"]').disabled = true;
                         return;
                     }
                     
@@ -1281,59 +1258,7 @@ try {
             new bootstrap.Modal(document.getElementById('sendCampaignModal')).show();
         }
         
-        function sendToAllRecipients() {
-            const campaignId = document.getElementById('send_campaign_id').value;
-            if (!campaignId) {
-                alert('No campaign selected.');
-                return;
-            }
-            
-            // Get fresh count before confirming
-            fetch('api/campaign_duplicates.php?campaign_id=' + campaignId)
-                .then(response => response.json())
-                .then(stats => {
-                    if (stats.success) {
-                        const freshCount = stats.stats.fresh_unique_emails;
-                        const batchCount = Math.ceil(freshCount / 200);
-                        
-                        if (freshCount === 0) {
-                            alert('No fresh unique emails to send. All unique emails have already been sent.');
-                            return;
-                        }
-                        
-                        if (!confirm(`This will send to ${freshCount} fresh unique email addresses in ${batchCount} batch${batchCount > 1 ? 'es' : ''} of up to 200 emails each.\n\nDuplicates and already-sent emails will be automatically excluded.\n\nProceed?`)) {
-                            return;
-                        }
-                        
-                        proceedWithSendToAll();
-                    }
-                });
-        }
-        
-        function proceedWithSendToAll() {
-            
-            // Create a form to submit the send to all request
-            const form = document.createElement('form');
-            form.method = 'POST';
-            form.style.display = 'none';
-            
-            const actionInput = document.createElement('input');
-            actionInput.type = 'hidden';
-            actionInput.name = 'action';
-            actionInput.value = 'send_campaign_to_all';
-            
-            const campaignInput = document.createElement('input');
-            campaignInput.type = 'hidden';
-            campaignInput.name = 'campaign_id';
-            campaignInput.value = campaignId;
-            
-            form.appendChild(actionInput);
-            form.appendChild(campaignInput);
-            document.body.appendChild(form);
-            
-            // Submit the form
-            form.submit();
-        }
+
 
         function deleteCampaign(campaignId) {
             if (!confirm('Are you sure you want to delete this campaign? This action cannot be undone.')) return;
