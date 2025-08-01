@@ -33,22 +33,21 @@ class ContactController extends BaseController {
         
         // Build query with search and date filters
         $sql = "SELECT 
-                    er.id,
-                    er.email,
-                    er.name,
-                    er.company,
-                    er.dot,
-                    er.created_at,
-                    ec.name as campaign_name
-                FROM email_recipients er
-                LEFT JOIN email_campaigns ec ON er.campaign_id = ec.id
+                    c.id,
+                    c.email,
+                    CONCAT(c.first_name, ' ', c.last_name) as name,
+                    c.company,
+                    c.phone as dot,
+                    c.created_at,
+                    NULL as campaign_name
+                FROM contacts c
                 WHERE 1=1";
         
         $params = [];
         
         // Add search condition
         if (!empty($search)) {
-            $sql .= " AND (er.name LIKE ? OR er.email LIKE ? OR er.company LIKE ? OR er.dot LIKE ?)";
+            $sql .= " AND (CONCAT(c.first_name, ' ', c.last_name) LIKE ? OR c.email LIKE ? OR c.company LIKE ? OR c.phone LIKE ?)";
             $searchParam = "%{$search}%";
             $params[] = $searchParam;
             $params[] = $searchParam;
@@ -58,25 +57,26 @@ class ContactController extends BaseController {
         
         // Add date range conditions
         if (!empty($dateFrom)) {
-            $sql .= " AND DATE(er.created_at) >= ?";
+            $sql .= " AND DATE(c.created_at) >= ?";
             $params[] = $dateFrom;
         }
         
         if (!empty($dateTo)) {
-            $sql .= " AND DATE(er.created_at) <= ?";
+            $sql .= " AND DATE(c.created_at) <= ?";
             $params[] = $dateTo;
         }
         
         // Add ordering and pagination
-        $sql .= " ORDER BY er.created_at DESC";
+        $sql .= " ORDER BY c.created_at DESC";
         
         // Get total count for pagination
-        $countSql = str_replace("SELECT er.id, er.email, er.name, er.company, er.dot, er.created_at, ec.name as campaign_name", "SELECT COUNT(*) as total", $sql);
+        $countSql = preg_replace('/^SELECT.*FROM/', 'SELECT COUNT(*) as total FROM', $sql);
         $countSql = preg_replace('/ORDER BY.*$/', '', $countSql);
         
         $stmt = $this->db->prepare($countSql);
         $stmt->execute($params);
-        $totalCount = $stmt->fetch(PDO::FETCH_ASSOC)['total'];
+        $result = $stmt->fetch(PDO::FETCH_ASSOC);
+        $totalCount = ($result && isset($result['total'])) ? $result['total'] : 0;
         
         // Add pagination
         $offset = ($page - 1) * $perPage;

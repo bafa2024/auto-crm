@@ -1,5 +1,3 @@
-
-
 <?php
 // Application Configuration
 define('DB_HOST', 'localhost');
@@ -112,13 +110,22 @@ set_error_handler(function($severity, $message, $file, $line) {
         'ip' => $_SERVER['REMOTE_ADDR'] ?? 'Unknown'
     ];
     
-    error_log(json_encode($error), 3, LOG_PATH . 'errors.log');
+    // Only log to file if LOG_PATH exists
+    if (defined('LOG_PATH') && is_dir(LOG_PATH)) {
+        error_log(json_encode($error) . "\n", 3, LOG_PATH . 'errors.log');
+    }
     
     if (defined('API_MODE') && API_MODE) {
+        // For development, show more detailed errors
+        if (ini_get('display_errors')) {
+            return false; // Let PHP handle the error display
+        }
         http_response_code(500);
         echo json_encode(['error' => 'Internal server error']);
         exit;
     }
+    
+    return false; // Let PHP handle the error
 });
 
 // Global exception handler
@@ -132,11 +139,17 @@ set_exception_handler(function($exception) {
         'timestamp' => date('Y-m-d H:i:s')
     ];
     
-    error_log(json_encode($error), 3, LOG_PATH . 'exceptions.log');
+    // Only log to file if LOG_PATH exists
+    if (defined('LOG_PATH') && is_dir(LOG_PATH)) {
+        error_log(json_encode($error) . "\n", 3, LOG_PATH . 'exceptions.log');
+    }
     
     if (defined('API_MODE') && API_MODE) {
         http_response_code(500);
-        echo json_encode(['error' => 'Internal server error']);
+        echo json_encode([
+            'error' => 'Internal server error',
+            'message' => ini_get('display_errors') ? $exception->getMessage() : 'An error occurred'
+        ]);
         exit;
     }
 });

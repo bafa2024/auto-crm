@@ -266,7 +266,7 @@ try {
             
             // Route to the dedicated API handler
             require_once __DIR__ . "/api/index.php";
-                        exit;
+            exit;
             
         // 404 for everything else
         default:

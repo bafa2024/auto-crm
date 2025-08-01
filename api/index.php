@@ -2,6 +2,12 @@
 require_once __DIR__ . '/../config/config.php';
 require_once __DIR__ . '/../config/database.php';
 
+// Include models
+require_once __DIR__ . '/../models/BaseModel.php';
+require_once __DIR__ . '/../models/Contact.php';
+require_once __DIR__ . '/../models/EmailCampaign.php';
+require_once __DIR__ . '/../models/User.php';
+
 // Include controllers
 require_once __DIR__ . '/../controllers/BaseController.php';
 require_once __DIR__ . '/../controllers/AuthController.php';
@@ -56,6 +62,8 @@ if (!$db) {
 
 // Parse the request URI
 $requestUri = $_SERVER['REQUEST_URI'];
+// Remove the /acrm prefix if present
+$requestUri = preg_replace('#^/acrm#', '', $requestUri);
 $basePath = '/api';
 $path = str_replace($basePath, '', parse_url($requestUri, PHP_URL_PATH));
 $pathParts = array_filter(explode('/', $path));
@@ -124,6 +132,9 @@ try {
         'message' => $e->getMessage()
     ]);
     error_log("API Error: " . $e->getMessage() . " in " . $e->getFile() . " on line " . $e->getLine());
+    error_log("Request URI: " . $_SERVER['REQUEST_URI']);
+    error_log("Resource: " . $resource);
+    error_log("Path parts: " . json_encode($pathParts));
 }
 
 function handleAuthRoutes($controller, $action) {
