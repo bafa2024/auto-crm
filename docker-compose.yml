@@ -1,0 +1,69 @@
+version: '3.8'
+
+services:
+  # PHP Apache Web Server
+  web:
+    build: .
+    ports:
+      - "8080:80"
+    volumes:
+      - ./logs:/var/www/html/logs
+      - ./uploads:/var/www/html/uploads
+      - ./temp:/var/www/html/temp
+      - ./sessions:/var/www/html/sessions
+      - ./cache:/var/www/html/cache
+      - ./database:/var/www/html/database
+      - ./.env:/var/www/html/.env
+    depends_on:
+      - mysql
+    environment:
+      - DB_ENVIRONMENT=docker
+      - DB_HOST=mysql
+      - DB_NAME=acrm
+      - DB_USER=acrm_user
+      - DB_PASS=acrm_password
+      - DB_PORT=3306
+    networks:
+      - acrm-network
+    restart: unless-stopped
+
+  # MySQL Database
+  mysql:
+    image: mysql:8.0
+    ports:
+      - "3306:3306"
+    environment:
+      MYSQL_ROOT_PASSWORD: root_password
+      MYSQL_DATABASE: acrm
+      MYSQL_USER: acrm_user
+      MYSQL_PASSWORD: acrm_password
+    volumes:
+      - mysql_data:/var/lib/mysql
+      - ./database/init.sql:/docker-entrypoint-initdb.d/init.sql
+    networks:
+      - acrm-network
+    restart: unless-stopped
+    command: --default-authentication-plugin=mysql_native_password
+
+  # phpMyAdmin (optional - for database management)
+  phpmyadmin:
+    image: phpmyadmin/phpmyadmin
+    ports:
+      - "8081:80"
+    environment:
+      PMA_HOST: mysql
+      PMA_PORT: 3306
+      PMA_USER: acrm_user
+      PMA_PASSWORD: acrm_password
+    depends_on:
+      - mysql
+    networks:
+      - acrm-network
+    restart: unless-stopped
+
+volumes:
+  mysql_data:
+
+networks:
+  acrm-network:
+    driver: bridge 

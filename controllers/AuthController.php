@@ -505,12 +505,18 @@ class AuthController extends BaseController {
             $this->sendError("Method not allowed", 405);
         }
         
+        // Debug logging
+        error_log("adminLoginAsEmployee called");
+        
         // Check if current user is admin
         if (session_status() === PHP_SESSION_NONE) {
             session_start();
         }
         
+        error_log("Session data: " . json_encode($_SESSION));
+        
         if (!isset($_SESSION["user_id"]) || $_SESSION["user_role"] !== "admin") {
+            error_log("Admin access denied - user_id: " . ($_SESSION["user_id"] ?? "not set") . ", role: " . ($_SESSION["user_role"] ?? "not set"));
             $this->sendError("Unauthorized. Admin access required.", 403);
         }
         
@@ -521,11 +527,15 @@ class AuthController extends BaseController {
             $input = json_decode(file_get_contents("php://input"), true);
         }
         
+        error_log("Input data: " . json_encode($input));
+        
         if (!$input) {
             $this->sendError("Invalid JSON data", 400);
         }
         
         $employeeId = intval($input["employee_id"] ?? 0);
+        
+        error_log("Employee ID: " . $employeeId);
         
         if (!$employeeId) {
             $this->sendError("Employee ID is required", 400);
@@ -539,21 +549,26 @@ class AuthController extends BaseController {
         // Get employee details
         $user = $this->userModel->find($employeeId);
         
+        error_log("Found user: " . json_encode($user));
+        
         if (!$user) {
             $this->sendError("Employee not found", 404);
         }
         
         // Check if user is an employee
         if (!in_array($user["role"], ['agent', 'manager'])) {
+            error_log("User role not allowed: " . $user["role"]);
             $this->sendError("Can only login as employees (agents or managers)", 403);
         }
         
         // Check if user is active
         if ($user["status"] !== "active") {
+            error_log("User status not active: " . $user["status"]);
             $this->sendError("Employee account is inactive", 403);
         }
         
         // Clear current session and create new employee session
+        error_log("Destroying current session and creating new employee session");
         session_destroy();
         session_start();
         
@@ -564,13 +579,19 @@ class AuthController extends BaseController {
         $_SESSION["login_time"] = time();
         $_SESSION["admin_login_as_employee"] = true; // Flag to indicate admin logged in as employee
         
+        error_log("New session created: " . json_encode($_SESSION));
+        
         $basePath = $this->getBasePath();
         
-        $this->sendSuccess([
+        $response = [
             "user" => $this->userModel->hideFields($user),
             "session_id" => session_id(),
             "redirect" => $basePath . "/employee/email-dashboard"
-        ], "Logged in as employee successfully");
+        ];
+        
+        error_log("Sending success response: " . json_encode($response));
+        
+        $this->sendSuccess($response, "Logged in as employee successfully");
     }
     
     public function employeeSendLink($request = null) {

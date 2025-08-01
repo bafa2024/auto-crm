@@ -121,6 +121,11 @@ if (hasPermission($permissions, 'can_upload_contacts')) {
                 <div class="d-flex justify-content-between flex-wrap flex-md-nowrap align-items-center pt-3 pb-2 mb-3 border-bottom">
                     <h1 class="h2">Email Campaign Dashboard</h1>
                     <div class="btn-toolbar mb-2 mb-md-0">
+                        <?php if (isset($_SESSION["admin_login_as_employee"]) && $_SESSION["admin_login_as_employee"]): ?>
+                        <a href="<?php echo base_path('dashboard/employee_management'); ?>" class="btn btn-warning me-2">
+                            <i class="fas fa-arrow-left me-2"></i>Back to Admin
+                        </a>
+                        <?php endif; ?>
                         <?php if (hasPermission($permissions, 'can_create_campaigns')): ?>
                         <a href="<?php echo base_path('employee/campaigns/create'); ?>" class="btn btn-primary">
                             <i class="fas fa-plus me-2"></i>New Campaign

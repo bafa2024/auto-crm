@@ -1,0 +1,60 @@
+# Git
+.git
+.gitignore
+.gitattributes
+
+# Documentation
+*.md
+docs/
+
+# Development files
+.env
+.env.*
+*.log
+logs/
+temp/
+cache/
+sessions/
+
+# IDE files
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# Docker files
+Dockerfile
+docker-compose.yml
+.dockerignore
+
+# Test files
+tests/
+*_test.php
+test_*.php
+
+# Backup files
+backups/
+*.bak
+*.backup
+
+# Database files (will be mounted as volumes)
+database/*.db
+database/*.sqlite
+
+# Vendor (will be installed in container)
+vendor/
+
+# Node modules (if any)
+node_modules/
+
+# Composer cache
+composer.lock
+
+# Temporary files
+*.tmp
+*.temp 

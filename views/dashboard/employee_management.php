@@ -204,8 +204,7 @@ function fetchEmployees(q = '') {
                     const tr = document.createElement('tr');
                     tr.innerHTML = `<td>${emp.first_name} ${emp.last_name}</td><td>${emp.email}</td><td>${emp.role}</td><td>${emp.status}</td><td><span id='teams-${emp.id}'></span></td><td>
                         ${(emp.role === 'agent' || emp.role === 'manager') ? `<button class='btn btn-sm btn-outline-secondary' title='Manage Permissions' onclick='managePermissions(${emp.id})'><i class='bi bi-shield-lock'></i> Permissions</button>` : '-'}
-                    </td><td class='actions'>
-                        ${(emp.role === 'agent' || emp.role === 'manager') ? `<button class='btn btn-sm btn-outline-success' title='Login as ${emp.first_name}' onclick='loginAsEmployee(${emp.id})'><i class='bi bi-box-arrow-in-right'></i></button>` : ''}
+                    </td>                    <td class='actions'>
                         <button class='btn btn-sm btn-outline-primary' title='Edit' onclick='editEmployee(${emp.id})'><i class='bi bi-pencil'></i></button>
                         <button class='btn btn-sm btn-outline-danger' title='Delete' onclick='deleteEmployee(${emp.id})'><i class='bi bi-trash'></i></button>
                     </td>`;
@@ -551,96 +550,7 @@ function confirmDeleteEmployee(id) {
 document.getElementById('search').oninput = function(e) {
     fetchEmployees(e.target.value);
 };
-// Login as Employee function
-function loginAsEmployee(id) {
-    const emp = employeesData[id];
-    if (!emp) {
-        showMsg('Employee data not found. Please refresh the page.', 'error');
-        return;
-    }
-    
-    // Create confirmation modal
-    const modalHtml = `
-        <div class="modal fade" id="loginAsEmployeeModal" tabindex="-1">
-            <div class="modal-dialog">
-                <div class="modal-content">
-                    <div class="modal-header">
-                        <h5 class="modal-title">Login as Employee</h5>
-                        <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
-                    </div>
-                    <div class="modal-body">
-                        <p>You are about to login as:</p>
-                        <p><strong>${emp.first_name} ${emp.last_name}</strong></p>
-                        <p>Email: ${emp.email}</p>
-                        <p>Role: ${emp.role}</p>
-                        <div class="alert alert-warning">
-                            <i class="bi bi-exclamation-triangle"></i> This will log you out of your current admin session.
-                        </div>
-                    </div>
-                    <div class="modal-footer">
-                        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
-                        <button type="button" class="btn btn-success" onclick="confirmLoginAsEmployee(${id})">Login as ${emp.first_name}</button>
-                    </div>
-                </div>
-            </div>
-        </div>
-    `;
-    
-    // Remove existing modal if any
-    const existingModal = document.getElementById('loginAsEmployeeModal');
-    if (existingModal) {
-        existingModal.remove();
-    }
-    
-    // Add modal to body
-    document.body.insertAdjacentHTML('beforeend', modalHtml);
-    
-    // Show modal
-    const modal = new bootstrap.Modal(document.getElementById('loginAsEmployeeModal'));
-    modal.show();
-}
 
-function confirmLoginAsEmployee(id) {
-    const emp = employeesData[id];
-    if (!emp) {
-        showMsg('Employee data not found.', 'error');
-        return;
-    }
-    
-    // Create a form to submit login
-    const form = document.createElement('form');
-    form.method = 'POST';
-    form.action = '<?php echo base_path("api/auth/admin-login-as-employee"); ?>';
-    form.style.display = 'none';
-    
-    const idInput = document.createElement('input');
-    idInput.type = 'hidden';
-    idInput.name = 'employee_id';
-    idInput.value = id;
-    form.appendChild(idInput);
-    
-    document.body.appendChild(form);
-    
-    // Submit via fetch to handle response
-    fetch(form.action, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ employee_id: id })
-    })
-    .then(r => r.json())
-    .then(data => {
-        if (data.success) {
-            // Redirect to employee dashboard
-            window.location.href = '<?php echo base_path("employee/dashboard"); ?>';
-        } else {
-            showMsg(data.message || 'Failed to login as employee.', 'error');
-        }
-    })
-    .catch(err => {
-        console.error('Error:', err);
-        showMsg('Error logging in as employee.', 'error');
-    });
-}
 
 // Initial load
 document.addEventListener('DOMContentLoaded', function() {
