@@ -77,69 +77,41 @@ if (isset($_POST['action']) && $_POST['action'] === 'create_contact') {
 // Handle file upload (without campaign requirement)
 if (isset($_FILES['email_file'])) {
     try {
-        // Check which service to use
         $vendorPath = __DIR__ . '/vendor/autoload.php';
         if (!file_exists($vendorPath)) {
-            // Use simple service that doesn't require PhpSpreadsheet
             require_once 'services/SimpleEmailUploadService.php';
             $uploadService = new SimpleEmailUploadService($database);
         } else {
-            require_once 'services/EmailUploadService.php';
             $uploadService = new EmailUploadService($database);
         }
         
         $file = $_FILES['email_file'];
         $campaignId = $_POST['campaign_id'] ?? null; // Optional campaign
         
-        // Debug upload info
-        error_log("Upload attempt - File: " . $file['name'] . ", Size: " . $file['size'] . ", Error: " . $file['error']);
-        
         if ($file['error'] !== UPLOAD_ERR_OK) {
-            $uploadErrors = [
-                UPLOAD_ERR_INI_SIZE => 'File exceeds upload_max_filesize in php.ini',
-                UPLOAD_ERR_FORM_SIZE => 'File exceeds MAX_FILE_SIZE in form',
-                UPLOAD_ERR_PARTIAL => 'File was only partially uploaded',
-                UPLOAD_ERR_NO_FILE => 'No file was uploaded',
-                UPLOAD_ERR_NO_TMP_DIR => 'Missing temporary folder',
-                UPLOAD_ERR_CANT_WRITE => 'Failed to write file to disk',
-                UPLOAD_ERR_EXTENSION => 'File upload stopped by extension'
-            ];
-            $errorMsg = $uploadErrors[$file['error']] ?? 'Unknown upload error';
-            $message = 'File upload failed: ' . $errorMsg;
+            $message = 'File upload failed.';
             $messageType = 'danger';
         } else {
-            // Check file extension
             $extension = strtolower(pathinfo($file['name'], PATHINFO_EXTENSION));
             if (!in_array($extension, ['csv', 'xlsx', 'xls'])) {
                 $message = 'Invalid file type. Please upload CSV or Excel file.';
                 $messageType = 'danger';
             } else {
-                // Check if file is actually uploaded and readable
-                if (!is_uploaded_file($file['tmp_name'])) {
-                    $message = 'File upload security check failed.';
-                    $messageType = 'danger';
-                } else {
-                    // Process the file
-                    $result = $uploadService->processUploadedFile($file['tmp_name'], $campaignId, $file['name']);
-                    
-                    if ($result['success']) {
-                        $message = "Upload successful! Imported: {$result['imported']} contacts";
-                        if ($result['skipped'] > 0) {
-                            $message .= ", Skipped: {$result['skipped']} (already imported)";
-                        }
-                        if (isset($result['failed']) && $result['failed'] > 0) {
-                            $message .= ", Failed: {$result['failed']}";
-                        }
-                        $messageType = 'success';
-                    } else {
-                        $message = 'Upload failed: ' . $result['message'];
-                        $messageType = 'danger';
+                $result = $uploadService->processUploadedFile($file['tmp_name'], $campaignId, $file['name']);
+                
+                if ($result['success']) {
+                    $message = "Upload successful! Imported: {$result['imported']} contacts";
+                    if ($result['skipped'] > 0) {
+                        $message .= ", Skipped: {$result['skipped']} (already imported)";
                     }
+                    $messageType = 'success';
+                } else {
+                    $message = 'Upload failed: ' . $result['message'];
+                    $messageType = 'danger';
                 }
             }
         }
     } catch (Exception $e) {
-        error_log("Upload exception: " . $e->getMessage());
         $message = 'Upload error: ' . htmlspecialchars($e->getMessage());
         $messageType = 'danger';
     }

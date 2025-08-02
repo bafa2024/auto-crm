@@ -241,9 +241,9 @@ class SimpleEmailUploadService {
                     continue;
                 }
                 
-                // Insert new contact
-                $sql = "INSERT INTO email_recipients (email, name, company, dot, campaign_id, status, tracking_id, created_at) 
-                        VALUES (?, ?, ?, ?, ?, 'pending', ?, NOW())";
+                // Insert new contact (using only fields that exist in the table)
+                $sql = "INSERT INTO email_recipients (email, name, company, dot, campaign_id, created_at) 
+                        VALUES (?, ?, ?, ?, ?, NOW())";
                 
                 $stmt = $this->db->prepare($sql);
                 $stmt->execute([
@@ -251,8 +251,7 @@ class SimpleEmailUploadService {
                     $contact['name'] ?? '',
                     $contact['company'] ?? '',
                     $contact['dot'] ?? '',
-                    $contact['campaign_id'],
-                    uniqid('track_', true)
+                    $contact['campaign_id']
                 ]);
                 
                 $imported++;
