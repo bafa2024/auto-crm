@@ -252,8 +252,8 @@ class ContactController extends BaseController {
             // Get active contacts (all contacts are considered active since we don't have status column)
             $active = $total;
             
-            // Get contacts created this month - SQLite date functions
-            $stmt = $this->db->query("SELECT COUNT(*) as new_month FROM email_recipients WHERE strftime('%m', created_at) = strftime('%m', 'now') AND strftime('%Y', created_at) = strftime('%Y', 'now')");
+            // Get contacts created this month - MySQL date functions
+            $stmt = $this->db->query("SELECT COUNT(*) as new_month FROM email_recipients WHERE MONTH(created_at) = MONTH(CURRENT_DATE()) AND YEAR(created_at) = YEAR(CURRENT_DATE())");
             $new_month = $stmt->fetch()['new_month'];
             
             // Get total campaigns (mock data for now)
