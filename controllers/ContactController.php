@@ -328,13 +328,20 @@ class ContactController extends BaseController {
                 ];
             }
             
-            // Insert new contact without requiring campaign_id
-            $stmt = $this->db->prepare("INSERT INTO email_recipients (name, email, company, dot, created_at) VALUES (?, ?, ?, ?, NOW())");
+            // Get default campaign ID to satisfy foreign key constraint
+            $stmt = $this->db->prepare("SELECT id FROM email_campaigns LIMIT 1");
+            $stmt->execute();
+            $defaultCampaign = $stmt->fetch();
+            $campaignId = $defaultCampaign ? $defaultCampaign['id'] : 1;
+            
+            // Insert new contact with campaign_id
+            $stmt = $this->db->prepare("INSERT INTO email_recipients (name, email, company, dot, campaign_id, created_at) VALUES (?, ?, ?, ?, ?, NOW())");
             $stmt->execute([
                 $data['name'],
                 $data['email'],
                 $data['company'] ?? '',
-                $data['dot'] ?? ''
+                $data['dot'] ?? '',
+                $campaignId
             ]);
             
             $contact_id = $this->db->lastInsertId();
@@ -479,14 +486,21 @@ class ContactController extends BaseController {
                         continue;
                     }
                     
-                    // Insert new contact
-                    $sql = "INSERT INTO email_recipients (email, name, company, dot, created_at) VALUES (?, ?, ?, ?, NOW())";
+                    // Get default campaign ID to satisfy foreign key constraint
+                    $stmt = $this->db->prepare("SELECT id FROM email_campaigns LIMIT 1");
+                    $stmt->execute();
+                    $defaultCampaign = $stmt->fetch();
+                    $campaignId = $defaultCampaign ? $defaultCampaign['id'] : 1;
+                    
+                    // Insert new contact with campaign_id
+                    $sql = "INSERT INTO email_recipients (email, name, company, dot, campaign_id, created_at) VALUES (?, ?, ?, ?, ?, NOW())";
                     $stmt = $this->db->prepare($sql);
                     $stmt->execute([
                         strtolower(trim($contact['email'])),
                         $contact['name'] ?? '',
                         $contact['company'] ?? '',
-                        $contact['dot'] ?? ''
+                        $contact['dot'] ?? '',
+                        $campaignId
                     ]);
                     
                     $imported++;
