@@ -94,7 +94,7 @@ class SimpleEmailUploadService {
             fclose($handle);
             return [
                 'success' => false,
-                'message' => 'Email column not found. Please ensure your CSV has an Email column.'
+                'message' => 'Email column not found. Please ensure your CSV has headers: DOT, Company Name, Customer Name, Email'
             ];
         }
         
@@ -200,20 +200,24 @@ class SimpleEmailUploadService {
         foreach ($headers as $index => $header) {
             $headerLower = strtolower(trim($header));
             
-            // Email mapping
-            if (in_array($headerLower, ['email', 'e-mail', 'e_mail', 'mail', 'email address', 'emailaddress'])) {
+            // Email mapping - exact matches first
+            if ($headerLower === 'email' || 
+                in_array($headerLower, ['e-mail', 'e_mail', 'mail', 'email address', 'emailaddress'])) {
                 $fieldMap['email'] = $index;
             }
-            // Name mapping
-            elseif (in_array($headerLower, ['name', 'customer name', 'full name', 'fullname', 'contact name', 'customer', 'contact'])) {
+            // Name mapping - exact matches first
+            elseif ($headerLower === 'customer name' || 
+                    in_array($headerLower, ['name', 'full name', 'fullname', 'contact name', 'customer', 'contact'])) {
                 $fieldMap['name'] = $index;
             }
-            // Company mapping
-            elseif (in_array($headerLower, ['company', 'company name', 'organization', 'business', 'firm', 'corp', 'corporation'])) {
+            // Company mapping - exact matches first
+            elseif ($headerLower === 'company name' || 
+                    in_array($headerLower, ['company', 'organization', 'business', 'firm', 'corp', 'corporation'])) {
                 $fieldMap['company'] = $index;
             }
-            // DOT mapping
-            elseif (in_array($headerLower, ['dot', 'dot number', 'dot_number', 'dotnumber', 'dot #', 'dot#', 'dot id', 'dotid'])) {
+            // DOT mapping - exact matches first
+            elseif ($headerLower === 'dot' || 
+                    in_array($headerLower, ['dot number', 'dot_number', 'dotnumber', 'dot #', 'dot#', 'dot id', 'dotid'])) {
                 $fieldMap['dot'] = $index;
             }
         }
@@ -251,7 +255,7 @@ class SimpleEmailUploadService {
                     $contact['name'] ?? '',
                     $contact['company'] ?? '',
                     $contact['dot'] ?? '',
-                    $contact['campaign_id']
+                    null // Always null for general contact imports
                 ]);
                 
                 $imported++;

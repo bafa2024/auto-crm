@@ -1,332 +1,57 @@
 <?php
-ini_set('display_errors', 1);
-ini_set('display_startup_errors', 1);
-error_reporting(E_ALL);
-
-// Start session
-if (session_status() === PHP_SESSION_NONE) {
-    session_start();
-}
-
-// Include base path configuration
-require_once 'config/base_path.php';
+require_once 'config/config.php';
+require_once 'config/database.php';
 require_once 'version.php';
 
-// Check if user is logged in
-if (!isset($_SESSION["user_id"])) {
-    header("Location: " . base_path('login'));
+// Start session
+    session_start();
+
+// Simple session check without database access
+if (!isset($_SESSION['user_id']) || empty($_SESSION['user_id'])) {
+    header('Location: views/auth/login.php');
     exit;
 }
 
+// Set session timeout (optional - 2 hours)
+$session_timeout = 7200; // 2 hours in seconds
+if (isset($_SESSION['last_activity']) && (time() - $_SESSION['last_activity']) > $session_timeout) {
+    session_destroy();
+    header('Location: views/auth/login.php?error=session_expired');
+    exit;
+}
+
+// Update last activity time
+$_SESSION['last_activity'] = time();
+
+// Get real statistics from database
 try {
-    require_once 'config/database.php';
-    $database = (new Database())->getConnection();
-    require_once 'services/EmailUploadService.php';
-} catch (Exception $e) {
-    die("<div class='alert alert-danger'>System Error: " . htmlspecialchars($e->getMessage()) . "</div>");
-}
-
-// Initialize variables
-$message = '';
-$messageType = '';
-
-// Handle contact deletion
-if (isset($_POST['action']) && $_POST['action'] === 'delete_contact' && isset($_POST['contact_id'])) {
-    try {
-        $contactId = $_POST['contact_id'];
-        $stmt = $database->prepare("DELETE FROM email_recipients WHERE id = ?");
-        $result = $stmt->execute([$contactId]);
-        
-        if ($result) {
-            $message = 'Contact deleted successfully.';
-            $messageType = 'success';
-        } else {
-            $message = 'Failed to delete contact.';
-            $messageType = 'danger';
-        }
-    } catch (Exception $e) {
-        $message = 'Error deleting contact: ' . $e->getMessage();
-        $messageType = 'danger';
-    }
-}
-
-// Handle bulk delete
-if (isset($_POST['action']) && $_POST['action'] === 'bulk_delete' && isset($_POST['contact_ids'])) {
-    try {
-        $contactIds = $_POST['contact_ids'];
-        if (is_array($contactIds) && !empty($contactIds)) {
-            $placeholders = str_repeat('?,', count($contactIds) - 1) . '?';
-            $sql = "DELETE FROM email_recipients WHERE id IN ($placeholders)";
-            $stmt = $database->prepare($sql);
-            $result = $stmt->execute($contactIds);
-            
-            if ($result) {
-                $message = 'Selected contacts deleted successfully.';
-                $messageType = 'success';
-            } else {
-                $message = 'Failed to delete selected contacts.';
-                $messageType = 'danger';
-            }
-        }
-    } catch (Exception $e) {
-        $message = 'Error deleting contacts: ' . $e->getMessage();
-        $messageType = 'danger';
-    }
-}
-
-// Handle contact update
-if (isset($_POST['action']) && $_POST['action'] === 'update_contact' && isset($_POST['contact_id'])) {
-    try {
-        $contactId = $_POST['contact_id'];
-        $email = trim($_POST['email']);
-        $name = trim($_POST['name']);
-        $company = trim($_POST['company']);
-        $dot = trim($_POST['dot']);
-        $campaignId = !empty($_POST['campaign_id']) ? $_POST['campaign_id'] : null;
-        
-        // Validate email
-        if (empty($email) || !filter_var($email, FILTER_VALIDATE_EMAIL)) {
-            $message = 'Please enter a valid email address.';
-            $messageType = 'danger';
-        } else {
-            $sql = "UPDATE email_recipients SET email = ?, name = ?, company = ?, dot = ?, campaign_id = ? WHERE id = ?";
-            $stmt = $database->prepare($sql);
-            $result = $stmt->execute([$email, $name, $company, $dot, $campaignId, $contactId]);
-            
-            if ($result) {
-                $message = 'Contact updated successfully.';
-                $messageType = 'success';
-            } else {
-                $message = 'Failed to update contact.';
-                $messageType = 'danger';
-            }
-        }
-    } catch (Exception $e) {
-        $message = 'Error updating contact: ' . $e->getMessage();
-        $messageType = 'danger';
-    }
-}
-
-// Handle contact creation
-if (isset($_POST['action']) && $_POST['action'] === 'create_contact') {
-    try {
-        $email = trim($_POST['email']);
-        $name = trim($_POST['name']);
-        $company = trim($_POST['company']);
-        $dot = trim($_POST['dot']);
-        $campaignId = !empty($_POST['campaign_id']) ? $_POST['campaign_id'] : null;
-        
-        // Validate required fields
-        if (empty($email) || empty($name)) {
-            $message = 'Email and name are required.';
-            $messageType = 'danger';
-        } elseif (!filter_var($email, FILTER_VALIDATE_EMAIL)) {
-            $message = 'Please enter a valid email address.';
-            $messageType = 'danger';
-        } else {
-            // Check if email already exists
-            $stmt = $database->prepare("SELECT id FROM email_recipients WHERE LOWER(email) = ?");
-            $stmt->execute([strtolower($email)]);
-            
-            if ($stmt->fetch()) {
-                $message = 'A contact with this email already exists.';
-                $messageType = 'danger';
-            } else {
-                // Insert new contact
-                $sql = "INSERT INTO email_recipients (email, name, company, dot, campaign_id, created_at) VALUES (?, ?, ?, ?, ?, NOW())";
-                $stmt = $database->prepare($sql);
-                $result = $stmt->execute([$email, $name, $company, $dot, $campaignId]);
-                
-                if ($result) {
-                    $message = 'Contact created successfully.';
-                    $messageType = 'success';
-                } else {
-                    $message = 'Failed to create contact.';
-                    $messageType = 'danger';
-                }
-            }
-        }
-    } catch (Exception $e) {
-        $message = 'Error creating contact: ' . $e->getMessage();
-        $messageType = 'danger';
-    }
-}
-
-// Handle file upload (without campaign requirement)
-if (isset($_FILES['email_file'])) {
-    // Debug: Log the upload attempt
-    error_log("=== UPLOAD DEBUG START ===");
-    error_log("POST data: " . print_r($_POST, true));
-    error_log("FILES data: " . print_r($_FILES, true));
+    $pdo = new PDO("mysql:host=" . DB_HOST . ";dbname=" . DB_NAME, DB_USER, DB_PASS);
+    $pdo->setAttribute(PDO::ATTR_ERRMODE, PDO::ERRMODE_EXCEPTION);
     
-    try {
-        // Check which service to use
-        $vendorPath = __DIR__ . '/vendor/autoload.php';
-        if (!file_exists($vendorPath)) {
-            // Use simple service that doesn't require PhpSpreadsheet
-            require_once 'services/SimpleEmailUploadService.php';
-            $uploadService = new SimpleEmailUploadService($database);
-            error_log("Using SimpleEmailUploadService");
-        } else {
-            require_once 'services/EmailUploadService.php';
-            $uploadService = new EmailUploadService($database);
-            error_log("Using EmailUploadService");
-        }
-        
-        $file = $_FILES['email_file'];
-        $campaignId = $_POST['campaign_id'] ?? null; // Optional campaign
-        
-        // Debug upload info
-        error_log("Upload attempt - File: " . $file['name'] . ", Size: " . $file['size'] . ", Error: " . $file['error']);
-        
-        if ($file['error'] !== UPLOAD_ERR_OK) {
-            $uploadErrors = [
-                UPLOAD_ERR_INI_SIZE => 'File exceeds upload_max_filesize in php.ini',
-                UPLOAD_ERR_FORM_SIZE => 'File exceeds MAX_FILE_SIZE in form',
-                UPLOAD_ERR_PARTIAL => 'File was only partially uploaded',
-                UPLOAD_ERR_NO_FILE => 'No file was uploaded',
-                UPLOAD_ERR_NO_TMP_DIR => 'Missing temporary folder',
-                UPLOAD_ERR_CANT_WRITE => 'Failed to write file to disk',
-                UPLOAD_ERR_EXTENSION => 'File upload stopped by extension'
-            ];
-            $errorMsg = $uploadErrors[$file['error']] ?? 'Unknown upload error';
-            $message = 'File upload failed: ' . $errorMsg;
-            $messageType = 'danger';
-            error_log("Upload failed: " . $errorMsg);
-        } else {
-            // Check file extension
-            $extension = strtolower(pathinfo($file['name'], PATHINFO_EXTENSION));
-            if (!in_array($extension, ['csv', 'xlsx', 'xls'])) {
-                $message = 'Invalid file type. Please upload CSV or Excel file.';
-                $messageType = 'danger';
-                error_log("Invalid file type: " . $extension);
-            } else {
-                // Check if file is actually uploaded and readable
-                if (!is_uploaded_file($file['tmp_name'])) {
-                    $message = 'File upload security check failed.';
-                    $messageType = 'danger';
-                    error_log("Security check failed for file: " . $file['tmp_name']);
-                } else {
-                    error_log("Processing file: " . $file['tmp_name']);
-                    // Process the file
-                    $result = $uploadService->processUploadedFile($file['tmp_name'], $campaignId, $file['name']);
-                    error_log("Processing result: " . print_r($result, true));
-                    
-                    if ($result['success']) {
-                        $message = "Upload successful! Imported: {$result['imported']} contacts";
-                        if ($result['skipped'] > 0) {
-                            $message .= ", Skipped: {$result['skipped']} (already imported)";
-                        }
-                        if (isset($result['failed']) && $result['failed'] > 0) {
-                            $message .= ", Failed: {$result['failed']}";
-                        }
-                        $messageType = 'success';
-                        error_log("Upload successful: " . $message);
-                    } else {
-                        $message = 'Upload failed: ' . $result['message'];
-                        $messageType = 'danger';
-                        error_log("Upload failed: " . $result['message']);
-                    }
-                }
-            }
-        }
-    } catch (Exception $e) {
-        error_log("Upload exception: " . $e->getMessage());
-        error_log("Stack trace: " . $e->getTraceAsString());
-        $message = 'Upload error: ' . htmlspecialchars($e->getMessage());
-        $messageType = 'danger';
-    }
+    // Total contacts
+    $stmt = $pdo->query("SELECT COUNT(*) as total FROM email_recipients");
+    $totalContacts = $stmt->fetch()['total'];
     
-    error_log("=== UPLOAD DEBUG END ===");
+    // Active contacts (all contacts are considered active since we don't have status column)
+    $activeContacts = $totalContacts;
+    
+    // New contacts this month
+    $stmt = $pdo->query("SELECT COUNT(*) as new_this_month FROM email_recipients WHERE MONTH(created_at) = MONTH(CURRENT_DATE()) AND YEAR(created_at) = YEAR(CURRENT_DATE())");
+    $newThisMonth = $stmt->fetch()['new_this_month'];
+    
+    // Deleted contacts (since there's no deleted_at column, we'll show 0 for now)
+    $deletedContacts = 0;
+    
+} catch (PDOException $e) {
+    // Fallback to default values if database error
+    $totalContacts = 0;
+    $activeContacts = 0;
+    $newThisMonth = 0;
+    $deletedContacts = 0;
 }
 
-// Get search and filter parameters
-$search = $_GET['search'] ?? '';
-$filter_campaign = $_GET['filter_campaign'] ?? '';
-$sort_by = $_GET['sort_by'] ?? 'created_at';
-$sort_order = $_GET['sort_order'] ?? 'DESC';
-$page = max(1, intval($_GET['page'] ?? 1));
-$per_page = 20;
-$offset = ($page - 1) * $per_page;
 
-// Get existing campaigns for dropdown (optional)
-$campaigns = [];
-try {
-    $stmt = $database->query("SELECT id, name FROM email_campaigns ORDER BY created_at DESC");
-    $campaigns = $stmt->fetchAll(PDO::FETCH_ASSOC);
-} catch (Exception $e) {
-    // Ignore error if table doesn't exist
-}
 
-// Build query with search and filter
-$where_conditions = [];
-$params = [];
-
-if (!empty($search)) {
-    $where_conditions[] = "(email LIKE ? OR name LIKE ? OR company LIKE ? OR dot LIKE ?)";
-    $search_param = "%$search%";
-    $params[] = $search_param;
-    $params[] = $search_param;
-    $params[] = $search_param;
-    $params[] = $search_param;
-}
-
-if (!empty($filter_campaign)) {
-    if ($filter_campaign === 'no_campaign') {
-        $where_conditions[] = "campaign_id IS NULL";
-    } else {
-        $where_conditions[] = "campaign_id = ?";
-        $params[] = $filter_campaign;
-    }
-}
-
-$where_clause = !empty($where_conditions) ? 'WHERE ' . implode(' AND ', $where_conditions) : '';
-
-// Get total count for pagination
-$count_sql = "SELECT COUNT(*) FROM email_recipients er LEFT JOIN email_campaigns ec ON er.campaign_id = ec.id $where_clause";
-$count_stmt = $database->prepare($count_sql);
-$count_stmt->execute($params);
-$total_contacts = $count_stmt->fetchColumn();
-$total_pages = ceil($total_contacts / $per_page);
-
-// Get contacts with search, filter, and pagination
-$sql = "SELECT 
-            er.id,
-            er.email,
-            er.name,
-            er.company,
-            er.dot,
-            er.created_at,
-            ec.name as campaign_name
-        FROM email_recipients er
-        LEFT JOIN email_campaigns ec ON er.campaign_id = ec.id
-        $where_clause
-        ORDER BY er.$sort_by $sort_order
-        LIMIT $per_page OFFSET $offset";
-
-$stmt = $database->prepare($sql);
-$stmt->execute($params);
-$contacts = $stmt->fetchAll(PDO::FETCH_ASSOC);
-
-// Get recent uploads
-$recentUploads = [];
-try {
-    $stmt = $database->query("
-        SELECT 
-            er.campaign_id,
-            ec.name as campaign_name,
-            COUNT(er.id) as recipient_count,
-            MIN(er.created_at) as upload_date
-        FROM email_recipients er
-        LEFT JOIN email_campaigns ec ON er.campaign_id = ec.id
-        GROUP BY er.campaign_id, ec.name
-        ORDER BY upload_date DESC
-        LIMIT 5
-    ");
-    $recentUploads = $stmt->fetchAll(PDO::FETCH_ASSOC);
-} catch (Exception $e) {
-    // Ignore error if table doesn't exist
-}
 ?>
 
 <!DOCTYPE html>
@@ -334,719 +59,1224 @@ try {
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Contact Management - ACRM</title>
-    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/css/bootstrap.min.css" rel="stylesheet">
-    <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.7.2/font/bootstrap-icons.css" rel="stylesheet">
-    <link rel="stylesheet" href="/css/styles.css">
-    <link rel="stylesheet" href="/css/sidebar-fix.css">
+    <title>Contacts Management - ACRM</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.2/font/bootstrap-icons.min.css">
+    <link rel="stylesheet" href="css/styles.css">
+    <link rel="stylesheet" href="css/sidebar-fix.css">
     <style>
-        .feature-card {
-            background: white;
-            border-radius: 10px;
-            padding: 25px;
-            margin-bottom: 25px;
-            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+        .contact-avatar {
+            width: 40px;
+            height: 40px;
+            border-radius: 50%;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: white;
+            font-weight: 600;
+            font-size: 14px;
+        }
+        .status-badge {
+            font-size: 0.75rem;
+            padding: 0.25rem 0.5rem;
+        }
+        .filter-card {
+            background: #f8f9fa;
             border: 1px solid #e9ecef;
+            border-radius: 0.5rem;
+        }
+        .search-box {
+            position: relative;
+        }
+        .search-box .form-control {
+            padding-left: 2.5rem;
+        }
+        .search-box .bi {
+            position: absolute;
+            left: 0.75rem;
+            top: 50%;
+            transform: translateY(-50%);
+            color: #6c757d;
+        }
+        .action-buttons .btn {
+            margin-right: 0.25rem;
+        }
+        .contact-avatar {
+            width: 40px;
+            height: 40px;
+            border-radius: 50%;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-weight: bold;
+            font-size: 14px;
         }
         
-        .upload-area {
-            border: 2px dashed #dee2e6;
-            border-radius: 10px;
-            padding: 40px;
-            text-align: center;
-            transition: all 0.3s ease;
-            background: #f8f9fa;
+        /* Alert styling for success/error messages */
+        .alert.position-fixed {
+            box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+            border: none;
+            border-radius: 8px;
         }
         
-        .upload-area.dragover {
-            border-color: #0d6efd;
-            background: #e7f3ff;
+        .alert-success {
+            background: linear-gradient(135deg, #28a745 0%, #20c997 100%);
+            color: white;
         }
         
-        .contact-actions {
-            white-space: nowrap;
+        .alert-danger {
+            background: linear-gradient(135deg, #dc3545 0%, #fd7e14 100%);
+            color: white;
         }
-        
-        .search-filters {
-            background: #f8f9fa;
-            border-radius: 10px;
-            padding: 20px;
-            margin-bottom: 25px;
+        .table-responsive {
+            border-radius: 0.5rem;
+            overflow: hidden;
         }
-        
-        .bulk-actions {
-            background: #e7f3ff;
-            border-radius: 10px;
-            padding: 15px;
-            margin-bottom: 20px;
-            display: none;
-        }
-        
-        .bulk-actions.show {
-            display: block;
-        }
-        
-        .main-content {
-            margin-left: 260px;
-            padding: 20px;
-            min-height: 100vh;
-            background: #f8f9fa;
-        }
-        
-        @media (max-width: 768px) {
-            .main-content {
-                margin-left: 0;
-            }
-        }
-        
-        /* Header fixes */
-        .navbar {
-            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
-        }
-        
-        /* Ensure content doesn't overlap with fixed header */
-        .content-wrapper {
-            margin-top: 70px;
-        }
-        
-        /* Mobile responsive fixes */
-        @media (max-width: 768px) {
-            .navbar {
-                margin-left: 0 !important;
-                width: 100vw !important;
-            }
-            
-            .main-content {
-                margin-left: 0;
-                padding: 10px;
-            }
-            
-            .content-wrapper {
-                margin-top: 60px;
-            }
+        .pagination-info {
+            font-size: 0.875rem;
+            color: #6c757d;
         }
     </style>
 </head>
 <body>
-    <!-- Include Sidebar -->
+
+<!-- Include Sidebar -->
     <?php include 'views/components/sidebar.php'; ?>
-    
-    <!-- Main Content Area -->
-    <div class="main-content">
-        <!-- Full Width Header -->
-        <nav class="navbar navbar-expand-lg navbar-dark bg-primary" style="margin-left: 260px; width: calc(100vw - 260px); position: fixed; top: 0; z-index: 1030;">
-            <div class="container-fluid">
-                <div class="d-flex align-items-center">
-                    <a class="navbar-brand fw-bold" href="/dashboard">
-                        <i class="bi bi-telephone-fill"></i>
-                    </a>
-                    
-                    <!-- Version Badge -->
-                    <?php 
-                    // Don't show version badge on landing page
-                    $currentUri = $_SERVER["REQUEST_URI"] ?? "/";
-                    if ($currentUri !== "/" && $currentUri !== "/index.php") {
-                        echo VersionManager::getVersionBadge(); 
-                    }
-                    ?>
-                </div>
-                
-                <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbarNav" aria-label="Toggle navigation">
-                    <span class="navbar-toggler-icon"></span>
-                </button>
-                
-                <div class="collapse navbar-collapse" id="navbarNav">
-                    <ul class="navbar-nav ms-auto">
-                        <li class="nav-item dropdown">
-                            <a class="nav-link dropdown-toggle" href="#" role="button" data-bs-toggle="dropdown">
-                                <i class="bi bi-person-circle"></i> Account
-                            </a>
-                            <ul class="dropdown-menu">
-                                <li><a class="dropdown-item" href="/profile">
-                                    <i class="bi bi-person"></i> Profile
-                                </a></li>
-                                <li><a class="dropdown-item" href="/settings">
-                                    <i class="bi bi-gear"></i> Settings
-                                </a></li>
-                                <li><hr class="dropdown-divider"></li>
-                                <li><a class="dropdown-item" href="/logout">
-                                    <i class="bi bi-box-arrow-right"></i> Logout
-                                </a></li>
-                            </ul>
-                        </li>
-                    </ul>
-                </div>
-            </div>
-        </nav>
-        
-        <!-- Content with top margin for header -->
-        <div style="margin-top: 70px;">
-            <div class="container-fluid py-4">
-                <div class="row">
-                    <div class="col-12">
-                        <h1 class="mb-4">
-                            <i class="bi bi-people"></i> Contact Management
+
+<!-- Include Header -->
+<?php include 'views/components/header.php'; ?>
+
+<!-- Main Content Area -->
+<div class="main-content" style="margin-left: 260px; padding: 20px;">
+        <div class="container-fluid">
+        <!-- Page Header -->
+        <div class="row mb-4">
+            <div class="col-12">
+                <div class="d-flex justify-content-between align-items-center">
+                <div>
+                        <h1 class="h3 mb-0">
+                            <i class="bi bi-people me-2"></i>
+                            Contacts Management
                         </h1>
-                        
-                        <?php if (!empty($message)): ?>
-                            <div class="alert alert-<?php echo $messageType; ?> alert-dismissible fade show" role="alert">
-                                <?php echo htmlspecialchars($message); ?>
-                                <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+                        <p class="text-muted mb-0">Manage your contact database with ease</p>
+                </div>
+                    <div>
+                        <button class="btn btn-primary" data-bs-toggle="modal" data-bs-target="#addContactModal">
+                            <i class="bi bi-plus-circle me-2"></i>
+                            Add Contact
+                        </button>
+                        <button class="btn btn-success ms-2" data-bs-toggle="modal" data-bs-target="#importModal">
+                            <i class="bi bi-upload me-2"></i>
+                            Import
+                    </button>
+                    </div>
+                </div>
+                </div>
+            </div>
+                
+        <!-- Stats Cards -->
+        <div class="row mb-4">
+            <div class="col-md-3">
+                <div class="card border-0 bg-primary text-white">
+                    <div class="card-body">
+                        <div class="d-flex justify-content-between">
+                                            <div>
+                                <h4 class="mb-0" id="totalContacts"><?php echo number_format($totalContacts); ?></h4>
+                                <small>Total Contacts</small>
                             </div>
-                        <?php endif; ?>
-                        
-                        <!-- Search and Filters -->
-                        <div class="search-filters">
-                            <form method="GET" class="row g-3">
-                                <div class="col-md-4">
-                                    <label for="search" class="form-label">Search Contacts</label>
-                                    <input type="text" class="form-control" id="search" name="search" 
-                                           value="<?php echo htmlspecialchars($search); ?>" 
-                                           placeholder="Search by email, name, company, or DOT...">
-                                </div>
-                                <div class="col-md-3">
-                                    <label for="filter_campaign" class="form-label">Filter by Campaign</label>
-                                    <select class="form-select" id="filter_campaign" name="filter_campaign">
-                                        <option value="">All Campaigns</option>
-                                        <option value="no_campaign" <?php echo $filter_campaign === 'no_campaign' ? 'selected' : ''; ?>>No Campaign</option>
-                                        <?php foreach ($campaigns as $campaign): ?>
-                                            <option value="<?php echo $campaign['id']; ?>" <?php echo $filter_campaign == $campaign['id'] ? 'selected' : ''; ?>>
-                                                <?php echo htmlspecialchars($campaign['name']); ?>
-                                            </option>
-                                        <?php endforeach; ?>
-                                    </select>
-                                </div>
-                                <div class="col-md-2">
-                                    <label for="sort_by" class="form-label">Sort By</label>
-                                    <select class="form-select" id="sort_by" name="sort_by">
-                                        <option value="created_at" <?php echo $sort_by === 'created_at' ? 'selected' : ''; ?>>Date Added</option>
-                                        <option value="name" <?php echo $sort_by === 'name' ? 'selected' : ''; ?>>Name</option>
-                                        <option value="email" <?php echo $sort_by === 'email' ? 'selected' : ''; ?>>Email</option>
-                                        <option value="company" <?php echo $sort_by === 'company' ? 'selected' : ''; ?>>Company</option>
-                                    </select>
-                                </div>
-                                <div class="col-md-2">
-                                    <label for="sort_order" class="form-label">Order</label>
-                                    <select class="form-select" id="sort_order" name="sort_order">
-                                        <option value="DESC" <?php echo $sort_order === 'DESC' ? 'selected' : ''; ?>>Newest First</option>
-                                        <option value="ASC" <?php echo $sort_order === 'ASC' ? 'selected' : ''; ?>>Oldest First</option>
-                                    </select>
-                                </div>
-                                <div class="col-md-1">
-                                    <label class="form-label">&nbsp;</label>
-                                    <button type="submit" class="btn btn-primary w-100">
-                                        <i class="bi bi-search"></i> Search
-                                    </button>
-                                </div>
-                            </form>
-                        </div>
-                        
-                        <!-- Bulk Actions -->
-                        <div class="bulk-actions" id="bulkActions">
-                            <div class="row align-items-center">
-                                <div class="col-md-6">
-                                    <span id="selectedCount">0 contacts selected</span>
-                                </div>
-                                <div class="col-md-6 text-end">
-                                    <button type="button" class="btn btn-danger btn-sm" onclick="bulkDelete()">
-                                        <i class="bi bi-trash"></i> Delete Selected
-                                    </button>
-                                    <button type="button" class="btn btn-secondary btn-sm" onclick="clearSelection()">
-                                        <i class="bi bi-x-circle"></i> Clear Selection
-                                    </button>
-                                </div>
+                            <div class="align-self-center">
+                                <i class="bi bi-people fs-1"></i>
                             </div>
                         </div>
-                        
-                        <!-- Contact Management Cards -->
-                        <div class="row">
-                            <div class="col-md-8">
-                                <!-- Contacts List -->
-                                <div class="feature-card">
-                                    <div class="d-flex justify-content-between align-items-center mb-3">
-                                        <h5><i class="bi bi-list-ul"></i> Contacts (<?php echo $total_contacts; ?>)</h5>
-                                        <button type="button" class="btn btn-primary btn-sm" data-bs-toggle="modal" data-bs-target="#createContactModal">
-                                            <i class="bi bi-plus-circle"></i> Add Contact
+                    </div>
+                </div>
+            </div>
+            <div class="col-md-3">
+                <div class="card border-0 bg-success text-white">
+                    <div class="card-body">
+                        <div class="d-flex justify-content-between">
+                            <div>
+                                <h4 class="mb-0"><?php echo number_format($activeContacts); ?></h4>
+                                <small>Active Contacts</small>
+                            </div>
+                            <div class="align-self-center">
+                                <i class="bi bi-check-circle fs-1"></i>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            <div class="col-md-3">
+                <div class="card border-0 bg-warning text-white">
+                    <div class="card-body">
+                        <div class="d-flex justify-content-between">
+                            <div>
+                                <h4 class="mb-0"><?php echo number_format($newThisMonth); ?></h4>
+                                <small>New This Month</small>
+                            </div>
+                            <div class="align-self-center">
+                                <i class="bi bi-plus-circle fs-1"></i>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            <div class="col-md-3">
+                <div class="card border-0 bg-info text-white">
+                    <div class="card-body">
+                        <div class="d-flex justify-content-between">
+                            <div>
+                                <h4 class="mb-0"><?php echo number_format($deletedContacts); ?></h4>
+                                <small>Deleted Contacts</small>
+                            </div>
+                            <div class="align-self-center">
+                                <i class="bi bi-trash fs-1"></i>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+                    </div>
+                    
+        <!-- Search and Filter Section -->
+        <div class="row mb-4">
+                <div class="col-12">
+                <div class="card filter-card">
+                    <div class="card-body">
+                            <div class="row">
+                            <!-- Search Box -->
+                            <div class="col-md-4 mb-3">
+                                <div class="search-box">
+                                    <i class="bi bi-search"></i>
+                                    <input type="text" class="form-control" id="searchInput" placeholder="Search contacts...">
+                                </div>
+                    </div>
+                    
+                            <!-- Filter Options -->
+                                <div class="col-md-8">
+                            <div class="row">
+                                    <div class="col-md-3 mb-3">
+                                        <select class="form-select" id="statusFilter">
+                                            <option value="">All Status</option>
+                                            <option value="active">Active</option>
+                                            <option value="inactive">Inactive</option>
+                                            <option value="pending">Pending</option>
+                                    </select>
+                                </div>
+                                    <div class="col-md-3 mb-3">
+                                        <select class="form-select" id="companyFilter">
+                                            <option value="">All Companies</option>
+                                            <option value="company1">Company 1</option>
+                                            <option value="company2">Company 2</option>
+                                        </select>
+                                    </div>
+                                    <div class="col-md-3 mb-3">
+                                        <select class="form-select" id="sortBy">
+                                            <option value="name">Sort by Name</option>
+                                            <option value="email">Sort by Email</option>
+                                            <option value="company">Sort by Company</option>
+                                            <option value="created">Sort by Created</option>
+                                        </select>
+                                    </div>
+                                    <div class="col-md-3 mb-3">
+                                        <button class="btn btn-outline-secondary w-100" onclick="clearFilters()">
+                                            <i class="bi bi-x-circle me-2"></i>Clear
                                         </button>
                                     </div>
-                                    
-                                    <?php if (!empty($contacts)): ?>
-                                        <div class="table-responsive">
-                                            <table class="table table-hover">
-                                                <thead>
-                                                    <tr>
-                                                        <th>
-                                                            <input type="checkbox" class="form-check-input" id="selectAll" onchange="toggleSelectAll()">
-                                                        </th>
-                                                        <th>Name</th>
-                                                        <th>Email</th>
-                                                        <th>Company</th>
-                                                        <th>DOT</th>
-                                                        <th>Campaign</th>
-                                                        <th>Added</th>
-                                                        <th>Actions</th>
-                                                    </tr>
-                                                </thead>
-                                                <tbody>
-                                                    <?php foreach ($contacts as $contact): ?>
-                                                    <tr>
-                                                        <td>
-                                                            <input type="checkbox" class="form-check-input contact-checkbox" 
-                                                                   value="<?php echo $contact['id']; ?>" onchange="updateSelection()">
-                                                        </td>
-                                                        <td><strong><?php echo htmlspecialchars($contact['name']); ?></strong></td>
-                                                        <td>
-                                                            <a href="mailto:<?php echo htmlspecialchars($contact['email']); ?>">
-                                                                <?php echo htmlspecialchars($contact['email']); ?>
-                                                            </a>
-                                                        </td>
-                                                        <td><?php echo htmlspecialchars($contact['company'] ?? '-'); ?></td>
-                                                        <td><?php echo htmlspecialchars($contact['dot'] ?? '-'); ?></td>
-                                                        <td>
-                                                            <?php if ($contact['campaign_name']): ?>
-                                                                <span class="badge bg-info"><?php echo htmlspecialchars($contact['campaign_name']); ?></span>
-                                                            <?php else: ?>
-                                                                <span class="text-muted">-</span>
-                                                            <?php endif; ?>
-                                                        </td>
-                                                        <td>
-                                                            <small class="text-muted">
-                                                                <?php echo date('M d, Y', strtotime($contact['created_at'])); ?>
-                                                            </small>
-                                                        </td>
-                                                        <td class="contact-actions">
-                                                            <button type="button" class="btn btn-sm btn-outline-primary" 
-                                                                    onclick="editContact(<?php echo htmlspecialchars(json_encode($contact)); ?>)">
-                                                                <i class="bi bi-pencil"></i>
-                                                            </button>
-                                                            <button type="button" class="btn btn-sm btn-outline-danger" 
-                                                                    onclick="deleteContact(<?php echo $contact['id']; ?>, '<?php echo htmlspecialchars($contact['name']); ?>')">
-                                                                <i class="bi bi-trash"></i>
-                                                            </button>
-                                                        </td>
-                                                    </tr>
-                                                    <?php endforeach; ?>
-                                                </tbody>
-                                            </table>
-                                        </div>
-                                        
-                                        <!-- Pagination -->
-                                        <?php if ($total_pages > 1): ?>
-                                            <nav aria-label="Contacts pagination">
-                                                <ul class="pagination justify-content-center">
-                                                    <?php if ($page > 1): ?>
-                                                        <li class="page-item">
-                                                            <a class="page-link" href="?<?php echo http_build_query(array_merge($_GET, ['page' => $page - 1])); ?>">Previous</a>
-                                                        </li>
-                                                    <?php endif; ?>
-                                                    
-                                                    <?php for ($i = max(1, $page - 2); $i <= min($total_pages, $page + 2); $i++): ?>
-                                                        <li class="page-item <?php echo $i == $page ? 'active' : ''; ?>">
-                                                            <a class="page-link" href="?<?php echo http_build_query(array_merge($_GET, ['page' => $i])); ?>"><?php echo $i; ?></a>
-                                                        </li>
-                                                    <?php endfor; ?>
-                                                    
-                                                    <?php if ($page < $total_pages): ?>
-                                                        <li class="page-item">
-                                                            <a class="page-link" href="?<?php echo http_build_query(array_merge($_GET, ['page' => $page + 1])); ?>">Next</a>
-                                                        </li>
-                                                    <?php endif; ?>
-                                                </ul>
-                                            </nav>
-                                        <?php endif; ?>
-                                        
-                                    <?php else: ?>
-                                        <div class="text-center py-5">
-                                            <i class="bi bi-inbox display-1 text-muted"></i>
-                                            <h4 class="mt-3 text-muted">No contacts found</h4>
-                                            <p class="text-muted">Try adjusting your search criteria or create your first contact.</p>
-                                        </div>
-                                    <?php endif; ?>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                                    </div>
                                 </div>
                             </div>
                             
-                            <div class="col-md-4">
-                                <!-- Quick Actions -->
-                                <div class="feature-card">
-                                    <h5><i class="bi bi-lightning"></i> Quick Actions</h5>
-                                    <div class="d-grid gap-2">
-                                        <button type="button" class="btn btn-primary" data-bs-toggle="modal" data-bs-target="#createContactModal">
-                                            <i class="bi bi-person-plus"></i> Add Single Contact
-                                        </button>
-                                        <button type="button" class="btn btn-success" data-bs-toggle="modal" data-bs-target="#uploadModal">
-                                            <i class="bi bi-cloud-arrow-up"></i> Bulk Upload
-                                        </button>
-                                        <a href="sample_contacts.csv" download class="btn btn-outline-secondary">
-                                            <i class="bi bi-download"></i> Download Template
-                                        </a>
-                                    </div>
-                                </div>
-                                
-                                <!-- Recent Uploads -->
-                                <div class="feature-card">
-                                    <h5><i class="bi bi-clock-history"></i> Recent Uploads</h5>
-                                    <?php if (!empty($recentUploads)): ?>
-                                        <div class="list-group list-group-flush">
-                                            <?php foreach ($recentUploads as $upload): ?>
-                                            <div class="list-group-item d-flex justify-content-between align-items-center">
-                                                <div>
-                                                    <strong><?php echo htmlspecialchars($upload['campaign_name'] ?? 'No Campaign'); ?></strong>
-                                                    <br><small class="text-muted"><?php echo date('M d, Y', strtotime($upload['upload_date'])); ?></small>
-                                                </div>
-                                                <span class="badge bg-primary rounded-pill"><?php echo $upload['recipient_count']; ?></span>
-                                            </div>
-                                            <?php endforeach; ?>
-                                        </div>
-                                    <?php else: ?>
-                                        <p class="text-muted">No recent uploads found.</p>
-                                    <?php endif; ?>
-                                </div>
-                            </div>
+        <!-- Contacts Table -->
+        <div class="row">
+            <div class="col-12">
+                <div class="card">
+                    <div class="card-header d-flex justify-content-between align-items-center">
+                        <h5 class="mb-0">Contact List</h5>
+                        <div class="d-flex align-items-center">
+                            <span class="pagination-info me-3">Showing 1-10 of 1,234 contacts</span>
+                            <div class="btn-group" role="group">
+                                <button type="button" class="btn btn-outline-secondary btn-sm" onclick="exportContacts()">
+                                    <i class="bi bi-download me-1"></i>Export
+                            </button>
+                                <button type="button" class="btn btn-outline-danger btn-sm" onclick="bulkDelete()">
+                                    <i class="bi bi-trash me-1"></i>Delete
+                                </button>
+                    </div>
                         </div>
                     </div>
-                </div>
-            </div>
-        </div>
-    </div>
-    
-    <!-- Create Contact Modal -->
-    <div class="modal fade" id="createContactModal" tabindex="-1">
-        <div class="modal-dialog">
-            <div class="modal-content">
-                <div class="modal-header">
-                    <h5 class="modal-title">Add New Contact</h5>
-                    <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
-                </div>
-                <form method="POST">
-                    <div class="modal-body">
-                        <input type="hidden" name="action" value="create_contact">
-                        
-                        <div class="row">
-                            <div class="col-md-6">
-                                <div class="mb-3">
-                                    <label for="dot" class="form-label">DOT Number</label>
-                                    <input type="text" class="form-control" id="dot" name="dot" placeholder="e.g., 170481">
-                                    <div class="form-text">Optional DOT number</div>
-                                </div>
-                            </div>
-                            <div class="col-md-6">
-                                <div class="mb-3">
-                                    <label for="campaign_id" class="form-label">Campaign (Optional)</label>
-                                    <select class="form-select" id="campaign_id" name="campaign_id">
-                                        <option value="">-- No Campaign --</option>
-                                        <?php foreach ($campaigns as $campaign): ?>
-                                            <option value="<?php echo $campaign['id']; ?>">
-                                                <?php echo htmlspecialchars($campaign['name']); ?>
-                                            </option>
-                                        <?php endforeach; ?>
-                                    </select>
-                                    <div class="form-text">Optional campaign assignment</div>
-                                </div>
-                            </div>
-                        </div>
-                        
-                        <div class="mb-3">
-                            <label for="company" class="form-label">Company Name</label>
-                            <input type="text" class="form-control" id="company" name="company" placeholder="e.g., BELL TRUCKING CO INC">
-                        </div>
-                        
-                        <div class="mb-3">
-                            <label for="name" class="form-label">Customer Name *</label>
-                            <input type="text" class="form-control" id="name" name="name" placeholder="e.g., JUDY BELL" required>
-                        </div>
-                        
-                        <div class="mb-3">
-                            <label for="email" class="form-label">Email Address *</label>
-                            <input type="email" class="form-control" id="email" name="email" placeholder="e.g., judy@example.com" required>
-                        </div>
-                    </div>
-                    <div class="modal-footer">
-                        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
-                        <button type="submit" class="btn btn-primary">Create Contact</button>
-                    </div>
-                </form>
-            </div>
-        </div>
-    </div>
-    
-    <!-- Edit Contact Modal -->
-    <div class="modal fade" id="editContactModal" tabindex="-1">
-        <div class="modal-dialog">
-            <div class="modal-content">
-                <div class="modal-header">
-                    <h5 class="modal-title">Edit Contact</h5>
-                    <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
-                </div>
-                <form method="POST">
-                    <div class="modal-body">
-                        <input type="hidden" name="action" value="update_contact">
-                        <input type="hidden" name="contact_id" id="edit_contact_id">
-                        
-                        <div class="row">
-                            <div class="col-md-6">
-                                <div class="mb-3">
-                                    <label for="edit_dot" class="form-label">DOT Number</label>
-                                    <input type="text" class="form-control" id="edit_dot" name="dot" placeholder="e.g., 170481">
-                                </div>
-                            </div>
-                            <div class="col-md-6">
-                                <div class="mb-3">
-                                    <label for="edit_campaign_id" class="form-label">Campaign</label>
-                                    <select class="form-select" id="edit_campaign_id" name="campaign_id">
-                                        <option value="">-- No Campaign --</option>
-                                        <?php foreach ($campaigns as $campaign): ?>
-                                            <option value="<?php echo $campaign['id']; ?>">
-                                                <?php echo htmlspecialchars($campaign['name']); ?>
-                                            </option>
-                                        <?php endforeach; ?>
-                                    </select>
-                                </div>
-                            </div>
-                        </div>
-                        
-                        <div class="mb-3">
-                            <label for="edit_company" class="form-label">Company Name</label>
-                            <input type="text" class="form-control" id="edit_company" name="company" placeholder="e.g., BELL TRUCKING CO INC">
-                        </div>
-                        
-                        <div class="mb-3">
-                            <label for="edit_name" class="form-label">Customer Name *</label>
-                            <input type="text" class="form-control" id="edit_name" name="name" placeholder="e.g., JUDY BELL" required>
-                        </div>
-                        
-                        <div class="mb-3">
-                            <label for="edit_email" class="form-label">Email Address *</label>
-                            <input type="email" class="form-control" id="edit_email" name="email" placeholder="e.g., judy@example.com" required>
-                        </div>
-                    </div>
-                    <div class="modal-footer">
-                        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
-                        <button type="submit" class="btn btn-primary">Update Contact</button>
-                    </div>
-                </form>
-            </div>
-        </div>
-    </div>
-    
-    <!-- Upload Modal -->
-    <div class="modal fade" id="uploadModal" tabindex="-1">
-        <div class="modal-dialog modal-lg">
-            <div class="modal-content">
-                <div class="modal-header">
-                    <h5 class="modal-title">Bulk Upload Contacts</h5>
-                    <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
-                </div>
-                <form method="POST" enctype="multipart/form-data">
-                    <div class="modal-body">
-                        <div class="row">
-                            <div class="col-md-4">
-                                <label for="modal_campaign_id" class="form-label">Campaign (Optional)</label>
-                                <select class="form-select" id="modal_campaign_id" name="campaign_id">
-                                    <option value="">-- No Campaign --</option>
-                                    <?php foreach ($campaigns as $campaign): ?>
-                                        <option value="<?php echo $campaign['id']; ?>">
-                                            <?php echo htmlspecialchars($campaign['name']); ?>
-                                        </option>
-                                    <?php endforeach; ?>
-                                </select>
-                                <div class="form-text">Select a campaign to associate these contacts with (optional)</div>
-                            </div>
-                            
-                            <div class="col-md-8">
-                                <label for="modal_email_file" class="form-label">Email List File</label>
-                                <div class="upload-area" id="modalUploadArea">
-                                    <i class="bi bi-cloud-arrow-up display-4 text-muted"></i>
-                                    <p class="mt-3">Drag and drop your file here or click to browse</p>
-                                    <input type="file" class="form-control d-none" id="modal_email_file" name="email_file" accept=".csv,.xlsx,.xls" required>
-                                    <button type="button" class="btn btn-outline-primary mt-2" onclick="document.getElementById('modal_email_file').click()">
-                                        <i class="bi bi-folder2-open"></i> Choose File
-                                    </button>
-                                    <div class="form-text">Supported formats: CSV, Excel (.xlsx, .xls). Max size: 10MB</div>
-                                </div>
-                            </div>
-                        </div>
-                        
-                        <div class="mt-4">
-                            <h6>File Format Requirements:</h6>
-                            <table class="table table-bordered">
-                                <thead>
+                    <div class="card-body p-0">
+                        <div class="table-responsive">
+                            <table class="table table-hover mb-0">
+                                <thead class="table-light">
                                     <tr>
+                                        <th width="50">
+                                            <input type="checkbox" class="form-check-input" id="selectAll">
+                                        </th>
+                                        <th>Contact</th>
+                                    <th>Email</th>
+                                        <th>Company</th>
                                         <th>DOT</th>
-                                        <th>Company Name</th>
-                                        <th>Customer Name</th>
-                                        <th>Email</th>
+                                        <th>Status</th>
+                                        <th>Created</th>
+                                        <th width="150">Actions</th>
+                                </tr>
+                            </thead>
+                                <tbody id="contactsTableBody">
+                                    <!-- Loading row -->
+                                    <tr id="loadingRow" style="display: none;">
+                                        <td colspan="8" class="text-center py-4">
+                                            <div class="spinner-border text-primary" role="status">
+                                                <span class="visually-hidden">Loading...</span>
+                    </div>
+                                            <div class="mt-2">Loading contacts...</div>
+                                        </td>
                                     </tr>
-                                </thead>
-                                <tbody>
+                                    <!-- Sample Data -->
                                     <tr>
+                                        <td>
+                                            <input type="checkbox" class="form-check-input contact-checkbox" value="1">
+                                        </td>
+                                        <td>
+                                            <div class="d-flex align-items-center">
+                                                <div class="contact-avatar me-3">JB</div>
+                                                <div>
+                                                    <div class="fw-bold">John Bell</div>
+                        </div>
+                    </div>
+                                        </td>
+                                        <td>john.bell@example.com</td>
+                                        <td>Bell Trucking Co Inc</td>
                                         <td>170481</td>
-                                        <td>BELL TRUCKING CO INC</td>
-                                        <td>JUDY BELL</td>
-                                        <td>judy@example.com</td>
+                                        <td><span class="badge bg-success status-badge">Active</span></td>
+                                        <td>2024-01-15</td>
+                                        <td>
+                                            <div class="action-buttons">
+                                                <button class="btn btn-sm btn-outline-primary" onclick="viewContact(1)" title="View">
+                                                    <i class="bi bi-eye"></i>
+                                                </button>
+                                                <button class="btn btn-sm btn-outline-secondary" onclick="editContact(1)" title="Edit">
+                                                    <i class="bi bi-pencil"></i>
+                                                </button>
+                                                <button class="btn btn-sm btn-outline-info" onclick="viewHistory(1)" title="History">
+                                                    <i class="bi bi-clock-history"></i>
+                                                </button>
+                                                <button class="btn btn-sm btn-outline-danger" onclick="deleteContact(1)" title="Delete">
+                                                    <i class="bi bi-trash"></i>
+                                                </button>
+                                            </div>
+                                            </td>
                                     </tr>
+                                        <tr>
+                                            <td>
+                                            <input type="checkbox" class="form-check-input contact-checkbox" value="2">
+                                            </td>
+                                            <td>
+                                            <div class="d-flex align-items-center">
+                                                <div class="contact-avatar me-3">JS</div>
+                                                <div>
+                                                    <div class="fw-bold">Jane Smith</div>
+                                                </div>
+                                            </div>
+                                            </td>
+                                        <td>jane.smith@example.com</td>
+                                        <td>ABC Transport</td>
+                                        <td>170482</td>
+                                        <td><span class="badge bg-warning status-badge">Pending</span></td>
+                                        <td>2024-01-14</td>
+                                        <td>
+                                            <div class="action-buttons">
+                                                <button class="btn btn-sm btn-outline-primary" onclick="viewContact(2)" title="View">
+                                                    <i class="bi bi-eye"></i>
+                                                </button>
+                                                <button class="btn btn-sm btn-outline-secondary" onclick="editContact(2)" title="Edit">
+                                                    <i class="bi bi-pencil"></i>
+                                                </button>
+                                                <button class="btn btn-sm btn-outline-info" onclick="viewHistory(2)" title="History">
+                                                    <i class="bi bi-clock-history"></i>
+                                                </button>
+                                                <button class="btn btn-sm btn-outline-danger" onclick="deleteContact(2)" title="Delete">
+                                                    <i class="bi bi-trash"></i>
+                                                </button>
+                                            </div>
+                                            </td>
+                                        </tr>
                                 </tbody>
                             </table>
                         </div>
                     </div>
+                    <div class="card-footer">
+                        <div class="d-flex justify-content-between align-items-center">
+                            <div>
+                                <select class="form-select form-select-sm" style="width: auto;">
+                                    <option>10 per page</option>
+                                    <option>25 per page</option>
+                                    <option>50 per page</option>
+                                    <option>100 per page</option>
+                                </select>
+                            </div>
+                            <nav>
+                                <ul class="pagination pagination-sm mb-0" id="pagination">
+                                    <li class="page-item disabled">
+                                        <a class="page-link" href="#"><i class="bi bi-chevron-left"></i></a>
+                                    </li>
+                                    <li class="page-item active"><a class="page-link" href="#">1</a></li>
+                                    <li class="page-item"><a class="page-link" href="#">2</a></li>
+                                    <li class="page-item"><a class="page-link" href="#">3</a></li>
+                                    <li class="page-item">
+                                        <a class="page-link" href="#"><i class="bi bi-chevron-right"></i></a>
+                                    </li>
+                                </ul>
+                            </nav>
+                        </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+<!-- Add Contact Modal -->
+<div class="modal fade" id="addContactModal" tabindex="-1">
+    <div class="modal-dialog modal-lg">
+            <div class="modal-content">
+                <div class="modal-header">
+                <h5 class="modal-title">
+                    <i class="bi bi-plus-circle me-2"></i>
+                    Add New Contact
+                </h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                </div>
+            <form id="addContactForm">
+                    <div class="modal-body">
+                        <div class="row">
+                        <div class="col-md-6 mb-3">
+                            <label for="name" class="form-label">Full Name *</label>
+                            <input type="text" class="form-control" id="name" name="name" required>
+                        </div>
+                        <div class="col-md-6 mb-3">
+                            <label for="email" class="form-label">Email Address *</label>
+                            <input type="email" class="form-control" id="email" name="email" required>
+                        </div>
+                    </div>
+                    <div class="row">
+                        <div class="col-md-6 mb-3">
+                            <label for="company" class="form-label">Company Name</label>
+                            <input type="text" class="form-control" id="company" name="company">
+                        </div>
+                        <div class="col-md-6 mb-3">
+                                    <label for="dot" class="form-label">DOT Number</label>
+                            <input type="text" class="form-control" id="dot" name="dot">
+                                </div>
+                            </div>
+                    <div class="alert alert-info">
+                        <i class="bi bi-info-circle me-2"></i>
+                        <strong>Note:</strong> Only name and email are required fields. Company and DOT number are optional.
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                    <button type="submit" class="btn btn-primary">
+                        <i class="bi bi-save me-2"></i>
+                        Save Contact
+                    </button>
+                </div>
+            </form>
+                                </div>
+                            </div>
+                        </div>
+                        
+<!-- Import Modal -->
+<div class="modal fade" id="importModal" tabindex="-1">
+    <div class="modal-dialog modal-xl">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">
+                    <i class="bi bi-upload me-2"></i>
+                    Import Contacts
+                </h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <form id="importForm" enctype="multipart/form-data">
+                <div class="modal-body">
+                    <!-- Step 1: File Upload -->
+                    <div id="step1" class="import-step">
+                        <div class="alert alert-info">
+                            <i class="bi bi-info-circle me-2"></i>
+                            <strong>Supported Formats:</strong> CSV, XLSX, XLS files with headers: Name, Email, Company, DOT
+                        </div>
+                        
+                        <div class="row">
+                            <div class="col-md-8">
+                        <div class="mb-3">
+                                    <label for="importFile" class="form-label">Select File</label>
+                                    <input type="file" class="form-control" id="importFile" name="importFile" accept=".csv,.xlsx,.xls" required>
+                                    <div class="form-text">Maximum file size: 10MB</div>
+                                </div>
+                            </div>
+                            <div class="col-md-4">
+                                <div class="mb-3">
+                                    <label class="form-label">Download Template</label>
+                                    <div>
+                                        <button type="button" class="btn btn-outline-primary btn-sm w-100" onclick="downloadTemplate('csv')">
+                                            <i class="bi bi-download me-2"></i>CSV Template
+                                        </button>
+                                    </div>
+                                    <div class="mt-2">
+                                        <button type="button" class="btn btn-outline-secondary btn-sm w-100" onclick="downloadTemplate('xlsx')">
+                                            <i class="bi bi-download me-2"></i>Excel Template
+                                        </button>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <div class="mb-3">
+                            <div class="form-check">
+                                <input class="form-check-input" type="checkbox" id="skipHeader" checked>
+                                <label class="form-check-label" for="skipHeader">
+                                    Skip first row (header row)
+                                </label>
+                            </div>
+                        </div>
+                        </div>
+                        
+                    <!-- Step 2: Preview Data -->
+                    <div id="step2" class="import-step" style="display: none;">
+                        <h6 class="mb-3">Preview Import Data</h6>
+                        <div class="table-responsive" style="max-height: 300px; overflow-y: auto;">
+                            <table class="table table-sm table-bordered" id="previewTable">
+                                <thead class="table-light">
+                                    <tr>
+                                        <th>Name</th>
+                                        <th>Email</th>
+                                        <th>Company</th>
+                                        <th>DOT</th>
+                                        <th>Status</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="previewTableBody">
+                                    <!-- Preview data will be loaded here -->
+                                </tbody>
+                            </table>
+                        </div>
+                        <div class="mt-3">
+                            <div class="alert alert-warning">
+                                <i class="bi bi-exclamation-triangle me-2"></i>
+                                <strong>Total Records:</strong> <span id="totalRecords">0</span> | 
+                                <strong>Valid Records:</strong> <span id="validRecords">0</span> | 
+                                <strong>Invalid Records:</strong> <span id="invalidRecords">0</span>
+                            </div>
+                        </div>
+                        </div>
+                        
+                    <!-- Step 3: Import Progress -->
+                    <div id="step3" class="import-step" style="display: none;">
+                        <h6 class="mb-3">Import Progress</h6>
+                        <div class="progress mb-3">
+                            <div class="progress-bar" id="importProgress" role="progressbar" style="width: 0%"></div>
+                        </div>
+                        <div id="importStatus" class="text-center">
+                            <div class="spinner-border text-primary" role="status">
+                                <span class="visually-hidden">Importing...</span>
+                            </div>
+                            <div class="mt-2">Processing contacts...</div>
+                        </div>
+                        </div>
+                    </div>
                     <div class="modal-footer">
                         <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
-                        <button type="submit" class="btn btn-success">
-                            <i class="bi bi-cloud-arrow-up"></i> Upload Contacts
-                        </button>
+                    <button type="button" class="btn btn-outline-primary" id="prevStep" style="display: none;">
+                        <i class="bi bi-arrow-left me-2"></i>Previous
+                    </button>
+                    <button type="button" class="btn btn-primary" id="nextStep">
+                        <i class="bi bi-arrow-right me-2"></i>Next
+                    </button>
+                    <button type="submit" class="btn btn-success" id="importBtn" style="display: none;">
+                        <i class="bi bi-upload me-2"></i>Import Contacts
+                    </button>
                     </div>
                 </form>
             </div>
         </div>
     </div>
     
-    <!-- Bulk Delete Confirmation Modal -->
-    <div class="modal fade" id="bulkDeleteModal" tabindex="-1">
-        <div class="modal-dialog">
-            <div class="modal-content">
-                <div class="modal-header">
-                    <h5 class="modal-title">Confirm Bulk Delete</h5>
-                    <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
-                </div>
-                <div class="modal-body">
-                    <p>Are you sure you want to delete <span id="deleteCount">0</span> selected contacts?</p>
-                    <p class="text-danger"><strong>This action cannot be undone.</strong></p>
-                </div>
-                <div class="modal-footer">
-                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
-                    <form method="POST" style="display: inline;">
-                        <input type="hidden" name="action" value="bulk_delete">
-                        <input type="hidden" name="contact_ids" id="bulkDeleteIds">
-                        <button type="submit" class="btn btn-danger">Delete Selected</button>
-                    </form>
+<!-- Contact History Modal -->
+<div class="modal fade" id="historyModal" tabindex="-1">
+    <div class="modal-dialog modal-lg">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">
+                    <i class="bi bi-clock-history me-2"></i>
+                    Contact History
+                </h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <div class="timeline">
+                    <div class="timeline-item">
+                        <div class="timeline-marker bg-primary"></div>
+                        <div class="timeline-content">
+                            <h6>Contact Created</h6>
+                            <p class="text-muted mb-1">2024-01-15 10:30 AM</p>
+                            <p>Contact was added to the system</p>
+                        </div>
+                    </div>
+                    <div class="timeline-item">
+                        <div class="timeline-marker bg-success"></div>
+                        <div class="timeline-content">
+                            <h6>Email Sent</h6>
+                            <p class="text-muted mb-1">2024-01-16 02:15 PM</p>
+                            <p>Welcome email sent successfully</p>
+                        </div>
+                    </div>
+                    <div class="timeline-item">
+                        <div class="timeline-marker bg-info"></div>
+                        <div class="timeline-content">
+                            <h6>Contact Updated</h6>
+                            <p class="text-muted mb-1">2024-01-17 09:45 AM</p>
+                            <p>Phone number updated</p>
+                        </div>
+                    </div>
                 </div>
             </div>
         </div>
     </div>
-    
-    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/js/bootstrap.bundle.min.js"></script>
+</div>
+
+<!-- Bootstrap JS -->
+<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/js/bootstrap.bundle.min.js"></script>
+
     <script>
-        // Contact management functions
-        function editContact(contact) {
-            document.getElementById('edit_contact_id').value = contact.id;
-            document.getElementById('edit_name').value = contact.name;
-            document.getElementById('edit_email').value = contact.email;
-            document.getElementById('edit_company').value = contact.company || '';
-            document.getElementById('edit_dot').value = contact.dot || '';
-            document.getElementById('edit_campaign_id').value = contact.campaign_id || '';
-            
-            new bootstrap.Modal(document.getElementById('editContactModal')).show();
+// Search functionality
+document.getElementById('searchInput').addEventListener('input', function() {
+    const searchTerm = this.value;
+    // Debounce search to avoid too many API calls
+    clearTimeout(this.searchTimeout);
+    this.searchTimeout = setTimeout(() => {
+        if (searchTerm.trim() === '') {
+            // If search is empty, use list_all
+            loadContacts(1, 50, '', getCurrentStatusFilter(), getCurrentCompanyFilter());
+        } else {
+            // Use dedicated search action
+            searchContacts(searchTerm);
         }
-        
-        function deleteContact(contactId, contactName) {
-            if (confirm(`Are you sure you want to delete "${contactName}"?`)) {
-                const form = document.createElement('form');
-                form.method = 'POST';
-                form.innerHTML = `
-                    <input type="hidden" name="action" value="delete_contact">
-                    <input type="hidden" name="contact_id" value="${contactId}">
-                `;
-                document.body.appendChild(form);
-                form.submit();
-            }
-        }
-        
-        // Bulk selection functions
-        function toggleSelectAll() {
-            const selectAll = document.getElementById('selectAll');
-            const checkboxes = document.querySelectorAll('.contact-checkbox');
-            checkboxes.forEach(checkbox => {
-                checkbox.checked = selectAll.checked;
-            });
-            updateSelection();
-        }
-        
-        function updateSelection() {
-            const checkboxes = document.querySelectorAll('.contact-checkbox:checked');
-            const selectedCount = checkboxes.length;
-            const bulkActions = document.getElementById('bulkActions');
-            const selectedCountSpan = document.getElementById('selectedCount');
+    }, 500);
+});
+
+// Filter functionality
+document.getElementById('statusFilter').addEventListener('change', function() {
+    loadContacts(1, 50, getCurrentSearchTerm(), this.value, getCurrentCompanyFilter());
+});
+
+document.getElementById('companyFilter').addEventListener('change', function() {
+    loadContacts(1, 50, getCurrentSearchTerm(), getCurrentStatusFilter(), this.value);
+});
+
+document.getElementById('sortBy').addEventListener('change', function() {
+    // For now, just reload with current filters
+    loadContacts(1, 50, getCurrentSearchTerm(), getCurrentStatusFilter(), getCurrentCompanyFilter());
+});
+
+function getCurrentSearchTerm() {
+    return document.getElementById('searchInput').value;
+}
+
+function getCurrentStatusFilter() {
+    return document.getElementById('statusFilter').value;
+}
+
+function getCurrentCompanyFilter() {
+    return document.getElementById('companyFilter').value;
+}
+
+function clearFilters() {
+    document.getElementById('searchInput').value = '';
+    document.getElementById('statusFilter').value = '';
+    document.getElementById('companyFilter').value = '';
+    document.getElementById('sortBy').value = 'name';
+    
+    // Show pagination again
+    document.getElementById('pagination').style.display = '';
+    
+    // Reload contacts without filters
+    loadContacts(1, 50, '', '', '');
+}
+
+// Select all functionality
+document.getElementById('selectAll').addEventListener('change', function() {
+    const checkboxes = document.querySelectorAll('.contact-checkbox');
+    checkboxes.forEach(checkbox => {
+        checkbox.checked = this.checked;
+    });
+});
+
+// Search contacts using dedicated search API
+function searchContacts(searchTerm) {
+    const loadingRow = document.getElementById('loadingRow');
+    const tableBody = document.getElementById('contactsTableBody');
+    
+    // Show loading
+    loadingRow.style.display = '';
+    tableBody.innerHTML = '';
+    
+    // Build API URL for search
+    const apiUrl = `api/contacts_api.php?action=search&q=${encodeURIComponent(searchTerm)}`;
+    
+    fetch(apiUrl)
+        .then(response => response.json())
+        .then(data => {
+            loadingRow.style.display = 'none';
             
-            selectedCountSpan.textContent = `${selectedCount} contact${selectedCount !== 1 ? 's' : ''} selected`;
-            
-            if (selectedCount > 0) {
-                bulkActions.classList.add('show');
+            if (data.success) {
+                if (data.data.length === 0) {
+                    tableBody.innerHTML = `<tr><td colspan="8" class="text-center text-muted">No contacts found matching "${searchTerm}"</td></tr>`;
+                } else {
+                    displayContacts(data.data);
+                }
+                // Hide pagination for search results
+                document.getElementById('pagination').style.display = 'none';
+                updateStats(data.data.length);
             } else {
-                bulkActions.classList.remove('show');
+                console.error('Error searching contacts:', data.error);
+                tableBody.innerHTML = '<tr><td colspan="8" class="text-center text-danger">Error searching contacts</td></tr>';
             }
-        }
-        
-        function clearSelection() {
-            document.getElementById('selectAll').checked = false;
-            document.querySelectorAll('.contact-checkbox').forEach(checkbox => {
-                checkbox.checked = false;
-            });
-            updateSelection();
-        }
-        
-        function bulkDelete() {
-            const checkboxes = document.querySelectorAll('.contact-checkbox:checked');
-            const contactIds = Array.from(checkboxes).map(cb => cb.value);
+        })
+        .catch(error => {
+            loadingRow.style.display = 'none';
+            console.error('Error:', error);
+            tableBody.innerHTML = '<tr><td colspan="8" class="text-center text-danger">Failed to search contacts</td></tr>';
+        });
+}
+
+// Load contacts from API
+function loadContacts(page = 1, perPage = 50, search = '', status = '', company = '') {
+    const loadingRow = document.getElementById('loadingRow');
+    const tableBody = document.getElementById('contactsTableBody');
+    
+    // Show loading
+    loadingRow.style.display = '';
+    tableBody.innerHTML = '';
+    
+    // Build API URL
+    let apiUrl = `api/contacts_api.php?action=list_all&page=${page}&per_page=${perPage}`;
+    if (search) apiUrl += `&search=${encodeURIComponent(search)}`;
+    if (status) apiUrl += `&status=${encodeURIComponent(status)}`;
+    if (company) apiUrl += `&company=${encodeURIComponent(company)}`;
+    
+    fetch(apiUrl)
+        .then(response => response.json())
+        .then(data => {
+            loadingRow.style.display = 'none';
             
-            if (contactIds.length === 0) {
-                alert('Please select contacts to delete.');
-                return;
+            if (data.success) {
+                displayContacts(data.data);
+                // Show pagination for full list
+                document.getElementById('pagination').style.display = '';
+                updatePagination(data.pagination);
+                updateStats(data.pagination.total);
+            } else {
+                console.error('Error loading contacts:', data.error);
+                tableBody.innerHTML = '<tr><td colspan="8" class="text-center text-danger">Error loading contacts</td></tr>';
             }
-            
-            document.getElementById('deleteCount').textContent = contactIds.length;
-            document.getElementById('bulkDeleteIds').value = JSON.stringify(contactIds);
-            new bootstrap.Modal(document.getElementById('bulkDeleteModal')).show();
-        }
-        
-        // File upload handling for modal
-        const modalUploadArea = document.getElementById('modalUploadArea');
-        const modalFileInput = document.getElementById('modal_email_file');
-        
-        modalUploadArea.addEventListener('dragover', (e) => {
-            e.preventDefault();
-            modalUploadArea.classList.add('dragover');
+        })
+        .catch(error => {
+            loadingRow.style.display = 'none';
+            console.error('Error:', error);
+            tableBody.innerHTML = '<tr><td colspan="8" class="text-center text-danger">Failed to load contacts</td></tr>';
         });
-        
-        modalUploadArea.addEventListener('dragleave', () => {
-            modalUploadArea.classList.remove('dragover');
-        });
-        
-        modalUploadArea.addEventListener('drop', (e) => {
-            e.preventDefault();
-            modalUploadArea.classList.remove('dragover');
-            const files = e.dataTransfer.files;
-            if (files.length > 0) {
-                modalFileInput.files = files;
-                updateModalFileDisplay();
-            }
-        });
-        
-        modalFileInput.addEventListener('change', updateModalFileDisplay);
-        
-        function updateModalFileDisplay() {
-            if (modalFileInput.files.length > 0) {
-                const file = modalFileInput.files[0];
-                modalUploadArea.innerHTML = `
-                    <i class="bi bi-file-earmark-text display-4 text-success"></i>
-                    <p class="mt-3"><strong>${file.name}</strong></p>
-                    <p class="text-muted">Size: ${(file.size / 1024 / 1024).toFixed(2)} MB</p>
-                    <button type="button" class="btn btn-outline-secondary btn-sm" onclick="changeModalFile()">
-                        <i class="bi bi-arrow-repeat"></i> Change File
+}
+
+// Display contacts in table
+function displayContacts(contacts) {
+    const tableBody = document.getElementById('contactsTableBody');
+    tableBody.innerHTML = '';
+    
+    if (contacts.length === 0) {
+        tableBody.innerHTML = '<tr><td colspan="8" class="text-center text-muted">No contacts found</td></tr>';
+        return;
+    }
+    
+    contacts.forEach(contact => {
+        const row = document.createElement('tr');
+        row.innerHTML = `
+            <td>
+                <div class="form-check">
+                    <input class="form-check-input contact-checkbox" type="checkbox" value="${contact.id}">
+                </div>
+            </td>
+            <td>
+                <div class="d-flex align-items-center">
+                    <div class="contact-avatar me-2">
+                        ${getInitials(contact.name)}
+                    </div>
+                    <div>
+                        <div class="fw-bold">${contact.name}</div>
+                    </div>
+                </div>
+            </td>
+            <td>${contact.email || 'N/A'}</td>
+            <td>${contact.company || 'N/A'}</td>
+            <td>${contact.dot || 'N/A'}</td>
+            <td>
+                <span class="badge bg-${getStatusColor(contact.status)} status-badge">
+                    ${contact.status || 'active'}
+                </span>
+            </td>
+            <td>${formatDate(contact.created_at)}</td>
+            <td>
+                <div class="action-buttons">
+                    <button class="btn btn-sm btn-outline-primary" onclick="viewContact(${contact.id})">
+                        <i class="bi bi-eye"></i>
                     </button>
-                `;
+                    <button class="btn btn-sm btn-outline-secondary" onclick="editContact(${contact.id})">
+                        <i class="bi bi-pencil"></i>
+                    </button>
+                    <button class="btn btn-sm btn-outline-info" onclick="viewHistory(${contact.id})">
+                        <i class="bi bi-clock-history"></i>
+                    </button>
+                    <button class="btn btn-sm btn-outline-danger" onclick="deleteContact(${contact.id})">
+                        <i class="bi bi-trash"></i>
+                    </button>
+                </div>
+            </td>
+        `;
+        tableBody.appendChild(row);
+    });
+}
+
+// Update pagination
+function updatePagination(pagination) {
+    const paginationElement = document.getElementById('pagination');
+    if (!paginationElement) return;
+    
+    let paginationHtml = '';
+    
+    // Previous button
+    paginationHtml += `
+        <li class="page-item ${pagination.current_page <= 1 ? 'disabled' : ''}">
+            <a class="page-link" href="#" onclick="loadContacts(${pagination.current_page - 1})">Previous</a>
+        </li>
+    `;
+    
+    // Page numbers
+    for (let i = 1; i <= pagination.total_pages; i++) {
+        if (i === 1 || i === pagination.total_pages || (i >= pagination.current_page - 2 && i <= pagination.current_page + 2)) {
+            paginationHtml += `
+                <li class="page-item ${i === pagination.current_page ? 'active' : ''}">
+                    <a class="page-link" href="#" onclick="loadContacts(${i})">${i}</a>
+                </li>
+            `;
+        } else if (i === pagination.current_page - 3 || i === pagination.current_page + 3) {
+            paginationHtml += '<li class="page-item disabled"><span class="page-link">...</span></li>';
+        }
+    }
+    
+    // Next button
+    paginationHtml += `
+        <li class="page-item ${pagination.current_page >= pagination.total_pages ? 'disabled' : ''}">
+            <a class="page-link" href="#" onclick="loadContacts(${pagination.current_page + 1})">Next</a>
+        </li>
+    `;
+    
+    paginationElement.innerHTML = paginationHtml;
+}
+
+// Update stats
+function updateStats(total) {
+    const totalContactsElement = document.getElementById('totalContacts');
+    if (totalContactsElement) {
+        totalContactsElement.textContent = total;
+    }
+}
+
+// Helper functions
+function getStatusColor(status) {
+    switch(status) {
+        case 'active': return 'success';
+        case 'inactive': return 'secondary';
+        case 'pending': return 'warning';
+        default: return 'primary';
+    }
+}
+
+function formatDate(dateString) {
+    if (!dateString) return 'N/A';
+    const date = new Date(dateString);
+    return date.toLocaleDateString();
+}
+
+function getInitials(name) {
+    if (!name) return 'NA';
+    return name.split(' ')
+        .map(word => word.charAt(0))
+        .join('')
+        .toUpperCase()
+        .substring(0, 2);
+}
+
+
+
+// Contact actions
+function viewContact(id) {
+    console.log('View contact:', id);
+    // Implement view functionality
+}
+
+function editContact(id) {
+    console.log('Edit contact:', id);
+    // Implement edit functionality
+}
+
+function viewHistory(id) {
+    console.log('View history:', id);
+    const historyModal = new bootstrap.Modal(document.getElementById('historyModal'));
+    historyModal.show();
+}
+
+function deleteContact(id) {
+    if (confirm('Are you sure you want to delete this contact?')) {
+        console.log('Delete contact:', id);
+        // Implement delete functionality
+    }
+}
+
+function bulkDelete() {
+    const selectedContacts = document.querySelectorAll('.contact-checkbox:checked');
+    if (selectedContacts.length === 0) {
+        alert('Please select contacts to delete');
+        return;
+    }
+    
+    if (confirm(`Are you sure you want to delete ${selectedContacts.length} contact(s)?`)) {
+        // Get selected contact IDs
+        const contactIds = Array.from(selectedContacts).map(checkbox => checkbox.value);
+        
+        // Show loading state
+        const deleteBtn = document.querySelector('button[onclick="bulkDelete()"]');
+        const originalText = deleteBtn.innerHTML;
+        deleteBtn.innerHTML = '<i class="bi bi-hourglass-split me-2"></i>Deleting...';
+        deleteBtn.disabled = true;
+        
+        // Call the bulk delete API
+        fetch('api/contacts_api.php?action=bulk_delete', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({ ids: contactIds })
+        })
+        .then(response => response.json())
+        .then(data => {
+            if (data.success) {
+                // Show success message
+                alert(`Successfully deleted ${data.deleted_count} contact(s)!`);
+                 //reload the page
+                 window.location.reload();
+                // Reload contacts list
+                loadContacts();
+                
+                // Uncheck all checkboxes
+                document.querySelectorAll('.contact-checkbox').forEach(checkbox => {
+                    checkbox.checked = false;
+                });
+                //reload the page
+               // window.location.reload();
+                
+            } else {
+                // Show error message
+                alert('Error: ' + (data.error || data.message || 'Failed to delete contacts'));
             }
+        })
+        .catch(error => {
+            console.error('Error:', error);
+            //alert('Error: Failed to delete contacts. Please try again.');
+        })
+        .finally(() => {
+            // Reset button state
+            deleteBtn.innerHTML = originalText;
+            deleteBtn.disabled = false;
+        });
+    }
+}
+
+function exportContacts() {
+    console.log('Export contacts');
+    // Implement export functionality
+}
+
+// Form submission - Simple working version
+document.getElementById('addContactForm').addEventListener('submit', function(e) {
+    e.preventDefault();
+    
+    // Get form data
+    const formData = {
+        name: document.getElementById('name').value.trim(),
+        email: document.getElementById('email').value.trim(),
+        company: document.getElementById('company').value.trim(),
+        dot: document.getElementById('dot').value.trim()
+    };
+    
+    // Validate required fields
+    if (!formData.name || !formData.email) {
+        alert('Name and email are required fields.');
+        return;
+    }
+    
+    // Validate email format
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    if (!emailRegex.test(formData.email)) {
+        alert('Please enter a valid email address.');
+        return;
+    }
+    
+    // Show loading state
+    const submitBtn = document.querySelector('#addContactForm button[type="submit"]');
+    const originalText = submitBtn.innerHTML;
+    submitBtn.innerHTML = '<i class="bi bi-hourglass-split me-2"></i>Saving...';
+    submitBtn.disabled = true;
+    
+    // Call the create_contact API
+    fetch('api/contacts_api.php?action=create_contact', {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(formData)
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.success) {
+            // Show success message
+            alert('Contact created successfully! Contact ID: ' + data.data.id);
+            //refresh the page
+            window.location.reload();
+            
+            // Close modal
+            const modal = bootstrap.Modal.getInstance(document.getElementById('addContactModal'));
+            modal.hide();
+            
+            // Reset form
+            document.getElementById('addContactForm').reset();
+            
+            // Reload contacts list
+            loadContacts();
+            
+        } else {
+            // Show error message
+            alert('Error: ' + (data.error || data.message || 'Failed to create contact'));
+        }
+    })
+    .catch(error => {
+        console.error('Error:', error);
+       // alert('Error: Failed to create contact. Please try again.');
+    })
+    .finally(() => {
+        // Reset button state
+        submitBtn.innerHTML = originalText;
+        submitBtn.disabled = false;
+    });
+});
+
+// Import Modal Functionality
+let currentStep = 1;
+let importData = [];
+
+// Download template function
+function downloadTemplate(type) {
+    const url = `api/contacts_api.php?action=download_template&type=${type}`;
+    const link = document.createElement('a');
+    link.href = url;
+    link.download = `contacts_template.${type}`;
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+}
+
+// Import modal step navigation
+document.getElementById('nextStep').addEventListener('click', function() {
+    if (currentStep === 1) {
+        // Validate file selection
+        const fileInput = document.getElementById('importFile');
+        if (!fileInput.files[0]) {
+            alert('Please select a file to import.');
+            return;
         }
         
-        function changeModalFile() {
-            modalFileInput.value = '';
-            modalUploadArea.innerHTML = `
-                <i class="bi bi-cloud-arrow-up display-4 text-muted"></i>
-                <p class="mt-3">Drag and drop your file here or click to browse</p>
-                <button type="button" class="btn btn-outline-primary mt-2" onclick="modalFileInput.click()">
-                    <i class="bi bi-folder2-open"></i> Choose File
-                </button>
-                <div class="form-text">Supported formats: CSV, Excel (.xlsx, .xls). Max size: 10MB</div>
+        // Preview the file
+        previewImportFile(fileInput.files[0]);
+        showStep(2);
+    } else if (currentStep === 2) {
+        // Start import process
+        showStep(3);
+        startImport();
+    }
+});
+
+document.getElementById('prevStep').addEventListener('click', function() {
+    if (currentStep === 2) {
+        showStep(1);
+    } else if (currentStep === 3) {
+        showStep(2);
+    }
+});
+
+function showStep(step) {
+    // Hide all steps
+    document.querySelectorAll('.import-step').forEach(el => el.style.display = 'none');
+    
+    // Show current step
+    document.getElementById(`step${step}`).style.display = 'block';
+    
+    // Update buttons
+    const prevBtn = document.getElementById('prevStep');
+    const nextBtn = document.getElementById('nextStep');
+    const importBtn = document.getElementById('importBtn');
+    
+    if (step === 1) {
+        prevBtn.style.display = 'none';
+        nextBtn.style.display = 'inline-block';
+        importBtn.style.display = 'none';
+    } else if (step === 2) {
+        prevBtn.style.display = 'inline-block';
+        nextBtn.style.display = 'inline-block';
+        importBtn.style.display = 'none';
+    } else if (step === 3) {
+        prevBtn.style.display = 'inline-block';
+        nextBtn.style.display = 'none';
+        importBtn.style.display = 'none';
+    }
+    
+    currentStep = step;
+}
+
+function previewImportFile(file) {
+    const formData = new FormData();
+    formData.append('file', file);
+    formData.append('action', 'preview_import');
+    formData.append('skip_header', document.getElementById('skipHeader').checked ? '1' : '0');
+    
+    fetch('api/contacts_api.php', {
+        method: 'POST',
+        body: formData
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.success) {
+            importData = data.data;
+            displayPreview(data.data);
+            updatePreviewStats(data.stats);
+        } else {
+            alert('Error: ' + (data.error || 'Failed to preview file'));
+        }
+    })
+    .catch(error => {
+        console.error('Error:', error);
+        alert('Error previewing file. Please try again.');
+    });
+}
+
+function displayPreview(data) {
+    const tbody = document.getElementById('previewTableBody');
+    tbody.innerHTML = '';
+    
+    data.slice(0, 10).forEach((row, index) => {
+        const tr = document.createElement('tr');
+        tr.innerHTML = `
+            <td>${row.name || ''}</td>
+            <td>${row.email || ''}</td>
+            <td>${row.company || ''}</td>
+            <td>${row.dot || ''}</td>
+            <td>
+                <span class="badge bg-${row.isValid ? 'success' : 'danger'}">
+                    ${row.isValid ? 'Valid' : 'Invalid'}
+                </span>
+            </td>
+        `;
+        tbody.appendChild(tr);
+    });
+    
+    if (data.length > 10) {
+        const tr = document.createElement('tr');
+        tr.innerHTML = `<td colspan="5" class="text-center text-muted">... and ${data.length - 10} more records</td>`;
+        tbody.appendChild(tr);
+    }
+}
+
+function updatePreviewStats(stats) {
+    document.getElementById('totalRecords').textContent = stats.total || 0;
+    document.getElementById('validRecords').textContent = stats.valid || 0;
+    document.getElementById('invalidRecords').textContent = stats.invalid || 0;
+}
+
+function startImport() {
+    const formData = new FormData();
+    formData.append('action', 'import_contacts');
+    formData.append('skip_header', document.getElementById('skipHeader').checked ? '1' : '0');
+    
+    // Add the file
+    const fileInput = document.getElementById('importFile');
+    formData.append('file', fileInput.files[0]);
+    
+    fetch('api/contacts_api.php', {
+        method: 'POST',
+        body: formData
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.success) {
+            // Show success message
+            document.getElementById('importStatus').innerHTML = `
+                <div class="alert alert-success">
+                    <i class="bi bi-check-circle me-2"></i>
+                    Import completed successfully! ${data.imported} contacts imported.
+                </div>
+            `;
+            
+            // Reload contacts after a delay
+            setTimeout(() => {
+                const modal = bootstrap.Modal.getInstance(document.getElementById('importModal'));
+                modal.hide();
+                loadContacts();
+            }, 2000);
+        } else {
+            document.getElementById('importStatus').innerHTML = `
+                <div class="alert alert-danger">
+                    <i class="bi bi-exclamation-triangle me-2"></i>
+                    Import failed: ${data.error || 'Unknown error'}
+                </div>
             `;
         }
+    })
+    .catch(error => {
+        console.error('Error:', error);
+        document.getElementById('importStatus').innerHTML = `
+            <div class="alert alert-danger">
+                <i class="bi bi-exclamation-triangle me-2"></i>
+                Network error during import. Please try again.
+            </div>
+        `;
+    });
+}
+
+// Import form submission
+document.getElementById('importForm').addEventListener('submit', function(e) {
+    e.preventDefault();
+    startImport();
+});
+
+// Load contacts on page load
+document.addEventListener('DOMContentLoaded', function() {
+    loadContacts();
+});
     </script>
+
 </body>
 </html> 

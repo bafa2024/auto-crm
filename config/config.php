@@ -1,9 +1,9 @@
 <?php
 // Application Configuration
 define('DB_HOST', 'localhost');
-define('DB_NAME', 'u946493694_autocrm');
-define('DB_USER', 'u946493694_autocrmu');
-define('DB_PASS', 'CDExzsawq123@#$');
+define('DB_NAME', 'autocrm');
+define('DB_USER', 'root');
+define('DB_PASS', '');
 
 // Application settings
 define('APP_NAME', 'AutoDial Pro CRM');

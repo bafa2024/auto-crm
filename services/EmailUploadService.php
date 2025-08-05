@@ -95,7 +95,7 @@ class EmailUploadService {
                 fclose($handle);
                 return [
                     'success' => false,
-                    'message' => 'Email column not found in CSV file'
+                    'message' => 'Email column not found in CSV file. Expected headers: DOT, Company Name, Customer Name, Email'
                 ];
             }
             
@@ -200,7 +200,7 @@ class EmailUploadService {
             if (!isset($fieldMap['email'])) {
                 return [
                     'success' => false,
-                    'message' => 'Email column not found in Excel file. Available columns: ' . implode(', ', $headers)
+                    'message' => 'Email column not found in Excel file. Expected headers: DOT, Company Name, Customer Name, Email'
                 ];
             }
             
@@ -300,7 +300,7 @@ class EmailUploadService {
         foreach ($headers as $index => $header) {
             $headerLower = strtolower(trim($header));
             
-            // Map email field - more flexible matching
+            // Map email field - exact matches first, then flexible
             if ($headerLower === 'email' || 
                 strpos($headerLower, 'email') !== false ||
                 $headerLower === 'e-mail' ||
@@ -308,9 +308,9 @@ class EmailUploadService {
                 $headerLower === 'mail') {
                 $fieldMap['email'] = $index;
             }
-            // Map name field - more flexible matching
-            elseif ($headerLower === 'name' || 
-                    $headerLower === 'customer name' || 
+            // Map name field - exact matches first, then flexible
+            elseif ($headerLower === 'customer name' || 
+                    $headerLower === 'name' || 
                     $headerLower === 'full name' || 
                     $headerLower === 'fullname' || 
                     $headerLower === 'contact name' ||
@@ -320,9 +320,9 @@ class EmailUploadService {
                     $headerLower === 'contact') {
                 $fieldMap['name'] = $index;
             }
-            // Map company field - more flexible matching
-            elseif ($headerLower === 'company' || 
-                    $headerLower === 'company name' || 
+            // Map company field - exact matches first, then flexible
+            elseif ($headerLower === 'company name' || 
+                    $headerLower === 'company' || 
                     $headerLower === 'organization' ||
                     $headerLower === 'business' ||
                     $headerLower === 'firm' ||
@@ -330,7 +330,7 @@ class EmailUploadService {
                     $headerLower === 'corporation') {
                 $fieldMap['company'] = $index;
             }
-            // Map DOT field - more flexible matching
+            // Map DOT field - exact matches first, then flexible
             elseif ($headerLower === 'dot' || 
                     $headerLower === 'dot number' || 
                     $headerLower === 'dot_number' ||
@@ -369,12 +369,6 @@ class EmailUploadService {
                 $checkSql = "SELECT id FROM email_recipients WHERE LOWER(email) = :email";
                 $params = [':email' => $normalizedEmail];
                 
-                // If campaign_id is provided, also check for campaign-specific duplicates
-                if ($contact['campaign_id']) {
-                    $checkSql .= " AND campaign_id = :campaign_id";
-                    $params[':campaign_id'] = $contact['campaign_id'];
-                }
-                
                 $stmt = $this->db->prepare($checkSql);
                 $stmt->execute($params);
                 
@@ -391,7 +385,7 @@ class EmailUploadService {
                 
                 $stmt = $this->db->prepare($sql);
                 $stmt->execute([
-                    ':campaign_id' => $contact['campaign_id'] ?? null,
+                    ':campaign_id' => null, // Always null for general contact imports
                     ':email' => $normalizedEmail, // Store normalized email
                     ':name' => $contact['name'] ?? null,
                     ':company' => $contact['company'] ?? null,
@@ -408,21 +402,7 @@ class EmailUploadService {
             }
         }
         
-        // Update campaign recipient count if campaign_id is provided
-        if (!empty($contacts[0]['campaign_id'])) {
-            $this->updateCampaignRecipientCount($contacts[0]['campaign_id']);
-            
-            // Create batches for the newly imported recipients
-            if (!empty($insertedIds)) {
-                require_once __DIR__ . '/BatchService.php';
-                $batchService = new BatchService($this->database);
-                $batchResult = $batchService->createBatchesForCampaign($contacts[0]['campaign_id'], $insertedIds);
-                
-                if ($batchResult['success']) {
-                    error_log("Created {$batchResult['batch_count']} batches for campaign {$contacts[0]['campaign_id']}");
-                }
-            }
-        }
+        // Campaign-related logic removed for general contact imports
         
         return [
             'imported' => $imported,

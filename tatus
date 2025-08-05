@@ -1,0 +1,5 @@
+[33m40aaf9c[m[33m ([m[1;36mHEAD[m[33m -> [m[1;32mmain[m[33m, [m[1;31morigin/main[m[33m, [m[1;31morigin/HEAD[m[33m)[m Fix header to be full width and improve layout structure
+[33me20db22[m Fix upload contacts functionality and improve contacts page
+[33m42ac50d[m Fix contacts API endpoint and loading issues
+[33m3a5a3b8[m updated
+[33m1196d7a[m Fix contact upload functionality and remove auto-refresh
