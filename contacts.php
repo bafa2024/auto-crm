@@ -23,9 +23,9 @@ if (isset($_SESSION['last_activity']) && (time() - $_SESSION['last_activity']) >
 // Update last activity time
 $_SESSION['last_activity'] = time();
 
-// Get real statistics from database
+// Get real statistics from SQLite database
 try {
-    $pdo = new PDO("mysql:host=" . DB_HOST . ";dbname=" . DB_NAME, DB_USER, DB_PASS);
+    $pdo = new PDO("sqlite:database/autocrm_local.db");
     $pdo->setAttribute(PDO::ATTR_ERRMODE, PDO::ERRMODE_EXCEPTION);
     
     // Total contacts
@@ -35,8 +35,8 @@ try {
     // Active contacts (all contacts are considered active since we don't have status column)
     $activeContacts = $totalContacts;
     
-    // New contacts this month
-    $stmt = $pdo->query("SELECT COUNT(*) as new_this_month FROM email_recipients WHERE MONTH(created_at) = MONTH(CURRENT_DATE()) AND YEAR(created_at) = YEAR(CURRENT_DATE())");
+    // New contacts this month - SQLite date functions
+    $stmt = $pdo->query("SELECT COUNT(*) as new_this_month FROM email_recipients WHERE strftime('%m', created_at) = strftime('%m', 'now') AND strftime('%Y', created_at) = strftime('%Y', 'now')");
     $newThisMonth = $stmt->fetch()['new_this_month'];
     
     // Deleted contacts (since there's no deleted_at column, we'll show 0 for now)
@@ -49,7 +49,6 @@ try {
     $newThisMonth = 0;
     $deletedContacts = 0;
 }
-
 
 
 ?>

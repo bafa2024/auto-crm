@@ -8,8 +8,10 @@ require_once __DIR__ . '/../config/database.php';
 require_once __DIR__ . '/../controllers/ContactController.php';
 require_once __DIR__ . '/../version.php';
 
-// Start session
-session_start();
+// Start session if not already started and headers not sent
+if (session_status() === PHP_SESSION_NONE && !headers_sent()) {
+    session_start();
+}
 
 // Set headers for API
 header('Content-Type: application/json');
@@ -18,7 +20,7 @@ header('Access-Control-Allow-Methods: GET, POST, PUT, DELETE, OPTIONS');
 header('Access-Control-Allow-Headers: Content-Type, Authorization');
 
 // Handle preflight requests
-if ($_SERVER['REQUEST_METHOD'] === 'OPTIONS') {
+if (isset($_SERVER['REQUEST_METHOD']) && $_SERVER['REQUEST_METHOD'] === 'OPTIONS') {
     http_response_code(200);
     exit();
 }
@@ -33,7 +35,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'OPTIONS') {
 
 // Initialize database connection
 try {
-    $pdo = new PDO("mysql:host=" . DB_HOST . ";dbname=" . DB_NAME, DB_USER, DB_PASS);
+    $pdo = new PDO("sqlite:database/autocrm_local.db");
     $pdo->setAttribute(PDO::ATTR_ERRMODE, PDO::ERRMODE_EXCEPTION);
 } catch (PDOException $e) {
     http_response_code(500);
@@ -45,7 +47,7 @@ try {
 $contactController = new ContactController($pdo);
 
 // Get request method and action
-$method = $_SERVER['REQUEST_METHOD'];
+$method = $_SERVER['REQUEST_METHOD'] ?? 'GET';
 $action = $_GET['action'] ?? $_POST['action'] ?? '';
 
 // Handle different API actions

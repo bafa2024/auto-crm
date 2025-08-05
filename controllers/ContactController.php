@@ -249,12 +249,11 @@ class ContactController extends BaseController {
             $stmt = $this->db->query("SELECT COUNT(*) as total FROM email_recipients");
             $total = $stmt->fetch()['total'];
             
-            // Get active contacts
-            $stmt = $this->db->query("SELECT COUNT(*) as active FROM email_recipients WHERE status = 'active'");
-            $active = $stmt->fetch()['active'];
+            // Get active contacts (all contacts are considered active since we don't have status column)
+            $active = $total;
             
-            // Get contacts created this month
-            $stmt = $this->db->query("SELECT COUNT(*) as new_month FROM email_recipients WHERE MONTH(created_at) = MONTH(CURRENT_DATE()) AND YEAR(created_at) = YEAR(CURRENT_DATE())");
+            // Get contacts created this month - SQLite date functions
+            $stmt = $this->db->query("SELECT COUNT(*) as new_month FROM email_recipients WHERE strftime('%m', created_at) = strftime('%m', 'now') AND strftime('%Y', created_at) = strftime('%Y', 'now')");
             $new_month = $stmt->fetch()['new_month'];
             
             // Get total campaigns (mock data for now)
@@ -990,33 +989,34 @@ class ContactController extends BaseController {
     }
 
     public function exportContacts() {
+        // This method is not used in the API, so we'll return data instead of outputting
         $contacts = $this->contactModel->all();
         
         $filename = 'contacts_export_' . date('Y-m-d_H-i-s') . '.csv';
-            header('Content-Type: text/csv');
-        header('Content-Disposition: attachment; filename="' . $filename . '"');
-            
-            $output = fopen('php://output', 'w');
-            
-        // Write header
-        fputcsv($output, ['ID', 'First Name', 'Last Name', 'Email', 'Phone', 'Company', 'Position', 'Status', 'Created At']);
-            
-        // Write data
-            foreach ($contacts as $contact) {
-                fputcsv($output, [
+        
+        // Return data instead of outputting headers
+        $output = [];
+        $output[] = ['ID', 'First Name', 'Last Name', 'Email', 'Phone', 'Company', 'Position', 'Status', 'Created At'];
+        
+        foreach ($contacts as $contact) {
+            $output[] = [
                 $contact['id'],
-                    $contact['first_name'],
-                    $contact['last_name'],
-                    $contact['email'],
-                    $contact['phone'],
-                    $contact['company'],
+                $contact['first_name'],
+                $contact['last_name'],
+                $contact['email'],
+                $contact['phone'],
+                $contact['company'],
                 $contact['position'],
-                    $contact['status'],
-                    $contact['created_at']
-                ]);
-            }
-            
-            fclose($output);
+                $contact['status'],
+                $contact['created_at']
+            ];
+        }
+        
+        return [
+            'success' => true,
+            'data' => $output,
+            'filename' => $filename
+        ];
     }
 } 
 ?> 
