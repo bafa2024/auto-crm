@@ -1,9 +1,21 @@
 <?php
 // Application Configuration
+//if local
+if (strpos($_SERVER['HTTP_HOST'], 'localhost') !== false) {
 define('DB_HOST', 'localhost');
 define('DB_NAME', 'autocrm');
 define('DB_USER', 'root');
 define('DB_PASS', '');
+} else {
+  
+
+    define('DB_HOST', 'localhost');
+    define('DB_NAME', 'u946493694_autocrm');
+    define('DB_USER', 'u946493694_autocrmu');
+    define('DB_PASS', 'CDExzsawq123@#$');
+}
+
+//
 
 // Application settings
 define('APP_NAME', 'AutoDial Pro CRM');
