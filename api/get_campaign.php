@@ -48,23 +48,58 @@ try {
                 cs.sent_at
                 FROM email_recipients r
                 LEFT JOIN campaign_sends cs ON r.id = cs.recipient_id AND cs.campaign_id = ?
-                WHERE r.campaign_id = ?
-                AND (cs.id IS NULL OR cs.status != 'sent')
-                GROUP BY r.id, r.email
+                WHERE (cs.id IS NULL OR cs.status != 'sent')
                 ORDER BY r.created_at DESC";
         
         $stmt = $db->prepare($sql);
-        $stmt->execute([$campaignId, $campaignId]);
+        $stmt->execute([$campaignId]);
         $recipients = $stmt->fetchAll(PDO::FETCH_ASSOC);
         
         // Also get count of unique unsent emails
         $countSql = "SELECT COUNT(DISTINCT LOWER(r.email)) as unique_unsent
                      FROM email_recipients r
                      LEFT JOIN campaign_sends cs ON r.id = cs.recipient_id AND cs.campaign_id = ? AND cs.status = 'sent'
-                     WHERE r.campaign_id = ? AND cs.id IS NULL";
+                     WHERE cs.id IS NULL";
         $countStmt = $db->prepare($countSql);
-        $countStmt->execute([$campaignId, $campaignId]);
+        $countStmt->execute([$campaignId]);
         $uniqueUnsentCount = $countStmt->fetch(PDO::FETCH_ASSOC)['unique_unsent'];
+    }
+    
+    // If recipients=all is requested, return all contacts
+    if (isset($_GET['recipients']) && $_GET['recipients'] === 'all') {
+        $db = $database->getConnection();
+        
+        // Get all contacts from email_recipients table
+        $sql = "SELECT DISTINCT r.id, r.email, r.name, r.company, r.created_at,
+                CASE 
+                    WHEN cs.id IS NULL THEN 'never_sent'
+                    WHEN cs.status = 'failed' THEN 'failed'
+                    WHEN cs.status = 'sent' THEN 'sent'
+                    ELSE 'pending'
+                END as send_status,
+                cs.sent_at
+                FROM email_recipients r
+                LEFT JOIN campaign_sends cs ON r.id = cs.recipient_id AND cs.campaign_id = ?
+                ORDER BY r.created_at DESC";
+        
+        $stmt = $db->prepare($sql);
+        $stmt->execute([$campaignId]);
+        $recipients = $stmt->fetchAll(PDO::FETCH_ASSOC);
+        
+        // Get total count
+        $countSql = "SELECT COUNT(*) as total_contacts FROM email_recipients";
+        $countStmt = $db->prepare($countSql);
+        $countStmt->execute();
+        $totalContacts = $countStmt->fetch(PDO::FETCH_ASSOC)['total_contacts'];
+        
+        // Get count of unique emails for this campaign that haven't been sent
+        $unsentCountSql = "SELECT COUNT(DISTINCT LOWER(r.email)) as unique_unsent
+                          FROM email_recipients r
+                          LEFT JOIN campaign_sends cs ON r.id = cs.recipient_id AND cs.campaign_id = ? AND cs.status = 'sent'
+                          WHERE cs.id IS NULL";
+        $unsentCountStmt = $db->prepare($unsentCountSql);
+        $unsentCountStmt->execute([$campaignId]);
+        $uniqueUnsentCount = $unsentCountStmt->fetch(PDO::FETCH_ASSOC)['unique_unsent'];
     }
 
     if ($campaign) {
@@ -76,6 +111,12 @@ try {
             $response['recipients'] = $recipients;
             $response['unique_unsent_count'] = $uniqueUnsentCount ?? 0;
             $response['total_unsent'] = count($recipients);
+        }
+        if (isset($_GET['recipients']) && $_GET['recipients'] === 'all') {
+            $response['recipients'] = $recipients;
+            $response['unique_unsent_count'] = $uniqueUnsentCount ?? 0;
+            $response['total_contacts'] = count($recipients);
+            $response['total_unsent'] = count(array_filter($recipients, function($r) { return $r['send_status'] !== 'sent'; }));
         }
         echo json_encode($response);
     } else {

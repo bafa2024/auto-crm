@@ -701,21 +701,22 @@ try {
                     <input type="hidden" name="campaign_id" id="send_campaign_id">
                     <div class="modal-body">
                         <div class="alert alert-info mb-3">
-                            <i class="bi bi-info-circle"></i> <strong>Automatic Duplicate Prevention:</strong><br>
-                            • Each batch contains only unique email addresses (case-insensitive)<br>
-                            • Already sent emails are automatically excluded<br>
-                            • Maximum 200 fresh, unique emails per batch
+                            <i class="bi bi-info-circle"></i> <strong>Recipient Selection:</strong><br>
+                            • Select contacts from your contact list to send this campaign<br>
+                            • Contacts already sent this campaign are marked as "Already Sent"<br>
+                            • Failed contacts can be re-selected to retry sending<br>
+                            • Use search to quickly find specific contacts
                         </div>
                         <div class="mb-3">
                             <div class="d-flex justify-content-between align-items-center mb-2">
                                 <label class="form-label mb-0">Select Recipients</label>
-                                <small class="text-muted" id="totalRecipientsCount">0 unsent recipients</small>
+                                <small class="text-muted" id="totalRecipientsCount">0 contacts</small>
                             </div>
                             
                             <!-- Search and Select All -->
                             <div class="row mb-3">
                                 <div class="col-md-8">
-                                    <input type="text" class="form-control" id="recipientSearch" placeholder="Search recipients by email, name, or company...">
+                                    <input type="text" class="form-control" id="recipientSearch" placeholder="Search contacts by email, name, or company...">
                                 </div>
                                 <div class="col-md-4">
                                     <button type="button" class="btn btn-outline-primary btn-sm" onclick="selectAllRecipients()">
@@ -729,7 +730,7 @@ try {
                             
                             <!-- Selected Count -->
                             <div class="mb-2">
-                                <small class="text-primary" id="selectedCount">0 recipients selected</small>
+                                <small class="text-primary" id="selectedCount">0 contacts selected</small>
                                 <small class="text-muted ms-3" id="searchResultInfo" style="display: none;"></small>
                             </div>
                             
@@ -1191,32 +1192,42 @@ try {
                     }
                 });
             
-            // Fetch unsent recipients via AJAX
-            fetch('api/get_campaign.php?id=' + campaignId + '&recipients=unsent')
-                .then(response => response.json())
+            // Fetch all contacts to allow selection
+            fetch('api/get_campaign.php?id=' + campaignId + '&recipients=all')
+                .then(response => {
+                    console.log('API Response status:', response.status);
+                    return response.json();
+                })
                 .then(data => {
+                    console.log('API Response data:', data);
                     const recipientsList = document.getElementById('recipientsList');
                     const totalRecipientsCount = document.getElementById('totalRecipientsCount');
                     recipientsList.innerHTML = '';
                     let recipients = data.recipients || [];
                     
+                    console.log('Recipients array:', recipients);
+                    console.log('Recipients length:', recipients.length);
+                    
                     // Update count display with more detail
-                    const totalUnsent = data.total_unsent || recipients.length;
+                    const totalContacts = recipients.length;
                     const uniqueUnsent = data.unique_unsent_count || 0;
-                    totalRecipientsCount.innerHTML = `<strong>${totalUnsent}</strong> unsent recipients (<strong>${uniqueUnsent}</strong> unique emails)`;
+                    totalRecipientsCount.innerHTML = `<strong>${totalContacts}</strong> total contacts (<strong>${uniqueUnsent}</strong> not yet sent this campaign)`;
                     
                     if (recipients.length === 0) {
                         recipientsList.innerHTML = `
                             <div class="text-center py-4">
-                                <i class="bi bi-check-circle text-success display-4"></i>
-                                <p class="mt-3 mb-0">All recipients have already been sent this campaign!</p>
-                                <small class="text-muted">No unsent recipients found.</small>
+                                <i class="bi bi-inbox text-muted display-4"></i>
+                                <p class="mt-3 mb-0">No contacts found!</p>
+                                <small class="text-muted">Please add contacts first before sending campaigns.</small>
                             </div>
                         `;
                         // Disable send button if no recipients
                         document.querySelector('#sendCampaignForm button[type="submit"]').disabled = true;
                         return;
                     }
+                    
+                    // Enable send button
+                    document.querySelector('#sendCampaignForm button[type="submit"]').disabled = false;
                     
                     // Show only first 100 recipients
                     const displayLimit = 100;
@@ -1227,13 +1238,20 @@ try {
                         div.className = 'recipient-item';
                         if (recipient.send_status === 'failed') {
                             div.className += ' border-warning';
+                        } else if (recipient.send_status === 'sent') {
+                            div.className += ' border-success';
                         }
                         div.setAttribute('onclick', `toggleRecipient(${recipient.id})`);
                         div.setAttribute('data-search', (recipient.email + ' ' + (recipient.name || '') + ' ' + (recipient.company || '')).toLowerCase());
                         
-                        const statusBadge = recipient.send_status === 'failed' 
-                            ? '<span class="badge bg-warning ms-2">Failed</span>' 
-                            : '<span class="badge bg-info ms-2">Never Sent</span>';
+                        let statusBadge = '';
+                        if (recipient.send_status === 'sent') {
+                            statusBadge = '<span class="badge bg-success ms-2">Already Sent</span>';
+                        } else if (recipient.send_status === 'failed') {
+                            statusBadge = '<span class="badge bg-warning ms-2">Failed</span>';
+                        } else {
+                            statusBadge = '<span class="badge bg-info ms-2">Available</span>';
+                        }
                         
                         div.innerHTML = `<div class="form-check">
                             <input class="form-check-input" type="checkbox" name="recipient_ids[]" value="${recipient.id}" id="recipient_${recipient.id}" onchange="updateSelectedCount()">
@@ -1241,6 +1259,7 @@ try {
                                 <strong>${escapeHtml(recipient.email)}</strong>${statusBadge}
                                 ${recipient.name ? `<br><small class="text-muted">${escapeHtml(recipient.name)}</small>` : ''}
                                 ${recipient.company ? `<br><small class="text-muted">${escapeHtml(recipient.company)}</small>` : ''}
+                                ${recipient.send_status === 'sent' && recipient.sent_at ? `<br><small class="text-success">Sent on: ${new Date(recipient.sent_at).toLocaleDateString()}</small>` : ''}
                                 ${recipient.send_status === 'failed' && recipient.sent_at ? `<br><small class="text-danger">Failed on: ${new Date(recipient.sent_at).toLocaleDateString()}</small>` : ''}
                             </label>
                         </div>`;
@@ -1250,10 +1269,22 @@ try {
                     if (recipients.length > displayLimit) {
                         const info = document.createElement('div');
                         info.className = 'alert alert-info mt-3';
-                        info.innerHTML = `<i class="bi bi-info-circle"></i> Showing first ${displayLimit} of ${recipients.length} unsent recipients. Use search to find specific recipients or click "Send to All" to send to all ${uniqueUnsent} unique emails.`;
+                        info.innerHTML = `<i class="bi bi-info-circle"></i> Showing first ${displayLimit} of ${recipients.length} contacts. Use search to find specific contacts or use the selection buttons above.`;
                         recipientsList.appendChild(info);
                     }
                     updateSelectedCount();
+                })
+                .catch(error => {
+                    console.error('Error fetching contacts:', error);
+                    const recipientsList = document.getElementById('recipientsList');
+                    recipientsList.innerHTML = `
+                        <div class="text-center py-4">
+                            <i class="bi bi-exclamation-triangle text-warning display-4"></i>
+                            <p class="mt-3 mb-0">Error loading contacts!</p>
+                            <small class="text-muted">Error: ${error.message}</small>
+                            <br><button class="btn btn-sm btn-outline-primary mt-2" onclick="location.reload()">Refresh Page</button>
+                        </div>
+                    `;
                 });
             new bootstrap.Modal(document.getElementById('sendCampaignModal')).show();
         }
@@ -1354,7 +1385,7 @@ try {
         function updateSelectedCount() {
             const checkboxes = document.querySelectorAll('input[name="recipient_ids[]"]:checked');
             const countElement = document.getElementById('selectedCount');
-            countElement.textContent = checkboxes.length + ' recipients selected';
+            countElement.textContent = checkboxes.length + ' contacts selected';
         }
         
         function selectAllRecipients() {
