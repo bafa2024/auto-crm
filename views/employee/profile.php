@@ -49,6 +49,24 @@ include __DIR__ . "/../components/header.php";
         .sidebar .nav-link.active {
             background-color: #007bff;
         }
+        
+        /* Permission Item Styling */
+        .permission-item {
+            font-size: 0.9rem;
+            padding: 5px 0;
+        }
+        
+        .permission-item i {
+            font-size: 1rem;
+        }
+        
+        .permission-list {
+            background: #f8f9fa;
+            padding: 15px;
+            border-radius: 8px;
+            border: 1px solid #e9ecef;
+        }
+        }
     </style>
 </head>
 <body>
@@ -160,48 +178,100 @@ include __DIR__ . "/../components/header.php";
                             <div class="card-body">
                                 <div class="mb-3">
                                     <h6 class="text-muted">Campaign Permissions</h6>
-                                    <div class="small">
-                                        <?php if (hasPermission($permissions, 'can_create_campaigns')): ?>
-                                            <div class="text-success mb-1">
-                                                <i class="fas fa-check"></i> Create Campaigns
-                                            </div>
-                                        <?php endif; ?>
-                                        <?php if (hasPermission($permissions, 'can_send_campaigns')): ?>
-                                            <div class="text-success mb-1">
-                                                <i class="fas fa-check"></i> Send Campaigns
-                                            </div>
-                                        <?php endif; ?>
-                                        <?php if (hasPermission($permissions, 'can_edit_campaigns')): ?>
-                                            <div class="text-success mb-1">
-                                                <i class="fas fa-check"></i> Edit Campaigns
-                                            </div>
-                                        <?php endif; ?>
-                                        <?php if (hasPermission($permissions, 'can_delete_campaigns')): ?>
-                                            <div class="text-success mb-1">
-                                                <i class="fas fa-check"></i> Delete Campaigns
-                                            </div>
-                                        <?php endif; ?>
-                                        <?php if (hasPermission($permissions, 'can_view_all_campaigns')): ?>
-                                            <div class="text-success mb-1">
-                                                <i class="fas fa-check"></i> View All Campaigns
-                                            </div>
-                                        <?php endif; ?>
+                                    <div class="permission-list">
+                                        <div class="permission-item d-flex align-items-center mb-2">
+                                            <?php if (hasPermission($permissions, 'can_create_campaigns')): ?>
+                                                <i class="fas fa-check-circle text-success me-2"></i>
+                                                <span class="text-success">Create Campaigns</span>
+                                            <?php else: ?>
+                                                <i class="fas fa-times-circle text-muted me-2"></i>
+                                                <span class="text-muted">Create Campaigns</span>
+                                            <?php endif; ?>
+                                        </div>
+                                        <div class="permission-item d-flex align-items-center mb-2">
+                                            <?php if (hasPermission($permissions, 'can_send_campaigns')): ?>
+                                                <i class="fas fa-check-circle text-success me-2"></i>
+                                                <span class="text-success">Send Campaigns</span>
+                                            <?php else: ?>
+                                                <i class="fas fa-times-circle text-muted me-2"></i>
+                                                <span class="text-muted">Send Campaigns</span>
+                                            <?php endif; ?>
+                                        </div>
+                                        <div class="permission-item d-flex align-items-center mb-2">
+                                            <?php if (hasPermission($permissions, 'can_edit_campaigns')): ?>
+                                                <i class="fas fa-check-circle text-success me-2"></i>
+                                                <span class="text-success">Edit Campaigns</span>
+                                            <?php else: ?>
+                                                <i class="fas fa-times-circle text-muted me-2"></i>
+                                                <span class="text-muted">Edit Campaigns</span>
+                                            <?php endif; ?>
+                                        </div>
+                                        <div class="permission-item d-flex align-items-center mb-2">
+                                            <?php if (hasPermission($permissions, 'can_delete_campaigns')): ?>
+                                                <i class="fas fa-check-circle text-success me-2"></i>
+                                                <span class="text-success">Delete Campaigns</span>
+                                            <?php else: ?>
+                                                <i class="fas fa-times-circle text-muted me-2"></i>
+                                                <span class="text-muted">Delete Campaigns</span>
+                                            <?php endif; ?>
+                                        </div>
+                                        <div class="permission-item d-flex align-items-center mb-2">
+                                            <?php if (hasPermission($permissions, 'can_view_all_campaigns')): ?>
+                                                <i class="fas fa-check-circle text-success me-2"></i>
+                                                <span class="text-success">View All Campaigns</span>
+                                            <?php else: ?>
+                                                <i class="fas fa-times-circle text-muted me-2"></i>
+                                                <span class="text-muted">View All Campaigns</span>
+                                            <?php endif; ?>
+                                        </div>
                                     </div>
                                 </div>
                                 
                                 <div class="mb-3">
                                     <h6 class="text-muted">Contact Permissions</h6>
-                                    <div class="small">
-                                        <?php if (hasPermission($permissions, 'can_upload_contacts')): ?>
-                                            <div class="text-success mb-1">
-                                                <i class="fas fa-check"></i> Manage Contacts
-                                            </div>
-                                        <?php endif; ?>
-                                        <?php if (hasPermission($permissions, 'can_export_contacts')): ?>
-                                            <div class="text-success mb-1">
-                                                <i class="fas fa-check"></i> Export Contacts
-                                            </div>
-                                        <?php endif; ?>
+                                    <div class="permission-list">
+                                        <div class="permission-item d-flex align-items-center mb-2">
+                                            <?php if (hasPermission($permissions, 'can_upload_contacts')): ?>
+                                                <i class="fas fa-check-circle text-success me-2"></i>
+                                                <span class="text-success">Manage Contacts</span>
+                                            <?php else: ?>
+                                                <i class="fas fa-times-circle text-muted me-2"></i>
+                                                <span class="text-muted">Manage Contacts</span>
+                                            <?php endif; ?>
+                                        </div>
+                                        <div class="permission-item d-flex align-items-center mb-2">
+                                            <?php if (hasPermission($permissions, 'can_export_contacts')): ?>
+                                                <i class="fas fa-check-circle text-success me-2"></i>
+                                                <span class="text-success">Export Contacts</span>
+                                            <?php else: ?>
+                                                <i class="fas fa-times-circle text-muted me-2"></i>
+                                                <span class="text-muted">Export Contacts</span>
+                                            <?php endif; ?>
+                                        </div>
+                                    </div>
+                                </div>
+
+                                <div class="mb-3">
+                                    <h6 class="text-muted">Analytics & Reporting</h6>
+                                    <div class="permission-list">
+                                        <div class="permission-item d-flex align-items-center mb-2">
+                                            <?php if (hasPermission($permissions, 'can_view_analytics')): ?>
+                                                <i class="fas fa-check-circle text-success me-2"></i>
+                                                <span class="text-success">View Analytics</span>
+                                            <?php else: ?>
+                                                <i class="fas fa-times-circle text-muted me-2"></i>
+                                                <span class="text-muted">View Analytics</span>
+                                            <?php endif; ?>
+                                        </div>
+                                        <div class="permission-item d-flex align-items-center mb-2">
+                                            <?php if (hasPermission($permissions, 'can_generate_reports')): ?>
+                                                <i class="fas fa-check-circle text-success me-2"></i>
+                                                <span class="text-success">Generate Reports</span>
+                                            <?php else: ?>
+                                                <i class="fas fa-times-circle text-muted me-2"></i>
+                                                <span class="text-muted">Generate Reports</span>
+                                            <?php endif; ?>
+                                        </div>
                                     </div>
                                 </div>
                                 

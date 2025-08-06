@@ -282,40 +282,6 @@ if (!function_exists('isExactPage')) {
     border-color: #ef4444;
 }
 
-/* Permission Status */
-.permission-status {
-    margin-top: 15px;
-    padding: 15px;
-    background: rgba(255, 255, 255, 0.05);
-    border-radius: 8px;
-    border: 1px solid rgba(255, 255, 255, 0.1);
-}
-
-.permission-status h6 {
-    color: rgba(255, 255, 255, 0.7);
-    font-size: 0.75rem;
-    font-weight: 600;
-    text-transform: uppercase;
-    letter-spacing: 0.05em;
-    margin-bottom: 10px;
-}
-
-.permission-item {
-    display: flex;
-    align-items: center;
-    margin-bottom: 6px;
-    font-size: 0.8rem;
-    color: rgba(255, 255, 255, 0.8);
-}
-
-.permission-item i {
-    margin-right: 8px;
-    font-size: 0.7rem;
-}
-
-.permission-item .text-success {
-    color: #10b981 !important;
-}
 
 /* Responsive */
 @media (max-width: 768px) {
@@ -480,46 +446,7 @@ if (!function_exists('isExactPage')) {
             </div>
         </div>
         
-        <!-- Permission Status -->
-        <div class="permission-status">
-            <h6>Your Permissions</h6>
-            <div class="permission-item">
-                <?php if (hasPermission($permissions, 'can_create_campaigns')): ?>
-                    <i class="bi bi-check-circle text-success"></i>
-                    <span>Create Campaigns</span>
-                <?php else: ?>
-                    <i class="bi bi-x-circle text-muted"></i>
-                    <span>Create Campaigns</span>
-                <?php endif; ?>
-            </div>
-            <div class="permission-item">
-                <?php if (hasPermission($permissions, 'can_send_campaigns')): ?>
-                    <i class="bi bi-check-circle text-success"></i>
-                    <span>Send Campaigns</span>
-                <?php else: ?>
-                    <i class="bi bi-x-circle text-muted"></i>
-                    <span>Send Campaigns</span>
-                <?php endif; ?>
-            </div>
-            <div class="permission-item">
-                <?php if (hasPermission($permissions, 'can_edit_campaigns')): ?>
-                    <i class="bi bi-check-circle text-success"></i>
-                    <span>Edit Campaigns</span>
-                <?php else: ?>
-                    <i class="bi bi-x-circle text-muted"></i>
-                    <span>Edit Campaigns</span>
-                <?php endif; ?>
-            </div>
-            <div class="permission-item">
-                <?php if (hasPermission($permissions, 'can_upload_contacts')): ?>
-                    <i class="bi bi-check-circle text-success"></i>
-                    <span>Manage Contacts</span>
-                <?php else: ?>
-                    <i class="bi bi-x-circle text-muted"></i>
-                    <span>Manage Contacts</span>
-                <?php endif; ?>
-            </div>
-        </div>
+
         
         <a href="<?php echo base_path('employee/logout'); ?>" class="logout-btn" onclick="return confirm('Are you sure you want to logout?')">
             <i class="bi bi-box-arrow-right me-2"></i>
