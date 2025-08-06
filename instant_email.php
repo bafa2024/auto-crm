@@ -7,6 +7,7 @@
 
 session_start();
 require_once __DIR__ . '/config/database.php';
+require_once __DIR__ . '/config/base_path.php';
 require_once __DIR__ . '/services/EmailService.php';
 
 $message = '';
@@ -14,7 +15,7 @@ $error = '';
 
 // Check if user is logged in
 if (!isset($_SESSION['user_id'])) {
-    header('Location: login.php');
+    header('Location: ' . base_path('views/auth/login.php'));
     exit;
 }
 
@@ -89,9 +90,11 @@ try {
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Instant Email - AutoDial Pro</title>
-    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/css/bootstrap.min.css" rel="stylesheet">
-    <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.7.2/font/bootstrap-icons.css" rel="stylesheet">
+    <title>Instant Email - ACRM</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.2/font/bootstrap-icons.min.css">
+    <link rel="stylesheet" href="css/styles.css">
+    <link rel="stylesheet" href="css/sidebar-fix.css">
     <style>
         .email-form {
             background: white;
@@ -133,63 +136,34 @@ try {
         }
     </style>
 </head>
-<body class="bg-light">
+<body>
+
+<!-- Include Sidebar -->
+<?php include 'views/components/sidebar.php'; ?>
+
+<!-- Include Header -->
+<?php include 'views/components/header.php'; ?>
+
+<!-- Main Content Area -->
+<div class="main-content" style="margin-left: 260px; padding: 20px;">
     <div class="container-fluid">
-        <div class="row">
-            <!-- Sidebar -->
-            <div class="col-md-3 col-lg-2 d-md-block bg-dark sidebar collapse" style="min-height: 100vh;">
-                <div class="position-sticky pt-3">
-                    <div class="d-flex align-items-center mb-3 px-3">
-                        <i class="bi bi-envelope-fill text-primary me-2"></i>
-                        <h6 class="text-white mb-0">AutoDial Pro</h6>
-                    </div>
-                    <ul class="nav flex-column">
-                        <li class="nav-item">
-                            <a class="nav-link text-white-50" href="dashboard/">
-                                <i class="bi bi-speedometer2 me-2"></i>
-                                Dashboard
-                            </a>
-                        </li>
-                        <li class="nav-item">
-                            <a class="nav-link text-white active" href="instant_email.php">
-                                <i class="bi bi-envelope-plus me-2"></i>
-                                Instant Email
-                            </a>
-                        </li>
-                        <li class="nav-item">
-                            <a class="nav-link text-white-50" href="campaigns.php">
-                                <i class="bi bi-megaphone me-2"></i>
-                                Campaigns
-                            </a>
-                        </li>
-                        <li class="nav-item">
-                            <a class="nav-link text-white-50" href="contacts.php">
-                                <i class="bi bi-people me-2"></i>
-                                Contacts
-                            </a>
-                        </li>
-                    </ul>
+        <!-- Page Header -->
+        <div class="d-flex justify-content-between flex-wrap flex-md-nowrap align-items-center pt-3 pb-2 mb-3 border-bottom">
+            <h1 class="h2">
+                <i class="bi bi-envelope-plus me-2 text-primary"></i>
+                Instant Email
+            </h1>
+            <div class="btn-toolbar mb-2 mb-md-0">
+                <div class="btn-group me-2">
+                    <a href="<?php echo base_path('dashboard'); ?>" class="btn btn-sm btn-outline-secondary">
+                        <i class="bi bi-speedometer2 me-1"></i>Dashboard
+                    </a>
+                    <a href="<?php echo base_path('contacts.php'); ?>" class="btn btn-sm btn-outline-secondary">
+                        <i class="bi bi-people me-1"></i>Contacts
+                    </a>
                 </div>
             </div>
-
-            <!-- Main Content -->
-            <div class="col-md-9 col-lg-10 ms-sm-auto px-md-4">
-                <div class="d-flex justify-content-between flex-wrap flex-md-nowrap align-items-center pt-3 pb-2 mb-3 border-bottom">
-                    <h1 class="h2">
-                        <i class="bi bi-envelope-plus me-2 text-primary"></i>
-                        Instant Email
-                    </h1>
-                    <div class="btn-toolbar mb-2 mb-md-0">
-                        <div class="btn-group me-2">
-                            <a href="dashboard/" class="btn btn-sm btn-outline-secondary">
-                                <i class="bi bi-speedometer2 me-1"></i>Dashboard
-                            </a>
-                            <a href="campaigns.php" class="btn btn-sm btn-outline-secondary">
-                                <i class="bi bi-megaphone me-1"></i>Campaigns
-                            </a>
-                        </div>
-                    </div>
-                </div>
+        </div>
 
                 <!-- Messages -->
                 <?php if ($message): ?>
@@ -484,5 +458,11 @@ Best regards,
             }
         });
     </script>
+
+    <!-- Bootstrap JS -->
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/js/bootstrap.bundle.min.js"></script>
+    </div>
+</div>
+
 </body>
 </html> 

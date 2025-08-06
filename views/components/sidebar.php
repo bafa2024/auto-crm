@@ -72,13 +72,15 @@ $currentUri = $_SERVER['REQUEST_URI'] ?? '';
 .sidebar-nav {
     padding: 0 12px;
     /* Add bottom padding to prevent overlap with profile section */
-    padding-bottom: 20px;
+    padding-bottom: 140px; /* Increased to ensure enough space above profile */
     /* Make it scrollable if content is too long */
     flex: 1;
-    overflow-y: scroll; /* Changed from auto to scroll to always show scrollbar */
+    overflow-y: auto; /* Changed to auto for better UX */
     overflow-x: hidden;
     /* Add right padding for scrollbar */
     padding-right: 8px;
+    /* Ensure scrolling to bottom works */
+    height: calc(100vh - 100px); /* Calculate height accounting for logo */
 }
 
 /* Custom scrollbar for navigation */
@@ -113,7 +115,7 @@ $currentUri = $_SERVER['REQUEST_URI'] ?? '';
 }
 
 .nav-section:last-child {
-    margin-bottom: 30px;
+    margin-bottom: 50px; /* Increased to ensure last items are visible when scrolled */
 }
 
 .nav-section-title {
@@ -301,7 +303,7 @@ $currentUri = $_SERVER['REQUEST_URI'] ?? '';
             <span class="logo-icon">
                 <i class="bi bi-telephone-fill"></i>
             </span>
-            AutoDial Pro
+            ACRM
         </h5>
     </div>
     
@@ -324,6 +326,12 @@ $currentUri = $_SERVER['REQUEST_URI'] ?? '';
                     </a>
                 </li>
                 <li class="nav-item">
+                    <a class="sidebar-link <?php echo strpos($currentUri, '/campaigns.php') !== false ? 'active' : ''; ?>" href="<?php echo base_path('campaigns.php'); ?>">
+                        <i class="bi bi-megaphone"></i>
+                        <span>Campaigns</span>
+                    </a>
+                </li>
+                <li class="nav-item">
                     <a class="sidebar-link <?php echo strpos($currentUri, '/instant_email.php') !== false ? 'active' : ''; ?>" href="<?php echo base_path('instant_email.php'); ?>">
                         <i class="bi bi-envelope-plus"></i>
                         <span>Instant Email</span>
@@ -342,13 +350,7 @@ $currentUri = $_SERVER['REQUEST_URI'] ?? '';
                         <span>Employees</span>
                     </a>
                 </li>
-                <li class="nav-item">
-                    <a class="sidebar-link" href="#" onclick="showComingSoon('Auto Dialer')">
-                        <i class="bi bi-telephone-outbound"></i>
-                        <span>Auto Dialer</span>
-                        <span class="nav-badge">Soon</span>
-                    </a>
-                </li>
+           
                 <li class="nav-item">
                     <a class="sidebar-link" href="#" onclick="showComingSoon('Analytics')">
                         <i class="bi bi-graph-up-arrow"></i>
