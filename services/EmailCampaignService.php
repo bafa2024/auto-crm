@@ -643,11 +643,11 @@ class EmailCampaignService {
                 ];
             }
             
-            // Check if campaign can be edited (not sent/completed)
-            if (in_array($existingCampaign['status'], ['completed', 'sending'])) {
+            // Check if campaign can be edited (only block if currently sending)
+            if (in_array($existingCampaign['status'], ['sending'])) {
                 return [
                     'success' => false,
-                    'message' => 'Cannot edit campaign that is already sent or in progress'
+                    'message' => 'Cannot edit campaign that is currently in progress'
                 ];
             }
             
