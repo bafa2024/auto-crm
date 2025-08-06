@@ -519,22 +519,29 @@ function exportContacts($contactController) {
         // Get contact IDs from POST data
         $contactIds = $_POST['contact_ids'] ?? [];
         
-        if (empty($contactIds)) {
-            http_response_code(400);
-            echo json_encode(['error' => 'No contacts selected for export']);
-            return;
-        }
-        
+        // If no IDs provided, export all contacts
         $result = $contactController->exportContacts($contactIds);
         
         if ($result['success']) {
+            // Clear any output buffers
+            if (ob_get_level()) {
+                ob_end_clean();
+            }
+            
             // Set headers for Excel file download
             header('Content-Type: application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
             header('Content-Disposition: attachment; filename="' . $result['filename'] . '"');
             header('Content-Length: ' . strlen($result['content']));
             header('Cache-Control: max-age=0');
+            header('Cache-Control: max-age=1');
+            header('Expires: Mon, 26 Jul 1997 05:00:00 GMT');
+            header('Last-Modified: ' . gmdate('D, d M Y H:i:s') . ' GMT');
+            header('Cache-Control: cache, must-revalidate');
+            header('Pragma: public');
             
+            // Output the file content
             echo $result['content'];
+            exit();
         } else {
             http_response_code(400);
             echo json_encode(['error' => $result['message']]);

@@ -1031,17 +1031,31 @@ class ContactController extends BaseController {
             
             $spreadsheet = new \PhpOffice\PhpSpreadsheet\Spreadsheet();
             $sheet = $spreadsheet->getActiveSheet();
+            $sheet->setTitle('Contacts Export');
             
             // Set headers
-            $headers = ['ID', 'Name', 'Email', 'Company', 'DOT', 'Created At'];
+            $headers = ['ID', 'Name', 'Email', 'Company', 'DOT Number', 'Created Date'];
             $sheet->fromArray($headers, null, 'A1');
             
             // Style headers
             $headerStyle = [
-                'font' => ['bold' => true],
+                'font' => [
+                    'bold' => true,
+                    'color' => ['rgb' => 'FFFFFF']
+                ],
                 'fill' => [
                     'fillType' => \PhpOffice\PhpSpreadsheet\Style\Fill::FILL_SOLID,
-                    'startColor' => ['rgb' => 'E3F2FD']
+                    'startColor' => ['rgb' => '4472C4']
+                ],
+                'alignment' => [
+                    'horizontal' => \PhpOffice\PhpSpreadsheet\Style\Alignment::HORIZONTAL_CENTER,
+                    'vertical' => \PhpOffice\PhpSpreadsheet\Style\Alignment::VERTICAL_CENTER
+                ],
+                'borders' => [
+                    'allBorders' => [
+                        'borderStyle' => \PhpOffice\PhpSpreadsheet\Style\Border::BORDER_THIN,
+                        'color' => ['rgb' => '000000']
+                    ]
                 ]
             ];
             $sheet->getStyle('A1:F1')->applyFromArray($headerStyle);
@@ -1050,11 +1064,22 @@ class ContactController extends BaseController {
             $row = 2;
             foreach ($contacts as $contact) {
                 $sheet->setCellValue('A' . $row, $contact['id']);
-                $sheet->setCellValue('B' . $row, $contact['name'] ?? '');
-                $sheet->setCellValue('C' . $row, $contact['email'] ?? '');
-                $sheet->setCellValue('D' . $row, $contact['company'] ?? '');
-                $sheet->setCellValue('E' . $row, $contact['dot'] ?? '');
-                $sheet->setCellValue('F' . $row, $contact['created_at'] ?? '');
+                $sheet->setCellValue('B' . $row, $contact['name'] ?? 'N/A');
+                $sheet->setCellValue('C' . $row, $contact['email'] ?? 'N/A');
+                $sheet->setCellValue('D' . $row, $contact['company'] ?? 'N/A');
+                $sheet->setCellValue('E' . $row, $contact['dot'] ?? 'N/A');
+                $sheet->setCellValue('F' . $row, $contact['created_at'] ?? 'N/A');
+                
+                // Apply border to data rows
+                $sheet->getStyle('A' . $row . ':F' . $row)->applyFromArray([
+                    'borders' => [
+                        'allBorders' => [
+                            'borderStyle' => \PhpOffice\PhpSpreadsheet\Style\Border::BORDER_THIN,
+                            'color' => ['rgb' => 'CCCCCC']
+                        ]
+                    ]
+                ]);
+                
                 $row++;
             }
             
@@ -1063,8 +1088,19 @@ class ContactController extends BaseController {
                 $sheet->getColumnDimension($column)->setAutoSize(true);
             }
             
-            // Generate filename
-            $filename = 'contacts_export_' . date('Y-m-d_H-i-s') . '.xlsx';
+            // Set additional properties
+            $spreadsheet->getProperties()
+                ->setCreator("ACRM System")
+                ->setLastModifiedBy("ACRM System")
+                ->setTitle("Contacts Export")
+                ->setSubject("Contact Database Export")
+                ->setDescription("Exported contacts from ACRM system")
+                ->setKeywords("contacts export acrm")
+                ->setCategory("Database Export");
+            
+            // Generate filename with timestamp
+            $exportType = empty($contactIds) ? 'all_contacts' : 'selected_contacts';
+            $filename = $exportType . '_export_' . date('Y-m-d_H-i-s') . '.xlsx';
             
             // Create Excel file content
             $writer = new \PhpOffice\PhpSpreadsheet\Writer\Xlsx($spreadsheet);

@@ -1032,57 +1032,91 @@ function exportContacts() {
     // Show loading state
     const exportBtn = document.querySelector('button[onclick="exportContacts()"]');
     const originalText = exportBtn.innerHTML;
-    exportBtn.innerHTML = '<i class="bi bi-hourglass-split me-1"></i>Exporting...';
+    exportBtn.innerHTML = '<i class="bi bi-hourglass-split me-1"></i>Downloading...';
     exportBtn.disabled = true;
     
-    // Create form and submit to trigger download
-    const form = document.createElement('form');
-    form.method = 'POST';
-    form.action = 'api/contacts_api.php?action=export_contacts';
-    form.style.display = 'none';
-    
-    // Add contact IDs as hidden inputs
+    // Use fetch to get the file and trigger download
+    const formData = new FormData();
     contactIds.forEach(id => {
-        const input = document.createElement('input');
-        input.type = 'hidden';
-        input.name = 'contact_ids[]';
-        input.value = id;
-        form.appendChild(input);
+        formData.append('contact_ids[]', id);
     });
     
-    document.body.appendChild(form);
-    form.submit();
-    document.body.removeChild(form);
-    
-    // Reset button state after a delay
-    setTimeout(() => {
+    fetch('api/contacts_api.php?action=export_contacts', {
+        method: 'POST',
+        body: formData
+    })
+    .then(response => {
+        if (response.ok) {
+            return response.blob();
+        }
+        throw new Error('Export failed');
+    })
+    .then(blob => {
+        // Create download link
+        const url = window.URL.createObjectURL(blob);
+        const link = document.createElement('a');
+        link.href = url;
+        link.download = `contacts_export_${new Date().toISOString().slice(0,10)}.xlsx`;
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+        window.URL.revokeObjectURL(url);
+        
+        // Show success message
+        alert(`Successfully exported ${selectedContacts.length} contacts!`);
+    })
+    .catch(error => {
+        console.error('Export error:', error);
+        alert('Failed to export contacts. Please try again.');
+    })
+    .finally(() => {
+        // Reset button state
         exportBtn.innerHTML = originalText;
         exportBtn.disabled = false;
-    }, 2000);
+    });
 }
 
 function exportAllContacts() {
     // Show loading state
     const exportBtn = document.querySelector('button[onclick="exportContacts()"]');
     const originalText = exportBtn.innerHTML;
-    exportBtn.innerHTML = '<i class="bi bi-hourglass-split me-1"></i>Exporting All...';
+    exportBtn.innerHTML = '<i class="bi bi-hourglass-split me-1"></i>Downloading All...';
     exportBtn.disabled = true;
     
-    // Create form without contact IDs to export all
-    const form = document.createElement('form');
-    form.method = 'POST';
-    form.action = 'api/contacts_api.php?action=export_contacts';
-    form.style.display = 'none';
-    
-    document.body.appendChild(form);
-    form.submit();
-    document.body.removeChild(form);
-    
-    // Reset button state after a delay
-    setTimeout(() => {
+    // Use fetch to get all contacts and trigger download
+    fetch('api/contacts_api.php?action=export_contacts', {
+        method: 'POST',
+        body: new FormData() // Empty form data means export all
+    })
+    .then(response => {
+        if (response.ok) {
+            return response.blob();
+        }
+        throw new Error('Export failed');
+    })
+    .then(blob => {
+        // Create download link
+        const url = window.URL.createObjectURL(blob);
+        const link = document.createElement('a');
+        link.href = url;
+        link.download = `all_contacts_export_${new Date().toISOString().slice(0,10)}.xlsx`;
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+        window.URL.revokeObjectURL(url);
+        
+        // Show success message
+        alert('Successfully exported all contacts!');
+    })
+    .catch(error => {
+        console.error('Export error:', error);
+        alert('Failed to export contacts. Please try again.');
+    })
+    .finally(() => {
+        // Reset button state
         exportBtn.innerHTML = originalText;
         exportBtn.disabled = false;
-    }, 2000);
+    });
 }
 
 // Form submission - Simple working version
