@@ -1002,35 +1002,91 @@ class ContactController extends BaseController {
         return $stats;
     }
 
-    public function exportContacts() {
-        // This method is not used in the API, so we'll return data instead of outputting
-        $contacts = $this->contactModel->all();
-        
-        $filename = 'contacts_export_' . date('Y-m-d_H-i-s') . '.csv';
-        
-        // Return data instead of outputting headers
-        $output = [];
-        $output[] = ['ID', 'First Name', 'Last Name', 'Email', 'Phone', 'Company', 'Position', 'Status', 'Created At'];
-        
-        foreach ($contacts as $contact) {
-            $output[] = [
-                $contact['id'],
-                $contact['first_name'],
-                $contact['last_name'],
-                $contact['email'],
-                $contact['phone'],
-                $contact['company'],
-                $contact['position'],
-                $contact['status'],
-                $contact['created_at']
+    public function exportContacts($contactIds = []) {
+        try {
+            // If no specific IDs provided, export all contacts
+            if (empty($contactIds)) {
+                $sql = "SELECT * FROM email_recipients ORDER BY created_at DESC";
+                $stmt = $this->db->prepare($sql);
+                $stmt->execute();
+            } else {
+                // Export specific contacts
+                $placeholders = str_repeat('?,', count($contactIds) - 1) . '?';
+                $sql = "SELECT * FROM email_recipients WHERE id IN ($placeholders) ORDER BY created_at DESC";
+                $stmt = $this->db->prepare($sql);
+                $stmt->execute($contactIds);
+            }
+            
+            $contacts = $stmt->fetchAll(PDO::FETCH_ASSOC);
+            
+            if (empty($contacts)) {
+                return [
+                    'success' => false,
+                    'message' => 'No contacts found to export'
+                ];
+            }
+            
+            // Create Excel file using PhpSpreadsheet
+            require_once __DIR__ . '/../vendor/autoload.php';
+            
+            $spreadsheet = new \PhpOffice\PhpSpreadsheet\Spreadsheet();
+            $sheet = $spreadsheet->getActiveSheet();
+            
+            // Set headers
+            $headers = ['ID', 'Name', 'Email', 'Company', 'DOT', 'Created At'];
+            $sheet->fromArray($headers, null, 'A1');
+            
+            // Style headers
+            $headerStyle = [
+                'font' => ['bold' => true],
+                'fill' => [
+                    'fillType' => \PhpOffice\PhpSpreadsheet\Style\Fill::FILL_SOLID,
+                    'startColor' => ['rgb' => 'E3F2FD']
+                ]
+            ];
+            $sheet->getStyle('A1:F1')->applyFromArray($headerStyle);
+            
+            // Add data
+            $row = 2;
+            foreach ($contacts as $contact) {
+                $sheet->setCellValue('A' . $row, $contact['id']);
+                $sheet->setCellValue('B' . $row, $contact['name'] ?? '');
+                $sheet->setCellValue('C' . $row, $contact['email'] ?? '');
+                $sheet->setCellValue('D' . $row, $contact['company'] ?? '');
+                $sheet->setCellValue('E' . $row, $contact['dot'] ?? '');
+                $sheet->setCellValue('F' . $row, $contact['created_at'] ?? '');
+                $row++;
+            }
+            
+            // Auto-resize columns
+            foreach (range('A', 'F') as $column) {
+                $sheet->getColumnDimension($column)->setAutoSize(true);
+            }
+            
+            // Generate filename
+            $filename = 'contacts_export_' . date('Y-m-d_H-i-s') . '.xlsx';
+            
+            // Create Excel file content
+            $writer = new \PhpOffice\PhpSpreadsheet\Writer\Xlsx($spreadsheet);
+            
+            // Capture output
+            ob_start();
+            $writer->save('php://output');
+            $content = ob_get_clean();
+            
+            return [
+                'success' => true,
+                'content' => $content,
+                'filename' => $filename,
+                'count' => count($contacts)
+            ];
+            
+        } catch (Exception $e) {
+            return [
+                'success' => false,
+                'message' => 'Export failed: ' . $e->getMessage()
             ];
         }
-        
-        return [
-            'success' => true,
-            'data' => $output,
-            'filename' => $filename
-        ];
     }
 } 
 ?> 

@@ -1013,8 +1013,76 @@ function bulkDelete() {
 }
 
 function exportContacts() {
-    console.log('Export contacts');
-    // Implement export functionality
+    const selectedContacts = document.querySelectorAll('.contact-checkbox:checked');
+    
+    if (selectedContacts.length === 0) {
+        // If no contacts selected, ask user if they want to export all
+        if (confirm('No contacts selected. Do you want to export all contacts?')) {
+            // Export all contacts
+            exportAllContacts();
+        } else {
+            alert('Please select contacts to export or choose "Export All"');
+        }
+        return;
+    }
+    
+    // Get selected contact IDs
+    const contactIds = Array.from(selectedContacts).map(checkbox => checkbox.value);
+    
+    // Show loading state
+    const exportBtn = document.querySelector('button[onclick="exportContacts()"]');
+    const originalText = exportBtn.innerHTML;
+    exportBtn.innerHTML = '<i class="bi bi-hourglass-split me-1"></i>Exporting...';
+    exportBtn.disabled = true;
+    
+    // Create form and submit to trigger download
+    const form = document.createElement('form');
+    form.method = 'POST';
+    form.action = 'api/contacts_api.php?action=export_contacts';
+    form.style.display = 'none';
+    
+    // Add contact IDs as hidden inputs
+    contactIds.forEach(id => {
+        const input = document.createElement('input');
+        input.type = 'hidden';
+        input.name = 'contact_ids[]';
+        input.value = id;
+        form.appendChild(input);
+    });
+    
+    document.body.appendChild(form);
+    form.submit();
+    document.body.removeChild(form);
+    
+    // Reset button state after a delay
+    setTimeout(() => {
+        exportBtn.innerHTML = originalText;
+        exportBtn.disabled = false;
+    }, 2000);
+}
+
+function exportAllContacts() {
+    // Show loading state
+    const exportBtn = document.querySelector('button[onclick="exportContacts()"]');
+    const originalText = exportBtn.innerHTML;
+    exportBtn.innerHTML = '<i class="bi bi-hourglass-split me-1"></i>Exporting All...';
+    exportBtn.disabled = true;
+    
+    // Create form without contact IDs to export all
+    const form = document.createElement('form');
+    form.method = 'POST';
+    form.action = 'api/contacts_api.php?action=export_contacts';
+    form.style.display = 'none';
+    
+    document.body.appendChild(form);
+    form.submit();
+    document.body.removeChild(form);
+    
+    // Reset button state after a delay
+    setTimeout(() => {
+        exportBtn.innerHTML = originalText;
+        exportBtn.disabled = false;
+    }, 2000);
 }
 
 // Form submission - Simple working version

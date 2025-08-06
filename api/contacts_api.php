@@ -118,6 +118,9 @@ function handlePostRequest($contactController, $action) {
         case 'bulk_delete':
             bulkDeleteContacts($contactController);
             break;
+        case 'export_contacts':
+            exportContacts($contactController);
+            break;
         default:
             http_response_code(400);
             echo json_encode(['error' => 'Invalid action']);
@@ -507,6 +510,39 @@ function downloadTemplate($contactController) {
     } catch (Exception $e) {
         http_response_code(500);
         echo json_encode(['error' => 'Failed to download template: ' . $e->getMessage()]);
+    }
+}
+
+// Export contacts function
+function exportContacts($contactController) {
+    try {
+        // Get contact IDs from POST data
+        $contactIds = $_POST['contact_ids'] ?? [];
+        
+        if (empty($contactIds)) {
+            http_response_code(400);
+            echo json_encode(['error' => 'No contacts selected for export']);
+            return;
+        }
+        
+        $result = $contactController->exportContacts($contactIds);
+        
+        if ($result['success']) {
+            // Set headers for Excel file download
+            header('Content-Type: application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
+            header('Content-Disposition: attachment; filename="' . $result['filename'] . '"');
+            header('Content-Length: ' . strlen($result['content']));
+            header('Cache-Control: max-age=0');
+            
+            echo $result['content'];
+        } else {
+            http_response_code(400);
+            echo json_encode(['error' => $result['message']]);
+        }
+        
+    } catch (Exception $e) {
+        http_response_code(500);
+        echo json_encode(['error' => 'Failed to export contacts: ' . $e->getMessage()]);
     }
 }
 ?> 
