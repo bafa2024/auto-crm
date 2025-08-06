@@ -295,12 +295,6 @@ try {
                                     </select>
                                 </div>
                                     <div class="col-md-3 mb-3">
-                                        <select class="form-select" id="companyFilter">
-                                            <option value="">All Companies</option>
-                                            <!-- Dynamic company options will be loaded here -->
-                                        </select>
-                                    </div>
-                                    <div class="col-md-3 mb-3">
                                         <select class="form-select" id="sortBy">
                                             <option value="created_at">Sort by Date (Newest)</option>
                                             <option value="name">Sort by Name (A-Z)</option>
@@ -752,14 +746,13 @@ searchInput.addEventListener('keypress', function(e) {
 function performSearch() {
     const searchTerm = document.getElementById('searchInput').value.trim();
     const statusFilter = getCurrentStatusFilter();
-    const companyFilter = getCurrentCompanyFilter();
     const sortBy = document.getElementById('sortBy').value;
     
     // Update filter visual states
     updateFilterVisuals();
     
     // Always use loadContacts which handles both search and filtering
-    loadContacts(1, 50, searchTerm, statusFilter, companyFilter, sortBy);
+    loadContacts(1, 50, searchTerm, statusFilter, '', sortBy);
 }
 
 // Update visual indicators for active filters
@@ -780,14 +773,6 @@ function updateFilterVisuals() {
         statusFilter.classList.remove('filter-active');
     }
     
-    // Check company filter
-    const companyFilter = document.getElementById('companyFilter');
-    if (companyFilter.value) {
-        companyFilter.classList.add('filter-active');
-    } else {
-        companyFilter.classList.remove('filter-active');
-    }
-    
     // Check sort filter (highlight if not default)
     const sortBy = document.getElementById('sortBy');
     if (sortBy.value !== 'created_at') {
@@ -805,7 +790,6 @@ function updateActiveFilterCount() {
     let activeCount = 0;
     if (document.getElementById('searchInput').value.trim()) activeCount++;
     if (document.getElementById('statusFilter').value) activeCount++;
-    if (document.getElementById('companyFilter').value) activeCount++;
     if (document.getElementById('sortBy').value !== 'created_at') activeCount++;
     
     // Find or create the badge element
@@ -828,7 +812,6 @@ function updateActiveFilterCount() {
 
 // Filter functionality - trigger unified search
 document.getElementById('statusFilter').addEventListener('change', performSearch);
-document.getElementById('companyFilter').addEventListener('change', performSearch);
 document.getElementById('sortBy').addEventListener('change', performSearch);
 
 function getCurrentSearchTerm() {
@@ -839,21 +822,15 @@ function getCurrentStatusFilter() {
     return document.getElementById('statusFilter').value;
 }
 
-function getCurrentCompanyFilter() {
-    return document.getElementById('companyFilter').value;
-}
-
 function clearFilters() {
     // Clear all filter inputs
     document.getElementById('searchInput').value = '';
     document.getElementById('statusFilter').value = '';
-    document.getElementById('companyFilter').value = '';
     document.getElementById('sortBy').value = 'created_at';
     
     // Clear visual indicators
     document.getElementById('searchInput').classList.remove('filter-active');
     document.getElementById('statusFilter').classList.remove('filter-active');
-    document.getElementById('companyFilter').classList.remove('filter-active');
     document.getElementById('sortBy').classList.remove('filter-active');
     
     // Hide search help
@@ -1132,11 +1109,10 @@ function updatePagination(pagination) {
 function changePage(page) {
     const searchTerm = getCurrentSearchTerm();
     const statusFilter = getCurrentStatusFilter();
-    const companyFilter = getCurrentCompanyFilter();
     const sortBy = document.getElementById('sortBy').value;
     const perPage = parseInt(document.getElementById('perPageSelect')?.value || 50);
     
-    loadContacts(page, perPage, searchTerm, statusFilter, companyFilter, sortBy);
+    loadContacts(page, perPage, searchTerm, statusFilter, '', sortBy);
 }
 
 // Update stats
@@ -1843,7 +1819,7 @@ document.getElementById('importForm').addEventListener('submit', function(e) {
 
 // Change per page
 function changePerPage(perPage) {
-    loadContacts(1, parseInt(perPage), getCurrentSearchTerm(), getCurrentStatusFilter(), getCurrentCompanyFilter(), document.getElementById('sortBy').value);
+    loadContacts(1, parseInt(perPage), getCurrentSearchTerm(), getCurrentStatusFilter(), '', document.getElementById('sortBy').value);
 }
 
 // Initialize tooltips if Bootstrap tooltips are used
