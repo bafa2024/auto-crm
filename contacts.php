@@ -1244,6 +1244,8 @@ function startImport() {
                     Import completed successfully! ${data.imported} contacts imported.
                 </div>
             `;
+            //reload the page
+            window.location.reload();
             
             // Reload contacts after a delay
             setTimeout(() => {
