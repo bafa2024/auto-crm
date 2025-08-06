@@ -329,12 +329,6 @@ $currentUri = $_SERVER['REQUEST_URI'] ?? '';
                         <span>Instant Email</span>
                     </a>
                 </li>
-                <li class="nav-item">
-                    <a class="sidebar-link <?php echo strpos($currentUri, '/campaigns.php') !== false ? 'active' : ''; ?>" href="<?php echo base_path('campaigns.php'); ?>">
-                        <i class="bi bi-megaphone"></i>
-                        <span>Campaigns</span>
-                    </a>
-                </li>
             </ul>
         </div>
         
