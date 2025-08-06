@@ -7,7 +7,7 @@ class ContactController extends BaseController {
         parent::__construct($database);
     }
     
-    public function list_all($page = 1, $per_page = 50, $search = '', $status = '', $company = '') {
+    public function list_all($page = 1, $per_page = 50, $search = '', $status = '', $company = '', $sort_by = 'created_at', $sort_direction = 'DESC') {
         try {
             $offset = ($page - 1) * $per_page;
             
@@ -41,8 +41,17 @@ class ContactController extends BaseController {
             $count_stmt->execute($params);
             $total = $count_stmt->fetch()['total'];
             
+            // Validate and set sort column
+            $allowed_sort_columns = ['name', 'email', 'company', 'dot', 'created_at'];
+            if (!in_array($sort_by, $allowed_sort_columns)) {
+                $sort_by = 'created_at';
+            }
+            
+            // Validate sort direction
+            $sort_direction = strtoupper($sort_direction) === 'ASC' ? 'ASC' : 'DESC';
+            
             // Get all contacts with pagination
-            $sql = "SELECT * FROM email_recipients $where_clause ORDER BY created_at DESC LIMIT $per_page OFFSET $offset";
+            $sql = "SELECT * FROM email_recipients $where_clause ORDER BY $sort_by $sort_direction LIMIT $per_page OFFSET $offset";
             
             $stmt = $this->db->prepare($sql);
             $stmt->execute($params);

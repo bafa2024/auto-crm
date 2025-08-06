@@ -162,8 +162,10 @@ function getAllContacts($contactController) {
         $search = $_GET['search'] ?? '';
         $status = $_GET['status'] ?? '';
         $company = $_GET['company'] ?? '';
+        $sort_by = $_GET['sort_by'] ?? 'created_at';
+        $sort_direction = $_GET['sort_direction'] ?? 'DESC';
         
-        $result = $contactController->list_all($page, $per_page, $search, $status, $company);
+        $result = $contactController->list_all($page, $per_page, $search, $status, $company, $sort_by, $sort_direction);
         
         if ($result['success']) {
             echo json_encode($result);
@@ -182,7 +184,7 @@ function getAllContacts($contactController) {
 function getContactsList($contactController) {
     try {
         $page = max(1, intval($_GET['page'] ?? 1));
-        $per_page = max(1, min(100, intval($_GET['per_page'] ?? 10)));
+        $per_page = max(1, min(100, intval($_GET['per_page'] ?? 50)));
         $search = $_GET['search'] ?? '';
         $status = $_GET['status'] ?? '';
         $company = $_GET['company'] ?? '';

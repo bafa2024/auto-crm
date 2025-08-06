@@ -65,6 +65,19 @@ try {
     <link rel="stylesheet" href="css/styles.css">
     <link rel="stylesheet" href="css/sidebar-fix.css">
     <style>
+        /* Loading overlay */
+        .loading-overlay {
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: rgba(255, 255, 255, 0.8);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            z-index: 1000;
+        }
         .contact-avatar {
             width: 40px;
             height: 40px;
@@ -138,6 +151,18 @@ try {
         .pagination-info {
             font-size: 0.875rem;
             color: #6c757d;
+        }
+        .filter-active {
+            background-color: #e7f3ff !important;
+            border-color: #0066cc !important;
+        }
+        .active-filters-badge {
+            background-color: #0066cc;
+            color: white;
+            padding: 4px 8px;
+            border-radius: 12px;
+            font-size: 0.75rem;
+            margin-left: 8px;
         }
     </style>
 </head>
@@ -252,6 +277,9 @@ try {
                                 <div class="search-box">
                                     <i class="bi bi-search"></i>
                                     <input type="text" class="form-control" id="searchInput" placeholder="Search contacts...">
+                                    <div class="form-text" id="searchHelp" style="display: none;">
+                                        <small>Press Enter to search or wait for auto-search</small>
+                                    </div>
                                 </div>
                     </div>
                     
@@ -269,16 +297,16 @@ try {
                                     <div class="col-md-3 mb-3">
                                         <select class="form-select" id="companyFilter">
                                             <option value="">All Companies</option>
-                                            <option value="company1">Company 1</option>
-                                            <option value="company2">Company 2</option>
+                                            <!-- Dynamic company options will be loaded here -->
                                         </select>
                                     </div>
                                     <div class="col-md-3 mb-3">
                                         <select class="form-select" id="sortBy">
-                                            <option value="name">Sort by Name</option>
-                                            <option value="email">Sort by Email</option>
-                                            <option value="company">Sort by Company</option>
-                                            <option value="created">Sort by Created</option>
+                                            <option value="created_at">Sort by Date (Newest)</option>
+                                            <option value="name">Sort by Name (A-Z)</option>
+                                            <option value="email">Sort by Email (A-Z)</option>
+                                            <option value="company">Sort by Company (A-Z)</option>
+                                            <option value="dot">Sort by DOT Number</option>
                                         </select>
                                     </div>
                                     <div class="col-md-3 mb-3">
@@ -339,75 +367,7 @@ try {
                                             <div class="mt-2">Loading contacts...</div>
                                         </td>
                                     </tr>
-                                    <!-- Sample Data -->
-                                    <tr>
-                                        <td>
-                                            <input type="checkbox" class="form-check-input contact-checkbox" value="1">
-                                        </td>
-                                        <td>
-                                            <div class="d-flex align-items-center">
-                                                <div class="contact-avatar me-3">JB</div>
-                                                <div>
-                                                    <div class="fw-bold">John Bell</div>
-                        </div>
-                    </div>
-                                        </td>
-                                        <td>john.bell@example.com</td>
-                                        <td>Bell Trucking Co Inc</td>
-                                        <td>170481</td>
-                                        <td><span class="badge bg-success status-badge">Active</span></td>
-                                        <td>2024-01-15</td>
-                                        <td>
-                                            <div class="action-buttons">
-                                                <button class="btn btn-sm btn-outline-primary" onclick="viewContact(1)" title="View">
-                                                    <i class="bi bi-eye"></i>
-                                                </button>
-                                                <button class="btn btn-sm btn-outline-secondary" onclick="editContact(1)" title="Edit">
-                                                    <i class="bi bi-pencil"></i>
-                                                </button>
-                                                <button class="btn btn-sm btn-outline-info" onclick="viewHistory(1)" title="History">
-                                                    <i class="bi bi-clock-history"></i>
-                                                </button>
-                                                <button class="btn btn-sm btn-outline-danger" onclick="deleteContact(1)" title="Delete">
-                                                    <i class="bi bi-trash"></i>
-                                                </button>
-                                            </div>
-                                            </td>
-                                    </tr>
-                                        <tr>
-                                            <td>
-                                            <input type="checkbox" class="form-check-input contact-checkbox" value="2">
-                                            </td>
-                                            <td>
-                                            <div class="d-flex align-items-center">
-                                                <div class="contact-avatar me-3">JS</div>
-                                                <div>
-                                                    <div class="fw-bold">Jane Smith</div>
-                                                </div>
-                                            </div>
-                                            </td>
-                                        <td>jane.smith@example.com</td>
-                                        <td>ABC Transport</td>
-                                        <td>170482</td>
-                                        <td><span class="badge bg-warning status-badge">Pending</span></td>
-                                        <td>2024-01-14</td>
-                                        <td>
-                                            <div class="action-buttons">
-                                                <button class="btn btn-sm btn-outline-primary" onclick="viewContact(2)" title="View">
-                                                    <i class="bi bi-eye"></i>
-                                                </button>
-                                                <button class="btn btn-sm btn-outline-secondary" onclick="editContact(2)" title="Edit">
-                                                    <i class="bi bi-pencil"></i>
-                                                </button>
-                                                <button class="btn btn-sm btn-outline-info" onclick="viewHistory(2)" title="History">
-                                                    <i class="bi bi-clock-history"></i>
-                                                </button>
-                                                <button class="btn btn-sm btn-outline-danger" onclick="deleteContact(2)" title="Delete">
-                                                    <i class="bi bi-trash"></i>
-                                                </button>
-                                            </div>
-                                            </td>
-                                        </tr>
+                                    <!-- Dynamic content will be loaded here -->
                                 </tbody>
                             </table>
                         </div>
@@ -415,11 +375,11 @@ try {
                     <div class="card-footer">
                         <div class="d-flex justify-content-between align-items-center">
                             <div>
-                                <select class="form-select form-select-sm" style="width: auto;">
-                                    <option>10 per page</option>
-                                    <option>25 per page</option>
-                                    <option>50 per page</option>
-                                    <option>100 per page</option>
+                                <select class="form-select form-select-sm" id="perPageSelect" style="width: auto;" onchange="changePerPage(this.value)">
+                                    <option value="10">10 per page</option>
+                                    <option value="25">25 per page</option>
+                                    <option value="50" selected>50 per page</option>
+                                    <option value="100">100 per page</option>
                                 </select>
                             </div>
                             <nav>
@@ -492,7 +452,112 @@ try {
                                 </div>
                             </div>
                         </div>
+
+<!-- Edit Contact Modal -->
+<div class="modal fade" id="editContactModal" tabindex="-1">
+    <div class="modal-dialog modal-lg">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">
+                    <i class="bi bi-pencil-square me-2"></i>
+                    Edit Contact
+                </h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <form id="editContactForm">
+                <input type="hidden" id="editContactId" name="id">
+                <div class="modal-body">
+                    <div class="row">
+                        <div class="col-md-6 mb-3">
+                            <label for="editName" class="form-label">Full Name *</label>
+                            <input type="text" class="form-control" id="editName" name="name" required>
+                        </div>
+                        <div class="col-md-6 mb-3">
+                            <label for="editEmail" class="form-label">Email Address *</label>
+                            <input type="email" class="form-control" id="editEmail" name="email" required>
+                        </div>
+                    </div>
+                    <div class="row">
+                        <div class="col-md-6 mb-3">
+                            <label for="editCompany" class="form-label">Company Name</label>
+                            <input type="text" class="form-control" id="editCompany" name="company">
+                        </div>
+                        <div class="col-md-6 mb-3">
+                            <label for="editDot" class="form-label">DOT Number</label>
+                            <input type="text" class="form-control" id="editDot" name="dot">
+                        </div>
+                    </div>
+                    <div class="alert alert-info">
+                        <i class="bi bi-info-circle me-2"></i>
+                        <strong>Note:</strong> Only name and email are required fields. Company and DOT number are optional.
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                    <button type="submit" class="btn btn-primary">
+                        <i class="bi bi-save me-2"></i>
+                        Update Contact
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
                         
+<!-- View Contact Modal -->
+<div class="modal fade" id="viewContactModal" tabindex="-1">
+    <div class="modal-dialog modal-lg">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">
+                    <i class="bi bi-eye me-2"></i>
+                    View Contact Details
+                </h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <div class="row">
+                    <div class="col-md-6 mb-3">
+                        <label class="form-label fw-bold">Full Name</label>
+                        <div class="form-control-plaintext border bg-light rounded p-2" id="viewName">-</div>
+                    </div>
+                    <div class="col-md-6 mb-3">
+                        <label class="form-label fw-bold">Email Address</label>
+                        <div class="form-control-plaintext border bg-light rounded p-2" id="viewEmail">-</div>
+                    </div>
+                </div>
+                <div class="row">
+                    <div class="col-md-6 mb-3">
+                        <label class="form-label fw-bold">Company Name</label>
+                        <div class="form-control-plaintext border bg-light rounded p-2" id="viewCompany">-</div>
+                    </div>
+                    <div class="col-md-6 mb-3">
+                        <label class="form-label fw-bold">DOT Number</label>
+                        <div class="form-control-plaintext border bg-light rounded p-2" id="viewDot">-</div>
+                    </div>
+                </div>
+                <div class="row">
+                    <div class="col-md-6 mb-3">
+                        <label class="form-label fw-bold">Contact ID</label>
+                        <div class="form-control-plaintext border bg-light rounded p-2" id="viewContactId">-</div>
+                    </div>
+                    <div class="col-md-6 mb-3">
+                        <label class="form-label fw-bold">Date Added</label>
+                        <div class="form-control-plaintext border bg-light rounded p-2" id="viewDateAdded">-</div>
+                    </div>
+                </div>
+                <div class="alert alert-info">
+                    <i class="bi bi-info-circle me-2"></i>
+                    <strong>Contact Information:</strong> This is a read-only view of the contact details.
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Close</button>
+            </div>
+        </div>
+    </div>
+</div>
+
 <!-- Import Modal -->
 <div class="modal fade" id="importModal" tabindex="-1">
     <div class="modal-dialog modal-xl">
@@ -655,35 +720,116 @@ try {
 <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/js/bootstrap.bundle.min.js"></script>
 
     <script>
-// Search functionality
-document.getElementById('searchInput').addEventListener('input', function() {
-    const searchTerm = this.value;
-    // Debounce search to avoid too many API calls
-    clearTimeout(this.searchTimeout);
-    this.searchTimeout = setTimeout(() => {
-        if (searchTerm.trim() === '') {
-            // If search is empty, use list_all
-            loadContacts(1, 50, '', getCurrentStatusFilter(), getCurrentCompanyFilter());
-        } else {
-            // Use dedicated search action
-            searchContacts(searchTerm);
+// Search functionality with improved debouncing and filtering
+let searchDebounceTimer;
+const searchInput = document.getElementById('searchInput');
+
+searchInput.addEventListener('input', function(e) {
+    const searchTerm = e.target.value.trim();
+    
+    // Show/hide search help
+    document.getElementById('searchHelp').style.display = searchTerm.length > 0 ? 'block' : 'none';
+    
+    // Clear existing timer
+    clearTimeout(searchDebounceTimer);
+    
+    // Set new timer for debounced search
+    searchDebounceTimer = setTimeout(() => {
+        performSearch();
+    }, 300); // 300ms debounce
+});
+
+// Add Enter key support for immediate search
+searchInput.addEventListener('keypress', function(e) {
+    if (e.key === 'Enter') {
+        e.preventDefault();
+        clearTimeout(searchDebounceTimer);
+        performSearch();
+    }
+});
+
+// Perform search with current filters
+function performSearch() {
+    const searchTerm = document.getElementById('searchInput').value.trim();
+    const statusFilter = getCurrentStatusFilter();
+    const companyFilter = getCurrentCompanyFilter();
+    const sortBy = document.getElementById('sortBy').value;
+    
+    // Update filter visual states
+    updateFilterVisuals();
+    
+    // Always use loadContacts which handles both search and filtering
+    loadContacts(1, 50, searchTerm, statusFilter, companyFilter, sortBy);
+}
+
+// Update visual indicators for active filters
+function updateFilterVisuals() {
+    // Check search input
+    const searchInput = document.getElementById('searchInput');
+    if (searchInput.value.trim()) {
+        searchInput.classList.add('filter-active');
+    } else {
+        searchInput.classList.remove('filter-active');
+    }
+    
+    // Check status filter
+    const statusFilter = document.getElementById('statusFilter');
+    if (statusFilter.value) {
+        statusFilter.classList.add('filter-active');
+    } else {
+        statusFilter.classList.remove('filter-active');
+    }
+    
+    // Check company filter
+    const companyFilter = document.getElementById('companyFilter');
+    if (companyFilter.value) {
+        companyFilter.classList.add('filter-active');
+    } else {
+        companyFilter.classList.remove('filter-active');
+    }
+    
+    // Check sort filter (highlight if not default)
+    const sortBy = document.getElementById('sortBy');
+    if (sortBy.value !== 'created_at') {
+        sortBy.classList.add('filter-active');
+    } else {
+        sortBy.classList.remove('filter-active');
+    }
+    
+    // Update filter count badge
+    updateActiveFilterCount();
+}
+
+// Show count of active filters
+function updateActiveFilterCount() {
+    let activeCount = 0;
+    if (document.getElementById('searchInput').value.trim()) activeCount++;
+    if (document.getElementById('statusFilter').value) activeCount++;
+    if (document.getElementById('companyFilter').value) activeCount++;
+    if (document.getElementById('sortBy').value !== 'created_at') activeCount++;
+    
+    // Find or create the badge element
+    let badge = document.getElementById('activeFiltersBadge');
+    const clearButton = document.querySelector('button[onclick="clearFilters()"]');
+    
+    if (activeCount > 0) {
+        if (!badge) {
+            badge = document.createElement('span');
+            badge.id = 'activeFiltersBadge';
+            badge.className = 'active-filters-badge';
+            clearButton.parentNode.insertBefore(badge, clearButton);
         }
-    }, 500);
-});
+        badge.textContent = `${activeCount} active`;
+        badge.style.display = 'inline-block';
+    } else if (badge) {
+        badge.style.display = 'none';
+    }
+}
 
-// Filter functionality
-document.getElementById('statusFilter').addEventListener('change', function() {
-    loadContacts(1, 50, getCurrentSearchTerm(), this.value, getCurrentCompanyFilter());
-});
-
-document.getElementById('companyFilter').addEventListener('change', function() {
-    loadContacts(1, 50, getCurrentSearchTerm(), getCurrentStatusFilter(), this.value);
-});
-
-document.getElementById('sortBy').addEventListener('change', function() {
-    // For now, just reload with current filters
-    loadContacts(1, 50, getCurrentSearchTerm(), getCurrentStatusFilter(), getCurrentCompanyFilter());
-});
+// Filter functionality - trigger unified search
+document.getElementById('statusFilter').addEventListener('change', performSearch);
+document.getElementById('companyFilter').addEventListener('change', performSearch);
+document.getElementById('sortBy').addEventListener('change', performSearch);
 
 function getCurrentSearchTerm() {
     return document.getElementById('searchInput').value;
@@ -698,16 +844,29 @@ function getCurrentCompanyFilter() {
 }
 
 function clearFilters() {
+    // Clear all filter inputs
     document.getElementById('searchInput').value = '';
     document.getElementById('statusFilter').value = '';
     document.getElementById('companyFilter').value = '';
-    document.getElementById('sortBy').value = 'name';
+    document.getElementById('sortBy').value = 'created_at';
     
-    // Show pagination again
-    document.getElementById('pagination').style.display = '';
+    // Clear visual indicators
+    document.getElementById('searchInput').classList.remove('filter-active');
+    document.getElementById('statusFilter').classList.remove('filter-active');
+    document.getElementById('companyFilter').classList.remove('filter-active');
+    document.getElementById('sortBy').classList.remove('filter-active');
+    
+    // Hide search help
+    document.getElementById('searchHelp').style.display = 'none';
+    
+    // Clear any existing search timer
+    clearTimeout(searchDebounceTimer);
+    
+    // Update filter count
+    updateActiveFilterCount();
     
     // Reload contacts without filters
-    loadContacts(1, 50, '', '', '');
+    loadContacts(1, 50, '', '', '', 'created_at');
 }
 
 // Select all functionality
@@ -718,94 +877,135 @@ document.getElementById('selectAll').addEventListener('change', function() {
     });
 });
 
-// Search contacts using dedicated search API
-function searchContacts(searchTerm) {
-    const loadingRow = document.getElementById('loadingRow');
-    const tableBody = document.getElementById('contactsTableBody');
-    
-    // Show loading
-    loadingRow.style.display = '';
-    tableBody.innerHTML = '';
-    
-    // Build API URL for search
-    const apiUrl = `api/contacts_api.php?action=search&q=${encodeURIComponent(searchTerm)}`;
-    
-    fetch(apiUrl)
-        .then(response => response.json())
-        .then(data => {
-            loadingRow.style.display = 'none';
-            
-            if (data.success) {
-                if (data.data.length === 0) {
-                    tableBody.innerHTML = `<tr><td colspan="8" class="text-center text-muted">No contacts found matching "${searchTerm}"</td></tr>`;
-                } else {
-                    displayContacts(data.data);
-                }
-                // Hide pagination for search results
-                document.getElementById('pagination').style.display = 'none';
-                updateStats(data.data.length);
-            } else {
-                console.error('Error searching contacts:', data.error);
-                tableBody.innerHTML = '<tr><td colspan="8" class="text-center text-danger">Error searching contacts</td></tr>';
-            }
-        })
-        .catch(error => {
-            loadingRow.style.display = 'none';
-            console.error('Error:', error);
-            tableBody.innerHTML = '<tr><td colspan="8" class="text-center text-danger">Failed to search contacts</td></tr>';
-        });
-}
+// Removed searchContacts function - now using unified loadContacts for all operations
 
-// Load contacts from API
-function loadContacts(page = 1, perPage = 50, search = '', status = '', company = '') {
+// Load contacts from API with improved error handling and search support
+let currentRequest = null;
+function loadContacts(page = 1, perPage = 50, search = '', status = '', company = '', sortBy = 'created_at') {
     const loadingRow = document.getElementById('loadingRow');
     const tableBody = document.getElementById('contactsTableBody');
+    const paginationInfo = document.querySelector('.pagination-info');
     
-    // Show loading
-    loadingRow.style.display = '';
-    tableBody.innerHTML = '';
+    // Cancel any pending request
+    if (currentRequest) {
+        currentRequest.abort();
+    }
     
-    // Build API URL
-    let apiUrl = `api/contacts_api.php?action=list_all&page=${page}&per_page=${perPage}`;
-    if (search) apiUrl += `&search=${encodeURIComponent(search)}`;
-    if (status) apiUrl += `&status=${encodeURIComponent(status)}`;
-    if (company) apiUrl += `&company=${encodeURIComponent(company)}`;
+    // Show loading state
+    loadingRow.style.display = 'table-row';
     
-    console.log('Loading contacts from:', apiUrl);
-    fetch(apiUrl)
+    // Clear the table body except for the loading row
+    const rows = tableBody.querySelectorAll('tr:not(#loadingRow)');
+    rows.forEach(row => row.remove());
+    
+    // Build API URL with all parameters
+    const params = new URLSearchParams({
+        action: 'list_all',
+        page: page,
+        per_page: perPage
+    });
+    
+    if (search) params.append('search', search);
+    if (status) params.append('status', status);
+    if (company) params.append('company', company);
+    if (sortBy) {
+        // Default sort direction is DESC for created_at, ASC for everything else
+        const sortDirection = sortBy === 'created_at' ? 'DESC' : 'ASC';
+        params.append('sort_by', sortBy);
+        params.append('sort_direction', sortDirection);
+    }
+    
+    const apiUrl = `api/contacts_api.php?${params.toString()}`;
+    console.log('Loading contacts:', apiUrl);
+    console.log('Search term:', search);
+    console.log('Filters:', { status, company, sortBy });
+    
+    // Create abort controller for this request
+    const controller = new AbortController();
+    currentRequest = controller;
+    
+    fetch(apiUrl, { signal: controller.signal })
         .then(response => {
-            console.log('Response status:', response.status);
+            if (!response.ok) {
+                throw new Error(`HTTP error! status: ${response.status}`);
+            }
             return response.json();
         })
         .then(data => {
-            console.log('API response:', data);
+            console.log('API Response:', data);
             loadingRow.style.display = 'none';
+            currentRequest = null;
             
             if (data.success) {
+                // Display the contacts
                 displayContacts(data.data);
-                // Show pagination for full list
-                document.getElementById('pagination').style.display = '';
+                
+                // Update pagination
                 updatePagination(data.pagination);
+                
+                // Update stats
                 updateStats(data.pagination.total);
+                
+                // Update pagination info text
+                if (paginationInfo && data.pagination) {
+                    const start = data.pagination.total > 0 ? (data.pagination.current_page - 1) * data.pagination.per_page + 1 : 0;
+                    const end = Math.min(start + data.data.length - 1, data.pagination.total);
+                    paginationInfo.textContent = data.pagination.total > 0 
+                        ? `Showing ${start}-${end} of ${data.pagination.total} contacts`
+                        : 'No contacts found';
+                }
             } else {
-                console.error('Error loading contacts:', data.error);
-                tableBody.innerHTML = '<tr><td colspan="8" class="text-center text-danger">Error loading contacts: ' + (data.error || 'Unknown error') + '</td></tr>';
+                tableBody.innerHTML = `
+                    <tr>
+                        <td colspan="8" class="text-center">
+                            <div class="alert alert-danger mb-0">
+                                <i class="bi bi-exclamation-triangle me-2"></i>
+                                ${data.error || 'Failed to load contacts'}
+                            </div>
+                        </td>
+                    </tr>`;
             }
         })
         .catch(error => {
+            if (error.name === 'AbortError') {
+                console.log('Request was cancelled');
+                return;
+            }
+            
             loadingRow.style.display = 'none';
+            currentRequest = null;
             console.error('Fetch error:', error);
-            tableBody.innerHTML = '<tr><td colspan="8" class="text-center text-danger">Failed to load contacts: ' + error.message + '</td></tr>';
+            
+            tableBody.innerHTML = `
+                <tr>
+                    <td colspan="8" class="text-center">
+                        <div class="alert alert-danger mb-0">
+                            <i class="bi bi-exclamation-triangle me-2"></i>
+                            Failed to load contacts. Please check your connection and try again.
+                        </div>
+                    </td>
+                </tr>`;
         });
 }
 
 // Display contacts in table
 function displayContacts(contacts) {
     const tableBody = document.getElementById('contactsTableBody');
-    tableBody.innerHTML = '';
     
-    if (contacts.length === 0) {
-        tableBody.innerHTML = '<tr><td colspan="8" class="text-center text-muted">No contacts found</td></tr>';
+    // Clear all rows except loading row
+    const existingRows = tableBody.querySelectorAll('tr:not(#loadingRow)');
+    existingRows.forEach(row => row.remove());
+    
+    // Hide loading row
+    const loadingRow = document.getElementById('loadingRow');
+    if (loadingRow) {
+        loadingRow.style.display = 'none';
+    }
+    
+    if (!contacts || contacts.length === 0) {
+        const noDataRow = document.createElement('tr');
+        noDataRow.innerHTML = '<td colspan="8" class="text-center text-muted py-4">No contacts found</td>';
+        tableBody.appendChild(noDataRow);
         return;
     }
     
@@ -857,41 +1057,86 @@ function displayContacts(contacts) {
     });
 }
 
-// Update pagination
+// Update pagination with current filters preserved
 function updatePagination(pagination) {
     const paginationElement = document.getElementById('pagination');
-    if (!paginationElement) return;
+    if (!paginationElement || !pagination) return;
+    
+    // Show/hide pagination based on results
+    paginationElement.style.display = pagination.total_pages > 1 ? '' : 'none';
     
     let paginationHtml = '';
     
     // Previous button
     paginationHtml += `
         <li class="page-item ${pagination.current_page <= 1 ? 'disabled' : ''}">
-            <a class="page-link" href="#" onclick="loadContacts(${pagination.current_page - 1})">Previous</a>
+            <a class="page-link" href="#" onclick="changePage(${pagination.current_page - 1}); return false;">
+                <i class="bi bi-chevron-left"></i>
+            </a>
         </li>
     `;
     
-    // Page numbers
-    for (let i = 1; i <= pagination.total_pages; i++) {
-        if (i === 1 || i === pagination.total_pages || (i >= pagination.current_page - 2 && i <= pagination.current_page + 2)) {
-            paginationHtml += `
-                <li class="page-item ${i === pagination.current_page ? 'active' : ''}">
-                    <a class="page-link" href="#" onclick="loadContacts(${i})">${i}</a>
-                </li>
-            `;
-        } else if (i === pagination.current_page - 3 || i === pagination.current_page + 3) {
+    // Calculate page range to show
+    const maxPagesToShow = 5;
+    let startPage = Math.max(1, pagination.current_page - Math.floor(maxPagesToShow / 2));
+    let endPage = Math.min(pagination.total_pages, startPage + maxPagesToShow - 1);
+    
+    // Adjust start if we're near the end
+    if (endPage - startPage < maxPagesToShow - 1) {
+        startPage = Math.max(1, endPage - maxPagesToShow + 1);
+    }
+    
+    // First page + ellipsis
+    if (startPage > 1) {
+        paginationHtml += `
+            <li class="page-item">
+                <a class="page-link" href="#" onclick="changePage(1); return false;">1</a>
+            </li>`;
+        if (startPage > 2) {
             paginationHtml += '<li class="page-item disabled"><span class="page-link">...</span></li>';
         }
+    }
+    
+    // Page numbers
+    for (let i = startPage; i <= endPage; i++) {
+        paginationHtml += `
+            <li class="page-item ${i === pagination.current_page ? 'active' : ''}">
+                <a class="page-link" href="#" onclick="changePage(${i}); return false;">${i}</a>
+            </li>`;
+    }
+    
+    // Last page + ellipsis
+    if (endPage < pagination.total_pages) {
+        if (endPage < pagination.total_pages - 1) {
+            paginationHtml += '<li class="page-item disabled"><span class="page-link">...</span></li>';
+        }
+        paginationHtml += `
+            <li class="page-item">
+                <a class="page-link" href="#" onclick="changePage(${pagination.total_pages}); return false;">${pagination.total_pages}</a>
+            </li>`;
     }
     
     // Next button
     paginationHtml += `
         <li class="page-item ${pagination.current_page >= pagination.total_pages ? 'disabled' : ''}">
-            <a class="page-link" href="#" onclick="loadContacts(${pagination.current_page + 1})">Next</a>
+            <a class="page-link" href="#" onclick="changePage(${pagination.current_page + 1}); return false;">
+                <i class="bi bi-chevron-right"></i>
+            </a>
         </li>
     `;
     
     paginationElement.innerHTML = paginationHtml;
+}
+
+// Change page while preserving current filters
+function changePage(page) {
+    const searchTerm = getCurrentSearchTerm();
+    const statusFilter = getCurrentStatusFilter();
+    const companyFilter = getCurrentCompanyFilter();
+    const sortBy = document.getElementById('sortBy').value;
+    const perPage = parseInt(document.getElementById('perPageSelect')?.value || 50);
+    
+    loadContacts(page, perPage, searchTerm, statusFilter, companyFilter, sortBy);
 }
 
 // Update stats
@@ -932,12 +1177,107 @@ function getInitials(name) {
 // Contact actions
 function viewContact(id) {
     console.log('View contact:', id);
-    // Implement view functionality
+    
+    // Show loading state
+    const viewModal = new bootstrap.Modal(document.getElementById('viewContactModal'));
+    
+    // Clear previous data
+    document.getElementById('viewName').textContent = 'Loading...';
+    document.getElementById('viewEmail').textContent = 'Loading...';
+    document.getElementById('viewCompany').textContent = 'Loading...';
+    document.getElementById('viewDot').textContent = 'Loading...';
+    document.getElementById('viewContactId').textContent = 'Loading...';
+    document.getElementById('viewDateAdded').textContent = 'Loading...';
+    
+    // Show the modal
+    viewModal.show();
+    
+    // Fetch contact data
+    fetch(`api/contacts_api.php?action=view&id=${id}`)
+        .then(response => response.json())
+        .then(data => {
+            if (data.success) {
+                const contact = data.contact;
+                document.getElementById('viewName').textContent = contact.name || '-';
+                document.getElementById('viewEmail').textContent = contact.email || '-';
+                document.getElementById('viewCompany').textContent = contact.company || '-';
+                document.getElementById('viewDot').textContent = contact.dot || '-';
+                document.getElementById('viewContactId').textContent = contact.id || '-';
+                
+                // Format date if available
+                let dateAdded = '-';
+                if (contact.created_at) {
+                    const date = new Date(contact.created_at);
+                    dateAdded = date.toLocaleDateString() + ' ' + date.toLocaleTimeString();
+                } else if (contact.date_added) {
+                    const date = new Date(contact.date_added);
+                    dateAdded = date.toLocaleDateString() + ' ' + date.toLocaleTimeString();
+                }
+                document.getElementById('viewDateAdded').textContent = dateAdded;
+            } else {
+                // Handle error
+                document.getElementById('viewName').textContent = 'Error loading data';
+                document.getElementById('viewEmail').textContent = 'Error loading data';
+                document.getElementById('viewCompany').textContent = 'Error loading data';
+                document.getElementById('viewDot').textContent = 'Error loading data';
+                document.getElementById('viewContactId').textContent = 'Error loading data';
+                document.getElementById('viewDateAdded').textContent = 'Error loading data';
+                
+                showAlert('Error loading contact details: ' + (data.message || 'Unknown error'), 'danger');
+            }
+        })
+        .catch(error => {
+            console.error('Error fetching contact:', error);
+            // Handle network error
+            document.getElementById('viewName').textContent = 'Network error';
+            document.getElementById('viewEmail').textContent = 'Network error';
+            document.getElementById('viewCompany').textContent = 'Network error';
+            document.getElementById('viewDot').textContent = 'Network error';
+            document.getElementById('viewContactId').textContent = 'Network error';
+            document.getElementById('viewDateAdded').textContent = 'Network error';
+            
+            showAlert('Network error while loading contact details', 'danger');
+        });
 }
 
 function editContact(id) {
     console.log('Edit contact:', id);
-    // Implement edit functionality
+    
+    // Show loading state
+    const editBtn = document.querySelector(`button[onclick="editContact(${id})"]`);
+    const originalText = editBtn.innerHTML;
+    editBtn.innerHTML = '<i class="bi bi-hourglass-split"></i>';
+    editBtn.disabled = true;
+    
+    // Fetch contact data
+    fetch(`api/contacts_api.php?action=view&id=${id}`)
+        .then(response => response.json())
+        .then(data => {
+            if (data.success) {
+                // Populate the edit modal with contact data
+                const contact = data.data;
+                document.getElementById('editContactId').value = contact.id;
+                document.getElementById('editName').value = contact.name || '';
+                document.getElementById('editEmail').value = contact.email || '';
+                document.getElementById('editCompany').value = contact.company || '';
+                document.getElementById('editDot').value = contact.dot || '';
+                
+                // Show the modal
+                const editModal = new bootstrap.Modal(document.getElementById('editContactModal'));
+                editModal.show();
+            } else {
+                alert('Error: ' + (data.error || 'Failed to load contact data'));
+            }
+        })
+        .catch(error => {
+            console.error('Error:', error);
+            alert('Error: Failed to load contact data. Please try again.');
+        })
+        .finally(() => {
+            // Reset button state
+            editBtn.innerHTML = originalText;
+            editBtn.disabled = false;
+        });
 }
 
 function viewHistory(id) {
@@ -948,8 +1288,53 @@ function viewHistory(id) {
 
 function deleteContact(id) {
     if (confirm('Are you sure you want to delete this contact?')) {
-        console.log('Delete contact:', id);
-        // Implement delete functionality
+        // Show loading state on the specific delete button
+        const deleteBtn = document.querySelector(`button[onclick="deleteContact(${id})"]`);
+        const originalText = deleteBtn.innerHTML;
+        deleteBtn.innerHTML = '<i class="bi bi-hourglass-split"></i>';
+        deleteBtn.disabled = true;
+        
+        // Call the delete API
+        fetch(`api/contacts_api.php?action=delete&id=${id}`, {
+            method: 'DELETE',
+            headers: {
+                'Content-Type': 'application/json',
+            }
+        })
+        .then(response => response.json())
+        .then(data => {
+            if (data.success) {
+                // Show success message
+                alert('Contact deleted successfully!');
+                
+                // Remove the row from the table
+                const row = deleteBtn.closest('tr');
+                if (row) {
+                    row.remove();
+                }
+                
+                // Reload contacts to update pagination and stats
+                loadContacts();
+                
+                // Reload the page to refresh all data
+                window.location.reload();
+            } else {
+                // Show error message
+                alert('Error: ' + (data.error || data.message || 'Failed to delete contact'));
+                
+                // Reset button state on error
+                deleteBtn.innerHTML = originalText;
+                deleteBtn.disabled = false;
+            }
+        })
+        .catch(error => {
+            console.error('Error:', error);
+            alert('Error: Failed to delete contact. Please try again.');
+            
+            // Reset button state on error
+            deleteBtn.innerHTML = originalText;
+            deleteBtn.disabled = false;
+        });
     }
 }
 
@@ -1192,6 +1577,81 @@ document.getElementById('addContactForm').addEventListener('submit', function(e)
     });
 });
 
+// Edit Contact Form submission
+document.getElementById('editContactForm').addEventListener('submit', function(e) {
+    e.preventDefault();
+    
+    // Get form data
+    const formData = {
+        id: document.getElementById('editContactId').value,
+        name: document.getElementById('editName').value.trim(),
+        email: document.getElementById('editEmail').value.trim(),
+        company: document.getElementById('editCompany').value.trim(),
+        dot: document.getElementById('editDot').value.trim()
+    };
+    
+    // Validate required fields
+    if (!formData.name || !formData.email) {
+        alert('Name and email are required fields.');
+        return;
+    }
+    
+    // Validate email format
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    if (!emailRegex.test(formData.email)) {
+        alert('Please enter a valid email address.');
+        return;
+    }
+    
+    // Show loading state
+    const submitBtn = document.querySelector('#editContactForm button[type="submit"]');
+    const originalText = submitBtn.innerHTML;
+    submitBtn.innerHTML = '<i class="bi bi-hourglass-split me-2"></i>Updating...';
+    submitBtn.disabled = true;
+    
+    // Call the update API
+    fetch('api/contacts_api.php?action=update', {
+        method: 'PUT',
+        headers: {
+            'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(formData)
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.success) {
+            // Show success message
+            alert('Contact updated successfully!');
+            
+            // Close modal
+            const modal = bootstrap.Modal.getInstance(document.getElementById('editContactModal'));
+            modal.hide();
+            
+            // Reset form
+            document.getElementById('editContactForm').reset();
+            
+            // Reload contacts list to reflect changes
+            loadContacts();
+            
+            // Refresh the page to ensure all data is current
+            window.location.reload();
+            
+        } else {
+            // Show error message
+            alert('Error: ' + (data.error || data.message || 'Failed to update contact'));
+        }
+    })
+    .catch(error => {
+        console.error('Error:', error);
+        alert('Error: Failed to update contact. Please try again.');
+    })
+    .finally(() => {
+        // Reset button state
+        submitBtn.innerHTML = originalText;
+        submitBtn.disabled = false;
+    });
+});
+
 // Import Modal Functionality
 let currentStep = 1;
 let importData = [];
@@ -1381,9 +1841,93 @@ document.getElementById('importForm').addEventListener('submit', function(e) {
     startImport();
 });
 
+// Change per page
+function changePerPage(perPage) {
+    loadContacts(1, parseInt(perPage), getCurrentSearchTerm(), getCurrentStatusFilter(), getCurrentCompanyFilter(), document.getElementById('sortBy').value);
+}
+
+// Initialize tooltips if Bootstrap tooltips are used
+function initializeTooltips() {
+    const tooltipTriggerList = [].slice.call(document.querySelectorAll('[data-bs-toggle="tooltip"]'));
+    tooltipTriggerList.map(function (tooltipTriggerEl) {
+        return new bootstrap.Tooltip(tooltipTriggerEl);
+    });
+}
+
+// Load filter options dynamically
+function loadFilterOptions() {
+    fetch('get_filter_options.php')
+        .then(response => response.json())
+        .then(data => {
+            if (data.success) {
+                // Populate company filter
+                const companyFilter = document.getElementById('companyFilter');
+                companyFilter.innerHTML = '<option value="">All Companies</option>';
+                
+                data.companies.forEach(company => {
+                    const option = document.createElement('option');
+                    option.value = company;
+                    option.textContent = company;
+                    companyFilter.appendChild(option);
+                });
+                
+                // Update status filter with counts if needed
+                if (data.statusCounts) {
+                    const statusFilter = document.getElementById('statusFilter');
+                    statusFilter.innerHTML = `
+                        <option value="">All Status (${data.statusCounts.all})</option>
+                        <option value="active">Active (${data.statusCounts.active})</option>
+                        <option value="inactive">Inactive (${data.statusCounts.inactive})</option>
+                        <option value="pending">Pending (${data.statusCounts.pending})</option>
+                    `;
+                }
+            }
+        })
+        .catch(error => {
+            console.error('Error loading filter options:', error);
+        });
+}
+
+// Alert function for user notifications
+function showAlert(message, type = 'info', duration = 5000) {
+    // Remove any existing alerts
+    const existingAlert = document.querySelector('.alert.position-fixed');
+    if (existingAlert) {
+        existingAlert.remove();
+    }
+    
+    // Create alert element
+    const alert = document.createElement('div');
+    alert.className = `alert alert-${type} position-fixed`;
+    alert.style.cssText = 'top: 20px; right: 20px; z-index: 9999; min-width: 300px; box-shadow: 0 4px 6px rgba(0,0,0,0.1);';
+    alert.innerHTML = `
+        <div class="d-flex align-items-center">
+            <i class="bi bi-${type === 'success' ? 'check-circle' : type === 'danger' ? 'exclamation-triangle' : 'info-circle'} me-2"></i>
+            <div class="flex-grow-1">${message}</div>
+            <button type="button" class="btn-close" onclick="this.parentElement.parentElement.remove()"></button>
+        </div>
+    `;
+    
+    // Add to page
+    document.body.appendChild(alert);
+    
+    // Auto remove after duration
+    setTimeout(() => {
+        if (alert.parentElement) {
+            alert.remove();
+        }
+    }, duration);
+}
+
 // Load contacts on page load
 document.addEventListener('DOMContentLoaded', function() {
+    // Initialize the page
+    loadFilterOptions();
     loadContacts();
+    initializeTooltips();
+    
+    // Set focus on search input for better UX
+    document.getElementById('searchInput').focus();
 });
     </script>
 
