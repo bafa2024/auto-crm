@@ -38,11 +38,17 @@ try {
         }
         
         $campaignId = (int)$input['campaign_id'];
+        
+        // Use ISO date if available (includes timezone), otherwise fall back to schedule_date
+        $scheduleDate = $input['schedule_date_iso'] ?? $input['schedule_date'] ?? null;
+        
         $scheduleData = [
             'schedule_type' => $input['schedule_type'] ?? 'immediate',
-            'schedule_date' => $input['schedule_date'] ?? null,
+            'schedule_date' => $scheduleDate,
             'frequency' => $input['frequency'] ?? 'once',
-            'recipient_ids' => $input['recipient_ids'] ?? []
+            'recipient_ids' => $input['recipient_ids'] ?? [],
+            'client_timezone' => $input['client_timezone'] ?? null,
+            'client_offset' => $input['client_offset'] ?? null
         ];
         
         // Validate recipient IDs

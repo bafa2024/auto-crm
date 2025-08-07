@@ -82,15 +82,20 @@ class SimpleCampaignScheduler {
                     return ['success' => false, 'message' => 'Schedule date is required'];
                 }
                 
-                // Validate and parse the date properly
+                // Log timezone information for debugging
+                $clientTimezone = $scheduleData['client_timezone'] ?? 'unknown';
+                $clientOffset = $scheduleData['client_offset'] ?? 'unknown';
+                error_log("Schedule request - Client timezone: $clientTimezone, Client offset: $clientOffset, Provided date: $scheduleDate");
+                
+                // Validate and parse the date properly with timezone handling
                 $currentTimestamp = time();
                 $buffer = 60; // 1 minute buffer for processing time
                 
-                // Try to parse the date using multiple formats
+                // Try to parse the date using multiple formats and handle timezone issues
                 $parsedDate = null;
                 $scheduleTimestamp = false;
                 
-                // First try datetime-local format (Y-m-d\TH:i)
+                // First try datetime-local format (Y-m-d\TH:i) - assume it's in user's local timezone
                 $parsedDate = DateTime::createFromFormat('Y-m-d\TH:i', $scheduleDate);
                 if (!$parsedDate) {
                     // Try standard datetime format (Y-m-d H:i:s)
@@ -101,26 +106,55 @@ class SimpleCampaignScheduler {
                     try {
                         $parsedDate = new DateTime($scheduleDate);
                     } catch (Exception $e) {
-                        // Last resort: try strtotime
-                        $scheduleTimestamp = strtotime($scheduleDate);
-                        if ($scheduleTimestamp === false) {
-                            return ['success' => false, 'message' => 'Invalid date format. Please use YYYY-MM-DDTHH:MM or YYYY-MM-DD HH:MM:SS format. Received: ' . $scheduleDate];
+                        return ['success' => false, 'message' => 'Invalid date format. Please use YYYY-MM-DDTHH:MM or YYYY-MM-DD HH:MM:SS format. Received: ' . $scheduleDate];
+                    }
+                }
+                
+                // Get timestamp from parsed date
+                if ($parsedDate) {
+                    $scheduleTimestamp = $parsedDate->getTimestamp();
+                    
+                    // Check if the date seems to be in the past due to timezone issues
+                    $timeDiff = $scheduleTimestamp - $currentTimestamp;
+                    
+                    // If the difference is between -12 hours and +12 hours, it might be a timezone issue
+                    if ($timeDiff < -43200 && $timeDiff > -43200) { // -12 to +12 hours
+                        // Try interpreting the date as UTC and convert to server timezone
+                        $utcDate = DateTime::createFromFormat('Y-m-d\TH:i', $scheduleDate, new DateTimeZone('UTC'));
+                        if (!$utcDate) {
+                            $utcDate = DateTime::createFromFormat('Y-m-d H:i:s', $scheduleDate, new DateTimeZone('UTC'));
+                        }
+                        
+                        if ($utcDate) {
+                            // Convert to server timezone
+                            $utcDate->setTimezone(new DateTimeZone(date_default_timezone_get()));
+                            $altTimestamp = $utcDate->getTimestamp();
+                            
+                            // If this makes the date a reasonable future time, use it
+                            if ($altTimestamp > ($currentTimestamp + $buffer) && $altTimestamp < ($currentTimestamp + 86400 * 365)) {
+                                $scheduleTimestamp = $altTimestamp;
+                                $parsedDate = $utcDate;
+                            }
                         }
                     }
                 }
                 
-                // Get timestamp from parsed date if we have one
-                if ($parsedDate) {
-                    $scheduleTimestamp = $parsedDate->getTimestamp();
-                }
-                
-                // Validate date is in the future
+                // Final validation - check if date is in the future
                 if ($scheduleTimestamp <= ($currentTimestamp + $buffer)) {
                     $currentDateTime = date('Y-m-d H:i:s', $currentTimestamp);
                     $providedDateTime = date('Y-m-d H:i:s', $scheduleTimestamp);
                     $diffSeconds = $scheduleTimestamp - $currentTimestamp;
+                    $diffHours = round($diffSeconds / 3600, 1);
                     
-                    return ['success' => false, 'message' => "Schedule date must be at least 1 minute in the future. Current server time: $currentDateTime, Provided: $providedDateTime (difference: {$diffSeconds} seconds, minimum required: {$buffer} seconds)"];
+                    // Provide helpful error message based on the time difference
+                    if ($diffSeconds < -3600) {
+                        // Large negative difference - likely timezone confusion
+                        $clientTz = $scheduleData['client_timezone'] ?? 'unknown';
+                        return ['success' => false, 'message' => "The selected date appears to be in the past. Server time (Europe/Berlin): $currentDateTime, Selected time when converted: $providedDateTime (difference: {$diffHours} hours). Your timezone: $clientTz. Please select a date and time that will be in the future in your local timezone."];
+                    } else {
+                        // Small difference - just need to select a bit further in the future
+                        return ['success' => false, 'message' => "Schedule date must be at least 1 minute in the future. Current server time: $currentDateTime, Provided: $providedDateTime (difference: {$diffSeconds} seconds, minimum required: {$buffer} seconds). Please select a time at least 2-3 minutes from now."];
+                    }
                 }
                 
                 $nextSendAt = $scheduleDate;

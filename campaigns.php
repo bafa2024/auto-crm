@@ -2066,11 +2066,19 @@ try {
                 document.getElementById('frequencyOptions').style.display = 'none';
                 document.getElementById('schedule_date').required = true;
                 
-                // Set default date immediately
-                const tomorrow = new Date();
-                tomorrow.setDate(tomorrow.getDate() + 1);
-                tomorrow.setHours(9, 0, 0, 0);
-                document.getElementById('schedule_date').value = tomorrow.toISOString().slice(0, 16);
+                // Set default date to a safe future time (2 hours from now)
+                const futureDate = new Date();
+                futureDate.setHours(futureDate.getHours() + 2);
+                futureDate.setMinutes(0, 0, 0); // Round to the hour for cleaner display
+                
+                // Format for datetime-local input
+                const defaultDateTime = futureDate.toISOString().slice(0, 16);
+                document.getElementById('schedule_date').value = defaultDateTime;
+                
+                // Set minimum date to 5 minutes from now to prevent past dates
+                const minDate = new Date();
+                minDate.setMinutes(minDate.getMinutes() + 5);
+                document.getElementById('schedule_date').min = minDate.toISOString().slice(0, 16);
                 
                 // Show loading state in form fields
                 document.getElementById('schedule_campaign_name').value = 'Loading...';
@@ -2693,6 +2701,22 @@ try {
             const modal = new bootstrap.Modal(document.getElementById('scheduleCampaignModal'));
             modal.show();
             
+            // Initialize date fields with safe defaults
+            const futureDate = new Date();
+            futureDate.setHours(futureDate.getHours() + 2);
+            futureDate.setMinutes(0, 0, 0); // Round to the hour
+            
+            const defaultDateTime = futureDate.toISOString().slice(0, 16);
+            const simpleDateInput = document.getElementById('simple_schedule_date');
+            if (simpleDateInput) {
+                simpleDateInput.value = defaultDateTime;
+                
+                // Set minimum date to 5 minutes from now
+                const minDate = new Date();
+                minDate.setMinutes(minDate.getMinutes() + 5);
+                simpleDateInput.min = minDate.toISOString().slice(0, 16);
+            }
+            
             // Load campaign and contacts data
             loadSimpleCampaignData(campaignId);
             loadSimpleContacts(campaignId);
@@ -2841,19 +2865,27 @@ try {
             submitBtn.disabled = true;
             submitBtn.innerHTML = '<span class="spinner-border spinner-border-sm"></span> Scheduling...';
             
-            // Prepare data
+            // Prepare data with timezone handling
+            const scheduleDateTime = scheduleDate ? new Date(scheduleDate) : null;
             const data = {
                 campaign_id: currentCampaignId,
                 schedule_type: scheduleType,
                 schedule_date: scheduleDate,
                 frequency: frequency,
-                recipient_ids: selectedContactIds
+                recipient_ids: selectedContactIds,
+                // Add timezone information
+                client_timezone: Intl.DateTimeFormat().resolvedOptions().timeZone,
+                client_offset: new Date().getTimezoneOffset(),
+                schedule_date_iso: scheduleDateTime ? scheduleDateTime.toISOString() : null
             };
             
             // Debug logging
             console.log('📅 Schedule Data:', {
                 scheduleType: scheduleType,
                 scheduleDate: scheduleDate,
+                scheduleDateISO: data.schedule_date_iso,
+                clientTimezone: data.client_timezone,
+                clientOffset: data.client_offset,
                 currentTime: new Date().toISOString(),
                 localTime: new Date().toLocaleString()
             });
