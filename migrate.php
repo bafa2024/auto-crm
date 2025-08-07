@@ -96,7 +96,11 @@ class WebMigrationRunner {
             $this->recordMigration();
             
             // Commit transaction
-            $this->db->commit();
+            if ($this->db->inTransaction()) {
+                $this->db->commit();
+                $this->addOutput("✅ Transaction committed successfully", 'success');
+            }
+            
             $this->addOutput("✅ Migration completed successfully!", 'success');
             
             // Verify migration
@@ -167,18 +171,25 @@ class WebMigrationRunner {
             INDEX idx_status (status),
             INDEX idx_next_send (next_send_at),
             INDEX idx_schedule_type (schedule_type),
-            INDEX idx_campaign_status (campaign_id, status),
-            
-            CONSTRAINT fk_scheduled_campaign_id 
-                FOREIGN KEY (campaign_id) 
-                REFERENCES email_campaigns(id) 
-                ON DELETE CASCADE
-                ON UPDATE CASCADE
+            INDEX idx_campaign_status (campaign_id, status)
         ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci 
           COMMENT='Stores scheduled campaign information for the new scheduling system'";
         
         $this->db->exec($sql);
         $this->addOutput("✅ Created scheduled_campaigns table", 'success');
+        
+        // Try to add foreign key constraint separately (might fail if email_campaigns doesn't exist)
+        try {
+            $this->db->exec("ALTER TABLE scheduled_campaigns 
+                ADD CONSTRAINT fk_scheduled_campaign_id 
+                FOREIGN KEY (campaign_id) 
+                REFERENCES email_campaigns(id) 
+                ON DELETE CASCADE 
+                ON UPDATE CASCADE");
+            $this->addOutput("✅ Added foreign key constraint to scheduled_campaigns", 'success');
+        } catch (Exception $e) {
+            $this->addOutput("⚠️ Could not add foreign key constraint (email_campaigns table might not exist): " . $e->getMessage(), 'warning');
+        }
     }
     
     /**
@@ -195,18 +206,25 @@ class WebMigrationRunner {
             
             INDEX idx_scheduled_campaign (scheduled_campaign_id),
             INDEX idx_action_date (action, created_at),
-            INDEX idx_created_at (created_at),
-            
-            CONSTRAINT fk_schedule_log_campaign_id 
-                FOREIGN KEY (scheduled_campaign_id) 
-                REFERENCES scheduled_campaigns(id) 
-                ON DELETE CASCADE
-                ON UPDATE CASCADE
+            INDEX idx_created_at (created_at)
         ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci 
           COMMENT='Logs all scheduling actions and processing results'";
         
         $this->db->exec($sql);
         $this->addOutput("✅ Created schedule_log table", 'success');
+        
+        // Try to add foreign key constraint separately
+        try {
+            $this->db->exec("ALTER TABLE schedule_log 
+                ADD CONSTRAINT fk_schedule_log_campaign_id 
+                FOREIGN KEY (scheduled_campaign_id) 
+                REFERENCES scheduled_campaigns(id) 
+                ON DELETE CASCADE 
+                ON UPDATE CASCADE");
+            $this->addOutput("✅ Added foreign key constraint to schedule_log", 'success');
+        } catch (Exception $e) {
+            $this->addOutput("⚠️ Could not add foreign key constraint: " . $e->getMessage(), 'warning');
+        }
     }
     
     /**
