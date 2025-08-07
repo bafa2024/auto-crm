@@ -1,103 +1,123 @@
 <?php
 /**
- * ACRM Database Migration Runner
- * Production-safe migration system for ACRM Campaign Scheduling
+ * ACRM Database Migration - Web Interface
+ * Production-safe migration system for https://acrm.regrowup.ca/
  * 
- * Usage:
- * php migrate.php [--dry-run] [--force] [--migration=001]
+ * Usage: Access via browser: https://acrm.regrowup.ca/migrate.php
  */
+
+// Start session for authentication
+session_start();
+
+// Security: Check if user is logged in as admin
+if (!isset($_SESSION["user_id"]) || !isset($_SESSION["user_role"]) || $_SESSION["user_role"] !== 'admin') {
+    header("Location: login.php");
+    exit("Access denied. Admin login required.");
+}
 
 require_once 'config/database.php';
 
-class MigrationRunner {
+class WebMigrationRunner {
     private $db;
-    private $isDryRun = false;
-    private $isForce = false;
-    private $specificMigration = null;
+    private $output = [];
+    private $errors = [];
     
     public function __construct() {
         $database = new Database();
         $this->db = $database->getConnection();
-        
-        // Parse command line arguments
-        $this->parseArguments();
     }
     
-    private function parseArguments() {
-        global $argv;
-        if (!isset($argv)) return;
-        
-        foreach ($argv as $arg) {
-            if ($arg === '--dry-run') {
-                $this->isDryRun = true;
-            } elseif ($arg === '--force') {
-                $this->isForce = true;
-            } elseif (strpos($arg, '--migration=') === 0) {
-                $this->specificMigration = substr($arg, 12);
-            }
+    /**
+     * Add message to output
+     */
+    private function addOutput($message, $type = 'info') {
+        $this->output[] = [
+            'message' => $message,
+            'type' => $type,
+            'timestamp' => date('Y-m-d H:i:s')
+        ];
+    }
+    
+    /**
+     * Check if migration is needed
+     */
+    public function checkMigrationStatus() {
+        try {
+            // Check if scheduled_campaigns table exists
+            $stmt = $this->db->query("SHOW TABLES LIKE 'scheduled_campaigns'");
+            $scheduledExists = $stmt->rowCount() > 0;
+            
+            // Check if schedule_log table exists
+            $stmt = $this->db->query("SHOW TABLES LIKE 'schedule_log'");
+            $logExists = $stmt->rowCount() > 0;
+            
+            return [
+                'scheduled_campaigns' => $scheduledExists,
+                'schedule_log' => $logExists,
+                'migration_needed' => !$scheduledExists || !$logExists
+            ];
+            
+        } catch (Exception $e) {
+            $this->errors[] = "Error checking migration status: " . $e->getMessage();
+            return ['error' => true];
         }
     }
     
     /**
-     * Run database migrations
+     * Run the migration
      */
-    public function run() {
-        echo "🚀 ACRM Database Migration Runner\n";
-        echo "================================\n\n";
-        
-        if ($this->isDryRun) {
-            echo "⚠️  DRY RUN MODE - No changes will be made\n\n";
-        }
+    public function runMigration() {
+        $this->addOutput("🚀 Starting ACRM Campaign Scheduling Migration", 'info');
+        $this->addOutput("Server: https://acrm.regrowup.ca/", 'info');
         
         try {
-            // Check if we can connect to database
+            // Check database connection
             if (!$this->db) {
                 throw new Exception("Cannot connect to database");
             }
-            
-            echo "✅ Database connection successful\n";
+            $this->addOutput("✅ Database connection successful", 'success');
             
             // Create migrations table if it doesn't exist
             $this->createMigrationsTable();
             
-            // Get list of migrations to run
-            $migrations = $this->getMigrationsToRun();
-            
-            if (empty($migrations)) {
-                echo "✅ No migrations to run - database is up to date\n";
-                return;
+            // Check if migration already ran
+            if ($this->isMigrationCompleted()) {
+                $this->addOutput("✅ Migration already completed", 'warning');
+                return true;
             }
             
-            echo "📋 Found " . count($migrations) . " migration(s) to run:\n";
-            foreach ($migrations as $migration) {
-                echo "   - $migration\n";
-            }
-            echo "\n";
+            // Begin transaction
+            $this->db->beginTransaction();
+            $this->addOutput("🔄 Starting database transaction", 'info');
             
-            if (!$this->isDryRun && !$this->isForce) {
-                echo "⚠️  This will modify your database. Continue? (y/N): ";
-                $handle = fopen("php://stdin", "r");
-                $line = fgets($handle);
-                fclose($handle);
-                
-                if (strtolower(trim($line)) !== 'y') {
-                    echo "❌ Migration cancelled\n";
-                    return;
-                }
-            }
+            // Run migration steps
+            $this->createScheduledCampaignsTable();
+            $this->createScheduleLogTable();
+            $this->enhanceEmailRecipientsTable();
+            $this->updateEmailCampaignsTable();
             
-            // Run each migration
-            foreach ($migrations as $migration) {
-                $this->runMigration($migration);
-            }
+            // Record migration as completed
+            $this->recordMigration();
             
-            echo "\n🎉 All migrations completed successfully!\n";
-            $this->printNextSteps();
+            // Commit transaction
+            $this->db->commit();
+            $this->addOutput("✅ Migration completed successfully!", 'success');
+            
+            // Verify migration
+            $this->verifyMigration();
+            
+            return true;
             
         } catch (Exception $e) {
-            echo "❌ Migration failed: " . $e->getMessage() . "\n";
-            echo "Stack trace: " . $e->getTraceAsString() . "\n";
-            exit(1);
+            // Rollback on error
+            if ($this->db->inTransaction()) {
+                $this->db->rollback();
+                $this->addOutput("🔄 Transaction rolled back", 'warning');
+            }
+            
+            $this->addOutput("❌ Migration failed: " . $e->getMessage(), 'error');
+            $this->errors[] = $e->getMessage();
+            return false;
         }
     }
     
@@ -112,208 +132,332 @@ class MigrationRunner {
             INDEX idx_migration (migration)
         ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4";
         
-        if (!$this->isDryRun) {
-            $this->db->exec($sql);
-        }
-        
-        echo "✅ Migration tracking table ready\n";
+        $this->db->exec($sql);
+        $this->addOutput("✅ Migration tracking table ready", 'success');
     }
     
     /**
-     * Get list of migrations that need to be run
+     * Check if migration already completed
      */
-    private function getMigrationsToRun() {
-        // Get executed migrations from database
-        $executedMigrations = [];
-        if (!$this->isDryRun) {
-            try {
-                $stmt = $this->db->query("SELECT migration FROM migrations");
-                $executedMigrations = $stmt->fetchAll(PDO::FETCH_COLUMN);
-            } catch (Exception $e) {
-                // Table might not exist yet
-                $executedMigrations = [];
-            }
-        }
-        
-        // Get available migration files
-        $migrationDir = __DIR__ . '/database/migrations/';
-        $availableMigrations = [];
-        
-        if (is_dir($migrationDir)) {
-            $files = scandir($migrationDir);
-            foreach ($files as $file) {
-                if (preg_match('/^\d{3}_.*\.sql$/', $file)) {
-                    $migrationName = pathinfo($file, PATHINFO_FILENAME);
-                    $availableMigrations[] = $migrationName;
-                }
-            }
-        }
-        
-        sort($availableMigrations);
-        
-        // Filter by specific migration if requested
-        if ($this->specificMigration) {
-            $availableMigrations = array_filter($availableMigrations, function($migration) {
-                return strpos($migration, $this->specificMigration) === 0;
-            });
-        }
-        
-        // Return migrations that haven't been executed
-        return array_diff($availableMigrations, $executedMigrations);
-    }
-    
-    /**
-     * Run a specific migration
-     */
-    private function runMigration($migrationName) {
-        echo "🔄 Running migration: $migrationName\n";
-        
-        $migrationFile = __DIR__ . "/database/migrations/$migrationName.sql";
-        
-        if (!file_exists($migrationFile)) {
-            throw new Exception("Migration file not found: $migrationFile");
-        }
-        
-        $sql = file_get_contents($migrationFile);
-        
-        if ($this->isDryRun) {
-            echo "   📄 Would execute SQL from: $migrationFile\n";
-            echo "   📊 SQL size: " . number_format(strlen($sql)) . " bytes\n";
-            return;
-        }
-        
-        // Begin transaction
-        $this->db->beginTransaction();
-        
+    private function isMigrationCompleted() {
         try {
-            // Split SQL into individual statements
-            $statements = $this->splitSqlStatements($sql);
-            $executedStatements = 0;
-            
-            foreach ($statements as $statement) {
-                $statement = trim($statement);
-                if (empty($statement) || strpos($statement, '--') === 0) {
-                    continue; // Skip empty lines and comments
-                }
-                
-                try {
-                    $this->db->exec($statement);
-                    $executedStatements++;
-                } catch (Exception $e) {
-                    // Some statements might fail if tables/columns already exist
-                    // This is okay for CREATE TABLE IF NOT EXISTS, etc.
-                    if (strpos($e->getMessage(), 'already exists') === false && 
-                        strpos($e->getMessage(), 'Duplicate') === false) {
-                        throw $e;
-                    }
-                }
-            }
-            
-            // Record successful migration
-            $stmt = $this->db->prepare("INSERT INTO migrations (migration) VALUES (?)");
-            $stmt->execute([$migrationName]);
-            
-            // Commit transaction
-            $this->db->commit();
-            
-            echo "   ✅ Migration completed ($executedStatements statements executed)\n";
-            
+            $stmt = $this->db->prepare("SELECT COUNT(*) FROM migrations WHERE migration = '001_add_campaign_scheduling'");
+            $stmt->execute();
+            return $stmt->fetchColumn() > 0;
         } catch (Exception $e) {
-            // Rollback transaction
-            $this->db->rollback();
-            throw new Exception("Migration '$migrationName' failed: " . $e->getMessage());
+            return false;
         }
     }
     
     /**
-     * Split SQL file into individual statements
+     * Create scheduled_campaigns table
      */
-    private function splitSqlStatements($sql) {
-        // Remove SQL comments
-        $sql = preg_replace('/--.*$/m', '', $sql);
-        
-        // Split by semicolon, but be careful about semicolons in strings
-        $statements = [];
-        $current = '';
-        $inString = false;
-        $stringChar = '';
-        
-        for ($i = 0; $i < strlen($sql); $i++) {
-            $char = $sql[$i];
+    private function createScheduledCampaignsTable() {
+        $sql = "CREATE TABLE IF NOT EXISTS scheduled_campaigns (
+            id INT AUTO_INCREMENT PRIMARY KEY,
+            campaign_id INT NOT NULL,
+            schedule_type ENUM('immediate', 'scheduled', 'recurring') DEFAULT 'immediate',
+            schedule_date DATETIME NULL,
+            frequency ENUM('once', 'daily', 'weekly', 'monthly') DEFAULT 'once',
+            recipient_ids TEXT COMMENT 'JSON array of recipient IDs to send to',
+            status ENUM('pending', 'running', 'completed', 'failed', 'cancelled') DEFAULT 'pending',
+            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+            updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+            last_sent_at DATETIME NULL,
+            next_send_at DATETIME NULL COMMENT 'When this campaign should be sent next',
+            sent_count INT DEFAULT 0 COMMENT 'Number of emails successfully sent',
+            failed_count INT DEFAULT 0 COMMENT 'Number of emails that failed to send',
             
-            if (!$inString && ($char === '"' || $char === "'")) {
-                $inString = true;
-                $stringChar = $char;
-            } elseif ($inString && $char === $stringChar && $sql[$i-1] !== '\\') {
-                $inString = false;
-            } elseif (!$inString && $char === ';') {
-                $statements[] = $current;
-                $current = '';
-                continue;
+            INDEX idx_status (status),
+            INDEX idx_next_send (next_send_at),
+            INDEX idx_schedule_type (schedule_type),
+            INDEX idx_campaign_status (campaign_id, status),
+            
+            CONSTRAINT fk_scheduled_campaign_id 
+                FOREIGN KEY (campaign_id) 
+                REFERENCES email_campaigns(id) 
+                ON DELETE CASCADE
+                ON UPDATE CASCADE
+        ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci 
+          COMMENT='Stores scheduled campaign information for the new scheduling system'";
+        
+        $this->db->exec($sql);
+        $this->addOutput("✅ Created scheduled_campaigns table", 'success');
+    }
+    
+    /**
+     * Create schedule_log table
+     */
+    private function createScheduleLogTable() {
+        $sql = "CREATE TABLE IF NOT EXISTS schedule_log (
+            id INT AUTO_INCREMENT PRIMARY KEY,
+            scheduled_campaign_id INT NOT NULL,
+            action ENUM('created', 'sent', 'failed', 'cancelled', 'processed') NOT NULL,
+            message TEXT COMMENT 'Detailed log message or error description',
+            recipient_count INT DEFAULT 0 COMMENT 'Number of recipients processed in this action',
+            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+            
+            INDEX idx_scheduled_campaign (scheduled_campaign_id),
+            INDEX idx_action_date (action, created_at),
+            INDEX idx_created_at (created_at),
+            
+            CONSTRAINT fk_schedule_log_campaign_id 
+                FOREIGN KEY (scheduled_campaign_id) 
+                REFERENCES scheduled_campaigns(id) 
+                ON DELETE CASCADE
+                ON UPDATE CASCADE
+        ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci 
+          COMMENT='Logs all scheduling actions and processing results'";
+        
+        $this->db->exec($sql);
+        $this->addOutput("✅ Created schedule_log table", 'success');
+    }
+    
+    /**
+     * Enhance email_recipients table
+     */
+    private function enhanceEmailRecipientsTable() {
+        $sql = "CREATE TABLE IF NOT EXISTS email_recipients (
+            id INT AUTO_INCREMENT PRIMARY KEY,
+            campaign_id INT NULL COMMENT 'Link to email_campaigns table',
+            name VARCHAR(255) NOT NULL,
+            email VARCHAR(255) NOT NULL,
+            company VARCHAR(255) NULL,
+            phone VARCHAR(50) NULL,
+            status ENUM('pending', 'sent', 'failed', 'bounced', 'unsubscribed') DEFAULT 'pending',
+            sent_at DATETIME NULL,
+            opened_at DATETIME NULL,
+            clicked_at DATETIME NULL,
+            error_message TEXT NULL,
+            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+            updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+            
+            INDEX idx_email (email),
+            INDEX idx_campaign_status (campaign_id, status),
+            INDEX idx_status (status),
+            INDEX idx_sent_at (sent_at)
+        ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci
+          COMMENT='Email recipients for campaigns - legacy table with enhancements'";
+        
+        $this->db->exec($sql);
+        $this->addOutput("✅ Enhanced email_recipients table", 'success');
+    }
+    
+    /**
+     * Update email_campaigns table
+     */
+    private function updateEmailCampaignsTable() {
+        try {
+            // Add missing columns
+            $this->db->exec("ALTER TABLE email_campaigns ADD COLUMN IF NOT EXISTS sender_name VARCHAR(100) NULL");
+            $this->db->exec("ALTER TABLE email_campaigns ADD COLUMN IF NOT EXISTS sender_email VARCHAR(255) NULL");
+            $this->db->exec("ALTER TABLE email_campaigns ADD COLUMN IF NOT EXISTS reply_to_email VARCHAR(255) NULL");
+            
+            $this->addOutput("✅ Updated email_campaigns table", 'success');
+        } catch (Exception $e) {
+            // Columns might already exist, that's okay
+            $this->addOutput("⚠️ Email campaigns table already up to date", 'warning');
+        }
+    }
+    
+    /**
+     * Record migration as completed
+     */
+    private function recordMigration() {
+        $stmt = $this->db->prepare("INSERT IGNORE INTO migrations (migration) VALUES ('001_add_campaign_scheduling')");
+        $stmt->execute();
+        $this->addOutput("✅ Migration recorded in database", 'success');
+    }
+    
+    /**
+     * Verify migration was successful
+     */
+    private function verifyMigration() {
+        $this->addOutput("🔍 Verifying migration...", 'info');
+        
+        $tables = ['scheduled_campaigns', 'schedule_log', 'email_recipients', 'email_campaigns'];
+        foreach ($tables as $table) {
+            $stmt = $this->db->query("SHOW TABLES LIKE '$table'");
+            if ($stmt->rowCount() > 0) {
+                $this->addOutput("✅ Table '$table' exists", 'success');
+            } else {
+                $this->addOutput("❌ Table '$table' missing", 'error');
             }
-            
-            $current .= $char;
         }
-        
-        if (!empty(trim($current))) {
-            $statements[] = $current;
-        }
-        
-        return $statements;
     }
     
     /**
-     * Print next steps after migration
+     * Get migration output
      */
-    private function printNextSteps() {
-        echo "\n📋 Next Steps:\n";
-        echo "=============\n";
-        echo "1. Create logs directory:\n";
-        echo "   mkdir -p logs && chmod 755 logs\n\n";
-        echo "2. Set up cron job for scheduled campaigns:\n";
-        echo "   */5 * * * * php " . __DIR__ . "/process_scheduled_campaigns.php\n\n";
-        echo "3. Test the scheduling system:\n";
-        echo "   php test_simple_scheduler.php\n\n";
-        echo "4. Access the web interface:\n";
-        echo "   - Campaign management: campaigns.php\n";
-        echo "   - Scheduled campaigns: scheduled_campaigns.php\n\n";
-        echo "5. Monitor logs:\n";
-        echo "   tail -f logs/email_log.txt\n\n";
+    public function getOutput() {
+        return $this->output;
     }
     
     /**
-     * Show help information
+     * Get migration errors
      */
-    public static function showHelp() {
-        echo "ACRM Database Migration Runner\n";
-        echo "==============================\n\n";
-        echo "Usage: php migrate.php [options]\n\n";
-        echo "Options:\n";
-        echo "  --dry-run           Show what would be done without making changes\n";
-        echo "  --force             Skip confirmation prompts\n";
-        echo "  --migration=001     Run only a specific migration\n";
-        echo "  --help              Show this help message\n\n";
-        echo "Examples:\n";
-        echo "  php migrate.php                    # Run all pending migrations\n";
-        echo "  php migrate.php --dry-run          # See what migrations would run\n";
-        echo "  php migrate.php --force            # Run without confirmation\n";
-        echo "  php migrate.php --migration=001    # Run only migration 001\n\n";
+    public function getErrors() {
+        return $this->errors;
     }
 }
 
-// Command line entry point
-if (php_sapi_name() === 'cli') {
-    // Check for help flag
-    if (in_array('--help', $argv ?? [])) {
-        MigrationRunner::showHelp();
-        exit(0);
-    }
-    
-    $runner = new MigrationRunner();
-    $runner->run();
-} else {
-    echo "This script must be run from the command line.\n";
-    echo "Usage: php migrate.php [--dry-run] [--force] [--migration=001]\n";
-    exit(1);
+// Handle POST request to run migration
+$migrationRunner = new WebMigrationRunner();
+$migrationStatus = $migrationRunner->checkMigrationStatus();
+$migrationRan = false;
+$migrationSuccess = false;
+
+if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['run_migration'])) {
+    $migrationSuccess = $migrationRunner->runMigration();
+    $migrationRan = true;
 }
 ?>
+
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>ACRM Database Migration - regrowup.ca</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.1/font/bootstrap-icons.css" rel="stylesheet">
+    <style>
+        .migration-output {
+            background: #1e1e1e;
+            color: #fff;
+            padding: 1rem;
+            border-radius: 8px;
+            font-family: 'Courier New', monospace;
+            max-height: 500px;
+            overflow-y: auto;
+        }
+        .log-info { color: #17a2b8; }
+        .log-success { color: #28a745; }
+        .log-warning { color: #ffc107; }
+        .log-error { color: #dc3545; }
+    </style>
+</head>
+<body>
+    <div class="container mt-4">
+        <div class="row justify-content-center">
+            <div class="col-lg-10">
+                <div class="card shadow">
+                    <div class="card-header bg-primary text-white">
+                        <h3 class="mb-0">
+                            <i class="bi bi-database-gear"></i> 
+                            ACRM Campaign Scheduling Migration
+                        </h3>
+                        <small>Server: https://acrm.regrowup.ca/</small>
+                    </div>
+                    <div class="card-body">
+                        
+                        <!-- Migration Status -->
+                        <div class="alert alert-info">
+                            <h5><i class="bi bi-info-circle"></i> Migration Status</h5>
+                            <?php if (isset($migrationStatus['error'])): ?>
+                                <p class="text-danger">❌ Error checking migration status</p>
+                            <?php else: ?>
+                                <ul class="mb-0">
+                                    <li>scheduled_campaigns table: <?php echo $migrationStatus['scheduled_campaigns'] ? '✅ Exists' : '❌ Missing'; ?></li>
+                                    <li>schedule_log table: <?php echo $migrationStatus['schedule_log'] ? '✅ Exists' : '❌ Missing'; ?></li>
+                                    <li>Migration needed: <?php echo $migrationStatus['migration_needed'] ? '⚠️ Yes' : '✅ No'; ?></li>
+                                </ul>
+                            <?php endif; ?>
+                        </div>
+
+                        <?php if ($migrationStatus['migration_needed'] && !$migrationRan): ?>
+                            <!-- Migration Form -->
+                            <div class="alert alert-warning">
+                                <h5><i class="bi bi-exclamation-triangle"></i> Database Migration Required</h5>
+                                <p>The campaign scheduling system requires database changes. This will:</p>
+                                <ul>
+                                    <li>Create <code>scheduled_campaigns</code> table</li>
+                                    <li>Create <code>schedule_log</code> table</li>
+                                    <li>Enhance <code>email_recipients</code> table</li>
+                                    <li>Add foreign key constraints</li>
+                                    <li>Add performance indexes</li>
+                                </ul>
+                                <p class="mb-0"><strong>This is safe and won't affect existing data.</strong></p>
+                            </div>
+
+                            <form method="POST" onsubmit="return confirm('Are you sure you want to run the database migration?');">
+                                <button type="submit" name="run_migration" class="btn btn-primary btn-lg">
+                                    <i class="bi bi-play-circle"></i> Run Database Migration
+                                </button>
+                            </form>
+
+                        <?php elseif (!$migrationStatus['migration_needed'] && !$migrationRan): ?>
+                            <!-- Already Migrated -->
+                            <div class="alert alert-success">
+                                <h5><i class="bi bi-check-circle"></i> Migration Complete</h5>
+                                <p class="mb-0">The database is already up to date. No migration needed.</p>
+                            </div>
+
+                            <div class="mt-3">
+                                <a href="campaigns.php" class="btn btn-success">
+                                    <i class="bi bi-arrow-right"></i> Go to Campaigns
+                                </a>
+                                <a href="scheduled_campaigns.php" class="btn btn-info">
+                                    <i class="bi bi-calendar-event"></i> Scheduled Campaigns
+                                </a>
+                            </div>
+                        <?php endif; ?>
+
+                        <?php if ($migrationRan): ?>
+                            <!-- Migration Results -->
+                            <div class="alert alert-<?php echo $migrationSuccess ? 'success' : 'danger'; ?>">
+                                <h5>
+                                    <i class="bi bi-<?php echo $migrationSuccess ? 'check-circle' : 'x-circle'; ?>"></i>
+                                    Migration <?php echo $migrationSuccess ? 'Completed' : 'Failed'; ?>
+                                </h5>
+                            </div>
+
+                            <!-- Migration Output -->
+                            <div class="migration-output">
+                                <?php foreach ($migrationRunner->getOutput() as $log): ?>
+                                    <div class="log-<?php echo $log['type']; ?>">
+                                        [<?php echo $log['timestamp']; ?>] <?php echo htmlspecialchars($log['message']); ?>
+                                    </div>
+                                <?php endforeach; ?>
+                            </div>
+
+                            <?php if ($migrationSuccess): ?>
+                                <!-- Next Steps -->
+                                <div class="alert alert-info mt-3">
+                                    <h5><i class="bi bi-list-check"></i> Next Steps</h5>
+                                    <ol>
+                                        <li>Create logs directory: <code>mkdir logs && chmod 755 logs</code></li>
+                                        <li>Set up cron job: <code>*/5 * * * * php /home/regrowup/public_html/acrm/process_scheduled_campaigns.php</code></li>
+                                        <li>Test the scheduling system</li>
+                                    </ol>
+                                </div>
+
+                                <div class="mt-3">
+                                    <a href="campaigns.php" class="btn btn-success">
+                                        <i class="bi bi-arrow-right"></i> Go to Campaigns
+                                    </a>
+                                    <a href="scheduled_campaigns.php" class="btn btn-info">
+                                        <i class="bi bi-calendar-event"></i> Scheduled Campaigns
+                                    </a>
+                                </div>
+                            <?php endif; ?>
+                        <?php endif; ?>
+
+                        <!-- System Information -->
+                        <div class="mt-4">
+                            <h6>System Information</h6>
+                            <small class="text-muted">
+                                PHP Version: <?php echo PHP_VERSION; ?> | 
+                                Server: <?php echo $_SERVER['SERVER_NAME']; ?> |
+                                Database: Connected ✅
+                            </small>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/js/bootstrap.bundle.min.js"></script>
+</body>
+</html>
