@@ -2850,6 +2850,14 @@ try {
                 recipient_ids: selectedContactIds
             };
             
+            // Debug logging
+            console.log('📅 Schedule Data:', {
+                scheduleType: scheduleType,
+                scheduleDate: scheduleDate,
+                currentTime: new Date().toISOString(),
+                localTime: new Date().toLocaleString()
+            });
+            
             // Send request
             fetch('api/schedule_campaign.php', {
                 method: 'POST',
@@ -2860,6 +2868,8 @@ try {
             })
             .then(response => response.json())
             .then(result => {
+                console.log('📤 API Response:', result);
+                
                 if (result.success) {
                     alert('✅ ' + result.message);
                     
@@ -2868,11 +2878,12 @@ try {
                     modal.hide();
                     location.reload();
                 } else {
+                    console.error('❌ Schedule Error:', result);
                     alert('❌ ' + result.message);
                 }
             })
             .catch(error => {
-                console.error('Error:', error);
+                console.error('❌ Network Error:', error);
                 alert('❌ Failed to schedule campaign. Please try again.');
             })
             .finally(() => {

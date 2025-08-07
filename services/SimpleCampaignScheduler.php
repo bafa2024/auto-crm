@@ -82,10 +82,45 @@ class SimpleCampaignScheduler {
                     return ['success' => false, 'message' => 'Schedule date is required'];
                 }
                 
+                // Validate and parse the date properly
+                $currentTimestamp = time();
+                $buffer = 60; // 1 minute buffer for processing time
+                
+                // Try to parse the date using multiple formats
+                $parsedDate = null;
+                $scheduleTimestamp = false;
+                
+                // First try datetime-local format (Y-m-d\TH:i)
+                $parsedDate = DateTime::createFromFormat('Y-m-d\TH:i', $scheduleDate);
+                if (!$parsedDate) {
+                    // Try standard datetime format (Y-m-d H:i:s)
+                    $parsedDate = DateTime::createFromFormat('Y-m-d H:i:s', $scheduleDate);
+                }
+                if (!$parsedDate) {
+                    // Try with DateTime constructor (handles various formats)
+                    try {
+                        $parsedDate = new DateTime($scheduleDate);
+                    } catch (Exception $e) {
+                        // Last resort: try strtotime
+                        $scheduleTimestamp = strtotime($scheduleDate);
+                        if ($scheduleTimestamp === false) {
+                            return ['success' => false, 'message' => 'Invalid date format. Please use YYYY-MM-DDTHH:MM or YYYY-MM-DD HH:MM:SS format. Received: ' . $scheduleDate];
+                        }
+                    }
+                }
+                
+                // Get timestamp from parsed date if we have one
+                if ($parsedDate) {
+                    $scheduleTimestamp = $parsedDate->getTimestamp();
+                }
+                
                 // Validate date is in the future
-                $scheduleTimestamp = strtotime($scheduleDate);
-                if ($scheduleTimestamp <= time()) {
-                    return ['success' => false, 'message' => 'Schedule date must be in the future'];
+                if ($scheduleTimestamp <= ($currentTimestamp + $buffer)) {
+                    $currentDateTime = date('Y-m-d H:i:s', $currentTimestamp);
+                    $providedDateTime = date('Y-m-d H:i:s', $scheduleTimestamp);
+                    $diffSeconds = $scheduleTimestamp - $currentTimestamp;
+                    
+                    return ['success' => false, 'message' => "Schedule date must be at least 1 minute in the future. Current server time: $currentDateTime, Provided: $providedDateTime (difference: {$diffSeconds} seconds, minimum required: {$buffer} seconds)"];
                 }
                 
                 $nextSendAt = $scheduleDate;
