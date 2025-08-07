@@ -459,6 +459,9 @@ try {
                     <p class="text-muted">Create and manage email marketing campaigns</p>
                 </div>
                 <div class="d-flex gap-2">
+                    <a href="scheduled_campaigns.php" class="btn btn-outline-info">
+                        <i class="bi bi-calendar-event"></i> Scheduled
+                    </a>
                     <button class="btn btn-outline-primary" onclick="showReports()">
                         <i class="bi bi-graph-up"></i> Reports
                     </button>
@@ -896,58 +899,107 @@ try {
     </div>
     
     <!-- Schedule Campaign Modal -->
+    <!-- Simple Schedule Campaign Modal -->
     <div class="modal fade" id="scheduleCampaignModal" tabindex="-1">
         <div class="modal-dialog modal-lg">
             <div class="modal-content">
                 <div class="modal-header">
-                    <h5 class="modal-title">Schedule Campaign</h5>
+                    <h5 class="modal-title">📅 Schedule Campaign</h5>
                     <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
                 </div>
-                <form method="POST" id="scheduleCampaignForm">
-                    <input type="hidden" name="action" value="schedule_campaign">
-                    <input type="hidden" name="campaign_id" id="schedule_campaign_id">
-                    <div class="modal-body">
-                        <div class="mb-3">
-                            <label for="schedule_campaign_name" class="form-label">Campaign Name</label>
-                            <input type="text" class="form-control" id="schedule_campaign_name" name="campaign_name" readonly>
+                <div class="modal-body">
+                    <!-- Campaign Info -->
+                    <div class="alert alert-info mb-3">
+                        <h6 class="alert-heading">📋 Campaign Details</h6>
+                        <p class="mb-1"><strong>Name:</strong> <span id="simple_schedule_campaign_name">Loading...</span></p>
+                        <p class="mb-0"><strong>Subject:</strong> <span id="simple_schedule_subject">Loading...</span></p>
+                    </div>
+                    
+                    <!-- Schedule Type -->
+                    <div class="mb-3">
+                        <label class="form-label">⏰ When to send?</label>
+                        <div class="btn-group w-100" role="group">
+                            <input type="radio" class="btn-check" name="simple_schedule_type" id="simple_immediate" value="immediate" checked>
+                            <label class="btn btn-outline-primary" for="simple_immediate">
+                                <i class="bi bi-send"></i> Send Now
+                            </label>
+                            
+                            <input type="radio" class="btn-check" name="simple_schedule_type" id="simple_scheduled" value="scheduled">
+                            <label class="btn btn-outline-primary" for="simple_scheduled">
+                                <i class="bi bi-calendar"></i> Schedule Later
+                            </label>
+                            
+                            <input type="radio" class="btn-check" name="simple_schedule_type" id="simple_recurring" value="recurring">
+                            <label class="btn btn-outline-primary" for="simple_recurring">
+                                <i class="bi bi-arrow-repeat"></i> Recurring
+                            </label>
                         </div>
-                        <div class="mb-3">
-                            <label for="schedule_schedule_type" class="form-label">Schedule Type</label>
-                            <select class="form-select" id="schedule_schedule_type" name="schedule_type" required>
-                                <option value="scheduled">Scheduled (One-time)</option>
-                                <option value="immediate">Send Immediately</option>
-                                <option value="recurring">Recurring</option>
-                            </select>
-                        </div>
-                        <div class="row" id="scheduleOptions">
+                    </div>
+                    
+                    <!-- Schedule Options -->
+                    <div id="simple_schedule_options" style="display: none;">
+                        <div class="row">
                             <div class="col-md-6">
                                 <div class="mb-3">
-                                    <label for="schedule_date" class="form-label">Schedule Date & Time</label>
-                                    <input type="datetime-local" class="form-control" id="schedule_date" name="schedule_date" required>
-                                    <small class="form-text text-muted">Select when to send the campaign</small>
-                                    <div class="mt-2">
-                                        <small class="text-info"><i class="bi bi-info-circle"></i> Current server time: <span id="currentServerTime"></span></small>
-                                    </div>
+                                    <label for="simple_schedule_date" class="form-label">📅 Date & Time</label>
+                                    <input type="datetime-local" class="form-control" id="simple_schedule_date">
+                                    <small class="form-text text-muted">Current time: <span id="simple_current_time"></span></small>
                                 </div>
                             </div>
-                            <div class="col-md-6" id="frequencyOptions" style="display: none;">
+                            <div class="col-md-6" id="simple_frequency_options" style="display: none;">
                                 <div class="mb-3">
-                                    <label for="schedule_frequency" class="form-label">Frequency</label>
-                                    <select class="form-select" id="schedule_frequency" name="frequency">
-                                        <option value="">Select frequency</option>
+                                    <label for="simple_frequency" class="form-label">🔄 Repeat Every</label>
+                                    <select class="form-select" id="simple_frequency">
                                         <option value="daily">Daily</option>
                                         <option value="weekly">Weekly</option>
                                         <option value="monthly">Monthly</option>
                                     </select>
-                                    <small class="form-text text-muted">How often to repeat the campaign</small>
                                 </div>
                             </div>
                         </div>
+                    </div>
+                    
+                    <!-- Recipients Selection -->
+                    <div class="mb-3">
+                        <div class="d-flex justify-content-between align-items-center mb-2">
+                            <label class="form-label">👥 Select Recipients</label>
+                            <small class="text-muted" id="simple_total_contacts">Loading...</small>
+                        </div>
                         
-                        <!-- Template Selection -->
-                        <div class="mb-3">
-                            <label for="schedule_template_id" class="form-label">Email Template (Optional)</label>
-                            <select class="form-select" id="schedule_template_id" name="template_id" onchange="loadScheduleTemplate()">
+                        <!-- Quick Actions -->
+                        <div class="mb-2">
+                            <button type="button" class="btn btn-sm btn-outline-primary" onclick="simpleSelectAllContacts()">
+                                <i class="bi bi-check-square"></i> Select All
+                            </button>
+                            <button type="button" class="btn btn-sm btn-outline-secondary" onclick="simpleClearAllContacts()">
+                                <i class="bi bi-square"></i> Clear All
+                            </button>
+                            <span class="badge bg-primary ms-2" id="simple_selected_count">0 selected</span>
+                        </div>
+                        
+                        <!-- Recipients List -->
+                        <div class="border rounded" style="max-height: 300px; overflow-y: auto;">
+                            <div id="simple_recipients_list" class="p-3">
+                                <div class="text-center">
+                                    <div class="spinner-border text-primary" role="status">
+                                        <span class="visually-hidden">Loading contacts...</span>
+                                    </div>
+                                    <p class="mt-2">Loading contacts...</p>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                    <button type="button" class="btn btn-primary" id="simple_schedule_submit" onclick="submitSimpleSchedule()">
+                        <i class="bi bi-send"></i> Schedule Campaign
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
                                 <option value="">-- Select a template --</option>
                                 <?php 
                                 $currentCategory = '';
@@ -2627,6 +2679,209 @@ try {
                 });
             }
         });
+    </script>    <script>
+        // Simple Schedule Campaign JavaScript Functions
+        let currentCampaignId = null;
+        let allContacts = [];
+        let selectedContactIds = [];
+
+        // Update the existing scheduleCampaign function to use new simple modal
+        window.scheduleCampaign = function(campaignId) {
+            currentCampaignId = campaignId;
+            
+            // Show modal
+            const modal = new bootstrap.Modal(document.getElementById('scheduleCampaignModal'));
+            modal.show();
+            
+            // Load campaign and contacts data
+            loadSimpleCampaignData(campaignId);
+            loadSimpleContacts(campaignId);
+            
+            // Setup event listeners
+            setupSimpleScheduleListeners();
+            
+            // Update current time
+            updateSimpleCurrentTime();
+            setInterval(updateSimpleCurrentTime, 1000);
+        };
+
+        function loadSimpleCampaignData(campaignId) {
+            fetch(`api/get_campaign.php?id=${campaignId}`)
+                .then(response => response.json())
+                .then(data => {
+                    if (data.success && data.campaign) {
+                        document.getElementById('simple_schedule_campaign_name').textContent = data.campaign.name;
+                        document.getElementById('simple_schedule_subject').textContent = data.campaign.subject;
+                    }
+                })
+                .catch(error => {
+                    console.error('Error loading campaign data:', error);
+                });
+        }
+
+        function loadSimpleContacts(campaignId) {
+            fetch(`api/get_campaign.php?id=${campaignId}&recipients=all`)
+                .then(response => response.json())
+                .then(data => {
+                    allContacts = data.recipients || [];
+                    displaySimpleContacts();
+                    updateSimpleContactCount();
+                })
+                .catch(error => {
+                    console.error('Error loading contacts:', error);
+                    document.getElementById('simple_recipients_list').innerHTML = 
+                        '<div class="text-center p-3"><p class="text-danger">Error loading contacts</p></div>';
+                });
+        }
+
+        function displaySimpleContacts() {
+            const container = document.getElementById('simple_recipients_list');
+            
+            if (allContacts.length === 0) {
+                container.innerHTML = '<div class="text-center p-3"><p class="text-muted">No contacts found</p></div>';
+                return;
+            }
+
+            let html = '';
+            allContacts.forEach(contact => {
+                const statusBadge = contact.send_status === 'sent' 
+                    ? '<span class="badge bg-success">Already Sent</span>'
+                    : contact.send_status === 'failed'
+                    ? '<span class="badge bg-warning">Failed</span>'
+                    : '<span class="badge bg-secondary">Available</span>';
+
+                html += `
+                    <div class="form-check p-2 border-bottom">
+                        <input class="form-check-input" type="checkbox" value="${contact.id}" 
+                               id="simple_contact_${contact.id}" onchange="updateSimpleSelection()">
+                        <label class="form-check-label d-flex justify-content-between w-100" for="simple_contact_${contact.id}">
+                            <div>
+                                <strong>${contact.email}</strong><br>
+                                <small class="text-muted">${contact.name || 'No name'} - ${contact.company || 'No company'}</small>
+                            </div>
+                            <div>${statusBadge}</div>
+                        </label>
+                    </div>
+                `;
+            });
+
+            container.innerHTML = html;
+        }
+
+        function setupSimpleScheduleListeners() {
+            // Schedule type change
+            document.querySelectorAll('input[name="simple_schedule_type"]').forEach(radio => {
+                radio.addEventListener('change', function() {
+                    const scheduleOptions = document.getElementById('simple_schedule_options');
+                    const frequencyOptions = document.getElementById('simple_frequency_options');
+                    
+                    if (this.value === 'immediate') {
+                        scheduleOptions.style.display = 'none';
+                        frequencyOptions.style.display = 'none';
+                    } else if (this.value === 'scheduled') {
+                        scheduleOptions.style.display = 'block';
+                        frequencyOptions.style.display = 'none';
+                    } else if (this.value === 'recurring') {
+                        scheduleOptions.style.display = 'block';
+                        frequencyOptions.style.display = 'block';
+                    }
+                });
+            });
+        }
+
+        function updateSimpleCurrentTime() {
+            const now = new Date();
+            const timeString = now.toLocaleString();
+            document.getElementById('simple_current_time').textContent = timeString;
+        }
+
+        function updateSimpleContactCount() {
+            document.getElementById('simple_total_contacts').textContent = `${allContacts.length} contacts`;
+        }
+
+        function updateSimpleSelection() {
+            const checkboxes = document.querySelectorAll('#simple_recipients_list input[type="checkbox"]:checked');
+            selectedContactIds = Array.from(checkboxes).map(cb => parseInt(cb.value));
+            document.getElementById('simple_selected_count').textContent = `${selectedContactIds.length} selected`;
+        }
+
+        function simpleSelectAllContacts() {
+            const checkboxes = document.querySelectorAll('#simple_recipients_list input[type="checkbox"]');
+            checkboxes.forEach(cb => cb.checked = true);
+            updateSimpleSelection();
+        }
+
+        function simpleClearAllContacts() {
+            const checkboxes = document.querySelectorAll('#simple_recipients_list input[type="checkbox"]');
+            checkboxes.forEach(cb => cb.checked = false);
+            updateSimpleSelection();
+        }
+
+        function submitSimpleSchedule() {
+            const submitBtn = document.getElementById('simple_schedule_submit');
+            const originalText = submitBtn.innerHTML;
+            
+            // Get form data
+            const scheduleType = document.querySelector('input[name="simple_schedule_type"]:checked').value;
+            const scheduleDate = document.getElementById('simple_schedule_date').value;
+            const frequency = document.getElementById('simple_frequency').value;
+            
+            // Validate
+            if ((scheduleType === 'scheduled' || scheduleType === 'recurring') && !scheduleDate) {
+                alert('Please select a date and time for scheduling');
+                return;
+            }
+            
+            if (selectedContactIds.length === 0) {
+                alert('Please select at least one contact');
+                return;
+            }
+            
+            // Show loading
+            submitBtn.disabled = true;
+            submitBtn.innerHTML = '<span class="spinner-border spinner-border-sm"></span> Scheduling...';
+            
+            // Prepare data
+            const data = {
+                campaign_id: currentCampaignId,
+                schedule_type: scheduleType,
+                schedule_date: scheduleDate,
+                frequency: frequency,
+                recipient_ids: selectedContactIds
+            };
+            
+            // Send request
+            fetch('api/schedule_campaign.php', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify(data)
+            })
+            .then(response => response.json())
+            .then(result => {
+                if (result.success) {
+                    alert('✅ ' + result.message);
+                    
+                    // Close modal and refresh page
+                    const modal = bootstrap.Modal.getInstance(document.getElementById('scheduleCampaignModal'));
+                    modal.hide();
+                    location.reload();
+                } else {
+                    alert('❌ ' + result.message);
+                }
+            })
+            .catch(error => {
+                console.error('Error:', error);
+                alert('❌ Failed to schedule campaign. Please try again.');
+            })
+            .finally(() => {
+                // Restore button
+                submitBtn.disabled = false;
+                submitBtn.innerHTML = originalText;
+            });
+        }
     </script>
+
 </body>
 </html> 

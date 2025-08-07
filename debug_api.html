@@ -1,0 +1,53 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>API Test</title>
+    <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
+</head>
+<body>
+    <h2>Testing Send Campaign API</h2>
+    <div id="results"></div>
+    
+    <script>
+    // Test the API call that's used in sendCampaign function
+    function testAPI() {
+        const campaignId = 1; // Test with campaign ID 1
+        const url = 'api/get_campaign.php?id=' + campaignId + '&recipients=all';
+        
+        console.log('Testing URL:', url);
+        document.getElementById('results').innerHTML = '<p>Testing API call to: ' + url + '</p>';
+        
+        fetch(url)
+            .then(response => {
+                console.log('Response status:', response.status);
+                return response.text(); // Get as text first to see raw response
+            })
+            .then(data => {
+                console.log('Raw response:', data);
+                document.getElementById('results').innerHTML += '<h3>Raw Response:</h3><pre>' + data + '</pre>';
+                
+                // Try to parse as JSON
+                try {
+                    const jsonData = JSON.parse(data);
+                    console.log('Parsed JSON:', jsonData);
+                    document.getElementById('results').innerHTML += '<h3>Parsed JSON:</h3><pre>' + JSON.stringify(jsonData, null, 2) + '</pre>';
+                    
+                    if (jsonData.recipients) {
+                        document.getElementById('results').innerHTML += '<h3>Recipients found:</h3><p>' + jsonData.recipients.length + ' contacts</p>';
+                    }
+                } catch (e) {
+                    console.error('JSON parse error:', e);
+                    document.getElementById('results').innerHTML += '<h3>JSON Parse Error:</h3><p>' + e.message + '</p>';
+                }
+            })
+            .catch(error => {
+                console.error('Fetch error:', error);
+                document.getElementById('results').innerHTML += '<h3>Fetch Error:</h3><p>' + error.message + '</p>';
+            });
+    }
+    
+    // Run test on page load
+    testAPI();
+    </script>
+</body>
+</html>
