@@ -15,6 +15,13 @@ $isAuthenticated = false;
 // Check if already logged in
 if (isset($_SESSION['user_id']) && isset($_SESSION['user_role']) && $_SESSION['user_role'] === 'admin') {
     $isAuthenticated = true;
+    error_log("User authenticated: " . $_SESSION['user_id'] . " with role: " . $_SESSION['user_role']);
+} else {
+    error_log("User not authenticated. Session data: " . json_encode([
+        'user_id' => $_SESSION['user_id'] ?? 'not set',
+        'user_role' => $_SESSION['user_role'] ?? 'not set',
+        'session_id' => session_id()
+    ]));
 }
 
 // Handle login form submission
@@ -23,6 +30,9 @@ if ($_POST['action'] ?? '' === 'login') {
     
     $email = $_POST['email'] ?? '';
     $password = $_POST['password'] ?? '';
+    
+    // Debug logging
+    error_log("Login attempt: " . $email);
     
     if ($email && $password) {
         try {
@@ -33,27 +43,40 @@ if ($_POST['action'] ?? '' === 'login') {
             $stmt->execute([$email]);
             $user = $stmt->fetch();
             
+            error_log("User found: " . ($user ? 'yes' : 'no'));
+            
             if ($user && password_verify($password, $user['password'])) {
+                error_log("Password verified for user: " . $user['id']);
+                
                 $_SESSION['user_id'] = $user['id'];
                 $_SESSION['user_email'] = $user['email'];
                 $_SESSION['user_name'] = $user['first_name'] . ' ' . $user['last_name'];
                 $_SESSION['user_role'] = $user['role'] ?? 'user';
                 
+                error_log("Session set for user: " . $_SESSION['user_id'] . " with role: " . $_SESSION['user_role']);
+                
                 // Only allow admin access
                 if ($_SESSION['user_role'] === 'admin') {
-                    $isAuthenticated = true;
+                    error_log("Admin login successful, redirecting...");
+                    // Redirect to prevent form resubmission and ensure clean page load
+                    header('Location: ' . $_SERVER['REQUEST_URI']);
+                    exit;
                 } else {
                     $loginError = "Access denied. Admin privileges required.";
+                    error_log("Non-admin user attempted access: " . $_SESSION['user_role']);
                     session_destroy();
                 }
             } else {
                 $loginError = "Invalid credentials";
+                error_log("Invalid credentials for: " . $email);
             }
         } catch (Exception $e) {
             $loginError = "Database connection error: " . $e->getMessage();
+            error_log("Login database error: " . $e->getMessage());
         }
     } else {
         $loginError = "Email and password are required";
+        error_log("Missing email or password in login attempt");
     }
 }
 
@@ -114,6 +137,10 @@ if ($_POST['action'] ?? '' === 'create_admin') {
             $adminCreated = "Admin account created successfully";
         }
         
+        // Redirect to prevent form resubmission
+        header('Location: ' . $_SERVER['REQUEST_URI'] . '?admin_created=1');
+        exit;
+        
     } catch (Exception $e) {
         $adminCreationError = "Failed to create admin: " . $e->getMessage();
     }
@@ -128,6 +155,11 @@ if ($_POST['action'] ?? '' === 'logout') {
 
 // If not authenticated, show login form
 if (!$isAuthenticated) {
+    // Check for success messages from redirects
+    $adminCreated = '';
+    if (isset($_GET['admin_created'])) {
+        $adminCreated = "Admin account created/updated successfully! You can now login with: admin@autocrm.com / admin123";
+    }
     ?>
     <!DOCTYPE html>
     <html lang="en">
@@ -170,7 +202,7 @@ if (!$isAuthenticated) {
                                 </div>
                             <?php endif; ?>
                             
-                            <form method="POST">
+                            <form method="POST" id="loginForm">
                                 <input type="hidden" name="action" value="login">
                                 <div class="mb-3">
                                     <label for="email" class="form-label">Admin Email</label>
@@ -182,9 +214,12 @@ if (!$isAuthenticated) {
                                     <input type="password" class="form-control" id="password" name="password" value="admin123" required>
                                     <small class="form-text text-muted">Default: admin123</small>
                                 </div>
-                                <button type="submit" class="btn btn-primary">
+                                <button type="submit" class="btn btn-primary" id="loginBtn">
                                     <i class="bi bi-box-arrow-in-right"></i> Login
                                 </button>
+                                <div id="loginLoading" class="text-muted mt-2" style="display: none;">
+                                    <i class="bi bi-hourglass-split"></i> Logging in...
+                                </div>
                             </form>
                             
                             <hr>
@@ -213,6 +248,35 @@ if (!$isAuthenticated) {
                 </div>
             </div>
         </div>
+    
+    <script>
+        // Handle login form submission
+        document.getElementById('loginForm').addEventListener('submit', function(e) {
+            const loginBtn = document.getElementById('loginBtn');
+            const loginLoading = document.getElementById('loginLoading');
+            
+            // Show loading state
+            loginBtn.disabled = true;
+            loginLoading.style.display = 'block';
+            
+            // Set a timeout to re-enable the button in case of issues
+            setTimeout(function() {
+                loginBtn.disabled = false;
+                loginLoading.style.display = 'none';
+            }, 10000); // 10 seconds timeout
+        });
+        
+        // Handle any forms with potential delays
+        document.querySelectorAll('form').forEach(function(form) {
+            form.addEventListener('submit', function(e) {
+                const submitBtn = form.querySelector('button[type="submit"]');
+                if (submitBtn) {
+                    submitBtn.innerHTML = '<i class="bi bi-hourglass-split"></i> Processing...';
+                    submitBtn.disabled = true;
+                }
+            });
+        });
+    </script>
     </body>
     </html>
     <?php
