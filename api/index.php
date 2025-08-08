@@ -1,5 +1,10 @@
 <?php
 require_once __DIR__ . '/../config/config.php';
+// Load Composer autoloader if available (for PHPMailer and other deps)
+$vendorAutoload = __DIR__ . '/../vendor/autoload.php';
+if (file_exists($vendorAutoload)) {
+    require_once $vendorAutoload;
+}
 require_once __DIR__ . '/../config/database.php';
 
 // Include models

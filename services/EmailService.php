@@ -1,4 +1,12 @@
 <?php
+// Try to ensure Composer autoload is loaded so PHPMailer is available
+if (!class_exists('PHPMailer\\PHPMailer\\PHPMailer')) {
+    $autoloadPath = __DIR__ . '/../vendor/autoload.php';
+    if (file_exists($autoloadPath)) {
+        require_once $autoloadPath;
+    }
+}
+
 use PHPMailer\PHPMailer\PHPMailer;
 use PHPMailer\PHPMailer\SMTP;
 use PHPMailer\PHPMailer\Exception;
@@ -637,7 +645,11 @@ class EmailService {
             $mail->Port = $this->config['smtp']['port'];
             
             // Recipients
-            $mail->setFrom($this->config['from']['address'], $senderName ?: $this->config['from']['name']);
+            // Use SMTP configured from address and name
+            $mail->setFrom(
+                $this->config['smtp']['from']['address'],
+                $senderName ?: $this->config['smtp']['from']['name']
+            );
             $mail->addAddress($to);
             
             // Add CC recipients
@@ -659,7 +671,7 @@ class EmailService {
             $mail->send();
             
             // Log the instant email
-            $this->logInstantEmail($to, $subject, $senderName, $this->config['from']['address']);
+            $this->logInstantEmail($to, $subject, $senderName, $this->config['smtp']['from']['address']);
             
             return true;
             
@@ -677,7 +689,7 @@ class EmailService {
             $headers = [];
             $headers[] = 'MIME-Version: 1.0';
             $headers[] = 'Content-type: text/html; charset=UTF-8';
-            $headers[] = 'From: ' . ($senderName ?: $this->config['from']['name']) . ' <' . $this->config['from']['address'] . '>';
+            $headers[] = 'From: ' . ($senderName ?: $this->config['smtp']['from']['name']) . ' <' . $this->config['smtp']['from']['address'] . '>';
             
             if (!empty($cc)) {
                 $headers[] = 'Cc: ' . implode(', ', $cc);
@@ -694,7 +706,7 @@ class EmailService {
             
             if ($result) {
                 // Log the instant email
-                $this->logInstantEmail($to, $subject, $senderName, $this->config['from']['address']);
+                $this->logInstantEmail($to, $subject, $senderName, $this->config['smtp']['from']['address']);
             }
             
             return $result;
