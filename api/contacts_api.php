@@ -1,7 +1,8 @@
 <?php
 // Enable error reporting for debugging
 error_reporting(E_ALL);
-ini_set('display_errors', 1);
+ini_set('display_errors', 0); // Don't display errors in output to avoid corrupting JSON
+ini_set('log_errors', 1);
 
 require_once __DIR__ . '/../config/config.php';
 require_once __DIR__ . '/../config/database.php';
@@ -19,6 +20,15 @@ header('Access-Control-Allow-Origin: *');
 header('Access-Control-Allow-Methods: GET, POST, PUT, DELETE, OPTIONS');
 header('Access-Control-Allow-Headers: Content-Type, Authorization');
 
+// Log the request for debugging
+error_log("CONTACTS API REQUEST: " . json_encode([
+    'method' => $_SERVER['REQUEST_METHOD'] ?? 'unknown',
+    'action' => $_GET['action'] ?? 'none',
+    'id' => $_GET['id'] ?? 'none',
+    'host' => $_SERVER['HTTP_HOST'] ?? 'unknown',
+    'timestamp' => date('Y-m-d H:i:s')
+]));
+
 // Handle preflight requests
 if (isset($_SERVER['REQUEST_METHOD']) && $_SERVER['REQUEST_METHOD'] === 'OPTIONS') {
     http_response_code(200);
@@ -35,27 +45,44 @@ if (isset($_SERVER['REQUEST_METHOD']) && $_SERVER['REQUEST_METHOD'] === 'OPTIONS
 
 // Initialize database connection using the Database class
 try {
+    error_log("Initializing database connection...");
     $database = new Database();
     $pdo = $database->getConnection();
     
     if (!$pdo) {
-        throw new Exception("Database connection failed");
+        throw new Exception("Database connection failed - PDO is null");
     }
+    
+    error_log("Database connection successful");
 } catch (Exception $e) {
+    error_log("Database connection failed: " . $e->getMessage());
     http_response_code(500);
     echo json_encode([
         'error' => 'Database connection failed',
         'message' => $e->getMessage(),
         'debug' => [
             'timestamp' => date('Y-m-d H:i:s'),
-            'server' => $_SERVER['HTTP_HOST'] ?? 'unknown'
+            'server' => $_SERVER['HTTP_HOST'] ?? 'unknown',
+            'environment' => 'live server check needed'
         ]
     ]);
     exit();
 }
 
 // Initialize Contact Controller
-$contactController = new ContactController($pdo);
+try {
+    error_log("Initializing ContactController...");
+    $contactController = new ContactController($pdo);
+    error_log("ContactController initialized successfully");
+} catch (Exception $e) {
+    error_log("ContactController initialization failed: " . $e->getMessage());
+    http_response_code(500);
+    echo json_encode([
+        'error' => 'Controller initialization failed',
+        'message' => $e->getMessage()
+    ]);
+    exit();
+}
 
 // Get request method and action
 $method = $_SERVER['REQUEST_METHOD'] ?? 'GET';
@@ -219,10 +246,13 @@ function getContactsList($contactController) {
 
 // Get contact details
 function getContactDetails($contactController) {
+    error_log("getContactDetails called with ID: " . ($_GET['id'] ?? 'not provided'));
+    
     try {
         $contact_id = intval($_GET['id'] ?? 0);
         
         if ($contact_id <= 0) {
+            error_log("Invalid contact ID provided: " . ($_GET['id'] ?? 'not provided'));
             http_response_code(400);
             echo json_encode([
                 'error' => 'Invalid contact ID',
@@ -234,11 +264,14 @@ function getContactDetails($contactController) {
             return;
         }
         
+        error_log("Attempting to get contact with ID: " . $contact_id);
         $result = $contactController->getContactById($contact_id);
+        error_log("ContactController result: " . json_encode(['success' => $result['success'] ?? false]));
         
         if ($result['success']) {
             echo json_encode($result);
         } else {
+            error_log("Contact not found: " . $result['message']);
             http_response_code(404);
             echo json_encode([
                 'error' => $result['message'],
@@ -250,6 +283,7 @@ function getContactDetails($contactController) {
         }
         
     } catch (Exception $e) {
+        error_log("getContactDetails exception: " . $e->getMessage() . " in " . $e->getFile() . ":" . $e->getLine());
         http_response_code(500);
         echo json_encode([
             'error' => 'Failed to fetch contact details',
