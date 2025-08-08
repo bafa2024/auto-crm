@@ -242,6 +242,15 @@ try {
             require_once __DIR__ . "/views/employee/profile.php";
             break;
             
+        // Employee Instant Email
+        case $requestUri === "/employee/instant-email":
+            if (!isset($_SESSION["user_id"]) || !in_array($_SESSION["user_role"], ['agent', 'manager'])) {
+                header("Location: " . base_path('employee/login'));
+                exit;
+            }
+            require_once __DIR__ . "/views/employee/instant-email.php";
+            break;
+            
         // Employee Analytics
         case $requestUri === "/employee/analytics":
             if (!isset($_SESSION["user_id"]) || !in_array($_SESSION["user_role"], ['agent', 'manager'])) {

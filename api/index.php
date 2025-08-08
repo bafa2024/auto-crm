@@ -16,6 +16,7 @@ require_once __DIR__ . '/../controllers/ContactHistoryController.php';
 require_once __DIR__ . '/../controllers/EmailRecipientController.php';
 require_once __DIR__ . '/../controllers/EmailCampaignController.php';
 require_once __DIR__ . '/../controllers/SettingsController.php';
+require_once __DIR__ . '/../controllers/InstantEmailController.php';
 require_once __DIR__ . '/../services/EmailService.php';
 
 // Set API mode
@@ -118,6 +119,10 @@ try {
         case 'settings':
             $controller = new SettingsController($db);
             handleSettingsRoutes($controller, $id, $action);
+            break;
+        case 'instant-email':
+            $controller = new InstantEmailController($db);
+            handleInstantEmailRoutes($controller, $id, $action);
             break;
         default:
             http_response_code(404);
@@ -550,5 +555,45 @@ function handleEmployeeProfileRoutes($controller, $action, $subAction) {
         default:
             http_response_code(404);
             echo json_encode(['error' => 'Employee profile endpoint not found']);
+    }
+}
+
+function handleInstantEmailRoutes($controller, $id, $action) {
+    switch ($action) {
+        case 'send':
+            if ($_SERVER['REQUEST_METHOD'] === 'POST') {
+                $controller->sendInstantEmail();
+            } else {
+                http_response_code(405);
+                echo json_encode(['error' => 'Method not allowed']);
+            }
+            break;
+        case 'templates':
+            if ($_SERVER['REQUEST_METHOD'] === 'GET') {
+                $controller->getEmailTemplates();
+            } else {
+                http_response_code(405);
+                echo json_encode(['error' => 'Method not allowed']);
+            }
+            break;
+        case 'contacts':
+            if ($_SERVER['REQUEST_METHOD'] === 'GET') {
+                $controller->getContactSuggestions();
+            } else {
+                http_response_code(405);
+                echo json_encode(['error' => 'Method not allowed']);
+            }
+            break;
+        case 'history':
+            if ($_SERVER['REQUEST_METHOD'] === 'GET') {
+                $controller->getSentHistory();
+            } else {
+                http_response_code(405);
+                echo json_encode(['error' => 'Method not allowed']);
+            }
+            break;
+        default:
+            http_response_code(404);
+            echo json_encode(['error' => 'Instant email endpoint not found']);
     }
 } 

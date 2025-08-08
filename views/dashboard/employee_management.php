@@ -635,6 +635,14 @@ function managePermissions(userId) {
                                     <small class="text-muted">Can see campaigns created by other employees</small>
                                 </label>
                             </div>
+                            
+                            <div class="form-check form-switch mb-3">
+                                <input class="form-check-input" type="checkbox" id="perm_instant_email" ${permissions.can_send_instant_emails ? 'checked' : ''}>
+                                <label class="form-check-label" for="perm_instant_email">
+                                    <strong>Send Instant Emails</strong><br>
+                                    <small class="text-muted">Can send quick emails to contacts and prospects</small>
+                                </label>
+                            </div>
                         </div>
                         <div class="modal-footer">
                             <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
@@ -665,7 +673,8 @@ function savePermissions(userId) {
         can_edit_campaigns: document.getElementById('perm_edit').checked,
         can_delete_campaigns: document.getElementById('perm_delete').checked,
         can_export_contacts: document.getElementById('perm_export').checked,
-        can_view_all_campaigns: document.getElementById('perm_view_all').checked
+        can_view_all_campaigns: document.getElementById('perm_view_all').checked,
+        can_send_instant_emails: document.getElementById('perm_instant_email').checked
     };
     
     fetch(`<?php echo base_path('api/employees'); ?>/${userId}/permissions`, {

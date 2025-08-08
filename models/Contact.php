@@ -138,4 +138,38 @@ class Contact extends BaseModel {
             'errors' => $errors
         ];
     }
+    
+    /**
+     * Search contacts for email composer autocomplete
+     */
+    public function searchForEmailComposer($query, $limit = 10) {
+        if (!$this->db) return [];
+        
+        $sql = "SELECT id, CONCAT(first_name, ' ', last_name) as name, email, company 
+                FROM {$this->table} 
+                WHERE (first_name LIKE ? OR last_name LIKE ? OR email LIKE ? OR company LIKE ?)
+                AND email IS NOT NULL AND email != ''
+                ORDER BY 
+                    CASE 
+                        WHEN email LIKE ? THEN 1
+                        WHEN CONCAT(first_name, ' ', last_name) LIKE ? THEN 2
+                        WHEN company LIKE ? THEN 3
+                        ELSE 4
+                    END,
+                    first_name ASC
+                LIMIT ?";
+        
+        $searchLike = "%{$query}%";
+        $emailLike = "{$query}%";
+        $nameLike = "{$query}%";
+        $companyLike = "{$query}%";
+        
+        $stmt = $this->db->prepare($sql);
+        $stmt->execute([
+            $searchLike, $searchLike, $searchLike, $searchLike,
+            $emailLike, $nameLike, $companyLike, $limit
+        ]);
+        
+        return $stmt->fetchAll(PDO::FETCH_ASSOC);
+    }
 }

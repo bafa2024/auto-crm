@@ -6,6 +6,15 @@ if (!isset($_SESSION["user_id"]) || !in_array($_SESSION["user_role"], ['agent', 
     exit;
 }
 
+// Load user permissions for the dashboard
+require_once __DIR__ . "/../../config/database.php";
+require_once __DIR__ . "/../../models/EmployeePermission.php";
+
+$database = new Database();
+$db = $database->getConnection();
+$permissionModel = new EmployeePermission($db);
+$permissions = $permissionModel->getUserPermissions($_SESSION["user_id"]);
+
 include __DIR__ . "/../components/header.php";
 include __DIR__ . "/../components/employee-sidebar.php";
 ?>
@@ -20,68 +29,68 @@ include __DIR__ . "/../components/employee-sidebar.php";
             </div>
             <div class="d-flex gap-2">
                 <button class="btn btn-outline-primary" onclick="refreshDashboard()">
-                    <i class="bi bi-arrow-clockwise"></i> Refresh
+                    <i class="bi bi-arrow-clockwise"></i> <span class="d-none d-sm-inline">Refresh</span>
                 </button>
             </div>
         </div>
 
         <!-- Stats Cards -->
-        <div class="row mb-4">
-            <div class="col-md-3">
-                <div class="card bg-primary text-white">
-                    <div class="card-body">
-                        <div class="d-flex justify-content-between">
+        <div class="row g-3 mb-4">
+            <div class="col-6 col-md-3">
+                <div class="card h-100 bg-primary text-white shadow-sm">
+                    <div class="card-body p-3">
+                        <div class="d-flex justify-content-between align-items-center">
                             <div>
-                                <h4 class="mb-0" id="totalContacts">-</h4>
-                                <p class="mb-0">My Contacts</p>
+                                <h4 class="mb-1" id="totalContacts">-</h4>
+                                <p class="mb-0 small">My Contacts</p>
                             </div>
-                            <div class="align-self-center">
-                                <i class="bi bi-people-fill fs-1"></i>
+                            <div>
+                                <i class="bi bi-people-fill fs-2 opacity-75"></i>
                             </div>
                         </div>
                     </div>
                 </div>
             </div>
-            <div class="col-md-3">
-                <div class="card bg-success text-white">
-                    <div class="card-body">
-                        <div class="d-flex justify-content-between">
+            <div class="col-6 col-md-3">
+                <div class="card h-100 bg-success text-white shadow-sm">
+                    <div class="card-body p-3">
+                        <div class="d-flex justify-content-between align-items-center">
                             <div>
-                                <h4 class="mb-0" id="newLeads">-</h4>
-                                <p class="mb-0">New Leads</p>
+                                <h4 class="mb-1" id="newLeads">-</h4>
+                                <p class="mb-0 small">New Leads</p>
                             </div>
-                            <div class="align-self-center">
-                                <i class="bi bi-person-plus-fill fs-1"></i>
+                            <div>
+                                <i class="bi bi-person-plus-fill fs-2 opacity-75"></i>
                             </div>
                         </div>
                     </div>
                 </div>
             </div>
-            <div class="col-md-3">
-                <div class="card bg-warning text-white">
-                    <div class="card-body">
-                        <div class="d-flex justify-content-between">
+            <div class="col-6 col-md-3">
+                <div class="card h-100 bg-warning text-white shadow-sm">
+                    <div class="card-body p-3">
+                        <div class="d-flex justify-content-between align-items-center">
                             <div>
-                                <h4 class="mb-0" id="pendingTasks">-</h4>
-                                <p class="mb-0">Pending Tasks</p>
+                                <h4 class="mb-1" id="pendingTasks">-</h4>
+                                <p class="mb-0 small">Pending Tasks</p>
                             </div>
-                            <div class="align-self-center">
-                                <i class="bi bi-clock-fill fs-1"></i>
+                            <div>
+                                <i class="bi bi-clock-fill fs-2 opacity-75"></i>
                             </div>
                         </div>
                     </div>
                 </div>
             </div>
-            <div class="col-md-3">
-                <div class="card bg-info text-white">
-                    <div class="card-body">
-                        <div class="d-flex justify-content-between">
+            <div class="col-6 col-md-3">
+                <div class="card h-100 bg-info text-white shadow-sm">
+                    <div class="card-body p-3">
+                        <div class="d-flex justify-content-between align-items-center">
                             <div>
-                                <h4 class="mb-0" id="completedTasks">-</h4>
-                                <p class="mb-0">Completed</p>
+                                <h4 class="mb-1" id="completedTasks">-</h4>
+                                <p class="mb-0 small">Completed</p>
                             </div>
-                            <div class="align-self-center">
-                                <i class="bi bi-check-circle-fill fs-1"></i>
+                            <div>
+                                <i class="bi bi-check-circle-fill fs-2 opacity-75"></i>
                             </div>
                         </div>
                     </div>
@@ -89,31 +98,33 @@ include __DIR__ . "/../components/employee-sidebar.php";
             </div>
         </div>
 
-        <!-- Recent Contacts -->
-        <div class="row">
-            <div class="col-md-8">
-                <div class="card">
-                    <div class="card-header">
+        <!-- Main Content Row -->
+        <div class="row g-3">
+            <!-- Recent Contacts -->
+            <div class="col-12 col-lg-8">
+                <div class="card h-100 shadow-sm">
+                    <div class="card-header bg-light">
                         <h5 class="card-title mb-0">
-                            <i class="bi bi-people"></i> My Recent Contacts
+                            <i class="bi bi-people text-primary"></i> My Recent Contacts
                         </h5>
                     </div>
                     <div class="card-body">
-                        <div id="recentContactsLoading" class="text-center py-3">
+                        <div id="recentContactsLoading" class="text-center py-4">
                             <div class="spinner-border text-primary" role="status">
                                 <span class="visually-hidden">Loading...</span>
                             </div>
+                            <p class="text-muted mt-2 mb-0">Loading contacts...</p>
                         </div>
                         <div id="recentContactsContent" style="display: none;">
                             <div class="table-responsive">
-                                <table class="table table-hover">
-                                    <thead>
+                                <table class="table table-hover mb-0">
+                                    <thead class="table-light">
                                         <tr>
-                                            <th>Name</th>
-                                            <th>Company</th>
-                                            <th>Status</th>
-                                            <th>Last Contact</th>
-                                            <th>Actions</th>
+                                            <th class="border-0">Name</th>
+                                            <th class="border-0 d-none d-md-table-cell">Company</th>
+                                            <th class="border-0">Status</th>
+                                            <th class="border-0 d-none d-sm-table-cell">Last Contact</th>
+                                            <th class="border-0">Actions</th>
                                         </tr>
                                     </thead>
                                     <tbody id="recentContactsTable">
@@ -121,20 +132,25 @@ include __DIR__ . "/../components/employee-sidebar.php";
                                 </table>
                             </div>
                         </div>
-                        <div id="recentContactsEmpty" class="text-center py-4" style="display: none;">
-                            <i class="bi bi-people text-muted fs-1"></i>
-                            <p class="text-muted mt-2">No contacts assigned yet.</p>
+                        <div id="recentContactsEmpty" class="text-center py-5" style="display: none;">
+                            <i class="bi bi-people text-muted" style="font-size: 3rem;"></i>
+                            <h6 class="text-muted mt-3">No contacts assigned yet</h6>
+                            <p class="text-muted small">Start by adding some contacts to see them here.</p>
+                            <button class="btn btn-sm btn-primary" onclick="addNewContact()">
+                                <i class="bi bi-person-plus"></i> Add First Contact
+                            </button>
                         </div>
                     </div>
                 </div>
             </div>
 
-            <!-- Quick Actions -->
-            <div class="col-md-4">
-                <div class="card">
-                    <div class="card-header">
+            <!-- Sidebar with Quick Actions and Activity -->
+            <div class="col-12 col-lg-4">
+                <!-- Quick Actions -->
+                <div class="card shadow-sm mb-3">
+                    <div class="card-header bg-light">
                         <h5 class="card-title mb-0">
-                            <i class="bi bi-lightning"></i> Quick Actions
+                            <i class="bi bi-lightning text-warning"></i> Quick Actions
                         </h5>
                     </div>
                     <div class="card-body">
@@ -145,36 +161,45 @@ include __DIR__ . "/../components/employee-sidebar.php";
                             <button class="btn btn-outline-success" onclick="addNewContact()">
                                 <i class="bi bi-person-plus"></i> Add New Contact
                             </button>
-                            <button class="btn btn-outline-info" onclick="viewProfile()">
-                                <i class="bi bi-person"></i> My Profile
+                            <?php if (hasPermission($permissions ?? [], 'can_send_instant_emails')): ?>
+                            <button class="btn btn-outline-warning" onclick="openInstantEmail()">
+                                <i class="bi bi-send"></i> Send Instant Email
                             </button>
-                            <button class="btn btn-outline-secondary" onclick="logout()">
-                                <i class="bi bi-box-arrow-right"></i> Logout
+                            <?php endif; ?>
+                            <?php if (hasPermission($permissions ?? [], 'can_create_campaigns')): ?>
+                            <button class="btn btn-outline-info" onclick="createCampaign()">
+                                <i class="bi bi-plus-circle"></i> Create Campaign
+                            </button>
+                            <?php endif; ?>
+                            <button class="btn btn-outline-secondary" onclick="viewProfile()">
+                                <i class="bi bi-person"></i> My Profile
                             </button>
                         </div>
                     </div>
                 </div>
 
                 <!-- Recent Activity -->
-                <div class="card mt-3">
-                    <div class="card-header">
+                <div class="card shadow-sm">
+                    <div class="card-header bg-light">
                         <h5 class="card-title mb-0">
-                            <i class="bi bi-activity"></i> Recent Activity
+                            <i class="bi bi-activity text-success"></i> Recent Activity
                         </h5>
                     </div>
                     <div class="card-body">
-                        <div id="recentActivityLoading" class="text-center py-2">
+                        <div id="recentActivityLoading" class="text-center py-3">
                             <div class="spinner-border spinner-border-sm text-primary" role="status">
                                 <span class="visually-hidden">Loading...</span>
                             </div>
+                            <p class="text-muted small mt-2 mb-0">Loading activity...</p>
                         </div>
                         <div id="recentActivityContent" style="display: none;">
-                            <div id="recentActivityList">
+                            <div id="recentActivityList" class="activity-list">
                             </div>
                         </div>
-                        <div id="recentActivityEmpty" class="text-center py-3" style="display: none;">
-                            <i class="bi bi-activity text-muted"></i>
-                            <p class="text-muted small mt-1">No recent activity</p>
+                        <div id="recentActivityEmpty" class="text-center py-4" style="display: none;">
+                            <i class="bi bi-activity text-muted" style="font-size: 2rem;"></i>
+                            <h6 class="text-muted mt-2">No recent activity</h6>
+                            <p class="text-muted small mb-0">Your recent actions will appear here.</p>
                         </div>
                     </div>
                 </div>
@@ -182,6 +207,130 @@ include __DIR__ . "/../components/employee-sidebar.php";
         </div>
     </div>
 </div>
+
+<!-- Enhanced Styles -->
+<style>
+.main-content {
+    margin-left: 260px;
+    padding: 20px;
+    min-height: 100vh;
+    background-color: #f8f9fa;
+}
+
+@media (max-width: 768px) {
+    .main-content {
+        margin-left: 0;
+        padding: 15px;
+    }
+}
+
+.card {
+    border: none;
+    border-radius: 12px;
+    transition: transform 0.2s ease, box-shadow 0.2s ease;
+}
+
+.card:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 4px 20px rgba(0, 0, 0, 0.1) !important;
+}
+
+.card-header {
+    border-bottom: 1px solid rgba(0, 0, 0, 0.1);
+    border-radius: 12px 12px 0 0 !important;
+    padding: 1rem 1.25rem;
+}
+
+.card-body {
+    padding: 1.25rem;
+}
+
+.btn {
+    border-radius: 8px;
+    font-weight: 500;
+    transition: all 0.2s ease;
+}
+
+.btn:hover {
+    transform: translateY(-1px);
+}
+
+.table th {
+    font-weight: 600;
+    font-size: 0.875rem;
+    padding: 0.75rem;
+}
+
+.table td {
+    padding: 0.875rem 0.75rem;
+    vertical-align: middle;
+}
+
+.badge {
+    font-weight: 500;
+    border-radius: 6px;
+}
+
+.activity-list .activity-item {
+    padding: 0.75rem 0;
+    border-bottom: 1px solid rgba(0, 0, 0, 0.05);
+}
+
+.activity-list .activity-item:last-child {
+    border-bottom: none;
+}
+
+.activity-item .activity-icon {
+    width: 32px;
+    height: 32px;
+    border-radius: 8px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 0.875rem;
+}
+
+.shadow-sm {
+    box-shadow: 0 1px 6px rgba(0, 0, 0, 0.08) !important;
+}
+
+/* Responsive improvements */
+@media (max-width: 576px) {
+    .card-body {
+        padding: 1rem;
+    }
+    
+    .btn {
+        font-size: 0.875rem;
+        padding: 0.5rem 1rem;
+    }
+    
+    .h3 {
+        font-size: 1.5rem;
+    }
+}
+
+/* Stats cards hover effects */
+.bg-primary:hover { background-color: #0056b3 !important; }
+.bg-success:hover { background-color: #157347 !important; }
+.bg-warning:hover { background-color: #e0a800 !important; }
+.bg-info:hover { background-color: #0dcaf0 !important; }
+
+/* Loading states */
+.spinner-border-sm {
+    width: 1rem;
+    height: 1rem;
+}
+
+/* Table responsive improvements */
+.table-responsive {
+    border-radius: 8px;
+}
+
+.table thead th {
+    background-color: var(--bs-light);
+}
+</style>
 
 <script>
 // Auto-detect base path for live hosting compatibility
@@ -236,19 +385,49 @@ async function loadRecentContacts() {
                     <tr>
                         <td>
                             <div class="d-flex align-items-center">
-                                <div class="avatar-sm bg-primary text-white rounded-circle d-flex align-items-center justify-content-center me-2">
-                                    ${contact.first_name.charAt(0).toUpperCase()}
+                                <div class="avatar-sm bg-primary text-white rounded-circle d-flex align-items-center justify-content-center me-2" style="width: 32px; height: 32px; font-size: 0.875rem;">
+                                    ${(contact.first_name || contact.name || 'U').charAt(0).toUpperCase()}
                                 </div>
                                 <div>
-                                    <div class="fw-medium">${contact.first_name} ${contact.last_name}</div>
-                                    <small class="text-muted">${contact.email || 'No email'}</small>
+                                    <div class="fw-medium">${contact.first_name || contact.name || 'Unknown'} ${contact.last_name || ''}</div>
+                                    <small class="text-muted d-block">${contact.email || 'No email'}</small>
                                 </div>
                             </div>
                         </td>
-                        <td>${contact.company || '-'}</td>
+                        <td class="d-none d-md-table-cell">${contact.company || '-'}</td>
                         <td>
-                            <span class="badge bg-${getStatusColor(contact.status)}">${contact.status}</span>
+                            <span class="badge bg-${getStatusColor(contact.status)} text-white">${contact.status || 'new'}</span>
                         </td>
+                        <td class="d-none d-sm-table-cell">
+                            <small class="text-muted">${contact.last_contact ? new Date(contact.last_contact).toLocaleDateString() : 'Never'}</small>
+                        </td>
+                        <td>
+                            <div class="btn-group btn-group-sm">
+                                <button class="btn btn-outline-primary btn-sm" onclick="viewContact(${contact.id})" title="View Contact">
+                                    <i class="bi bi-eye"></i>
+                                </button>
+                                <button class="btn btn-outline-success btn-sm" onclick="contactPerson(${contact.id})" title="Contact">
+                                    <i class="bi bi-telephone"></i>
+                                </button>
+                            </div>
+                        </td>
+                    </tr>
+                `).join('');
+                
+                contentEl.style.display = 'block';
+            } else {
+                emptyEl.style.display = 'block';
+            }
+        } else {
+            emptyEl.style.display = 'block';
+        }
+    } catch (error) {
+        console.error('Error loading recent contacts:', error);
+        emptyEl.style.display = 'block';
+    } finally {
+        loadingEl.style.display = 'none';
+    }
+}
                         <td>${contact.last_contacted ? new Date(contact.last_contacted).toLocaleDateString() : 'Never'}</td>
                         <td>
                             <button class="btn btn-sm btn-outline-primary" onclick="viewContact(${contact.id})">
@@ -288,13 +467,13 @@ async function loadRecentActivity() {
         if (response.ok && data.success) {
             if (data.activities && data.activities.length > 0) {
                 listEl.innerHTML = data.activities.map(activity => `
-                    <div class="d-flex align-items-start mb-2">
-                        <div class="avatar-sm bg-light rounded-circle d-flex align-items-center justify-content-center me-2">
-                            <i class="bi bi-${getActivityIcon(activity.type)} text-primary"></i>
+                    <div class="activity-item d-flex align-items-start">
+                        <div class="activity-icon bg-${getActivityColor(activity.type)} text-white me-3">
+                            <i class="bi bi-${getActivityIcon(activity.type)}"></i>
                         </div>
                         <div class="flex-grow-1">
-                            <div class="small fw-medium">${activity.description}</div>
-                            <div class="small text-muted">${new Date(activity.created_at).toLocaleString()}</div>
+                            <div class="fw-medium small">${activity.description}</div>
+                            <div class="text-muted" style="font-size: 0.8rem;">${formatTimeAgo(activity.created_at)}</div>
                         </div>
                     </div>
                 `).join('');
@@ -303,6 +482,8 @@ async function loadRecentActivity() {
             } else {
                 emptyEl.style.display = 'block';
             }
+        } else {
+            emptyEl.style.display = 'block';
         }
     } catch (error) {
         console.error('Error loading recent activity:', error);
@@ -318,7 +499,9 @@ function getStatusColor(status) {
         'contacted': 'warning',
         'qualified': 'info',
         'converted': 'success',
-        'lost': 'danger'
+        'lost': 'danger',
+        'active': 'success',
+        'inactive': 'secondary'
     };
     return colors[status] || 'secondary';
 }
@@ -328,7 +511,57 @@ function getActivityIcon(type) {
         'contact_created': 'person-plus',
         'contact_updated': 'pencil',
         'contact_contacted': 'telephone',
-        'task_completed': 'check-circle'
+        'email_sent': 'envelope',
+        'campaign_created': 'plus-circle',
+        'task_completed': 'check-circle',
+        'note_added': 'chat-left-text'
+    };
+    return icons[type] || 'activity';
+}
+
+function getActivityColor(type) {
+    const colors = {
+        'contact_created': 'success',
+        'contact_updated': 'warning', 
+        'contact_contacted': 'primary',
+        'email_sent': 'info',
+        'campaign_created': 'purple',
+        'task_completed': 'success',
+        'note_added': 'secondary'
+    };
+    return colors[type] || 'primary';
+}
+
+function formatTimeAgo(dateString) {
+    const date = new Date(dateString);
+    const now = new Date();
+    const diffInSeconds = Math.floor((now - date) / 1000);
+    
+    if (diffInSeconds < 60) return 'Just now';
+    if (diffInSeconds < 3600) return Math.floor(diffInSeconds / 60) + ' minutes ago';
+    if (diffInSeconds < 86400) return Math.floor(diffInSeconds / 3600) + ' hours ago';
+    if (diffInSeconds < 604800) return Math.floor(diffInSeconds / 86400) + ' days ago';
+    
+    return date.toLocaleDateString();
+}
+
+function contactPerson(id) {
+    // Open contact modal or navigate to contact details
+    window.location.href = basePath + '/employee/contacts/' + id;
+}
+    };
+    return colors[status] || 'secondary';
+}
+
+function getActivityIcon(type) {
+    const icons = {
+        'contact_created': 'person-plus',
+        'contact_updated': 'pencil',
+        'contact_contacted': 'telephone',
+        'email_sent': 'envelope',
+        'campaign_created': 'plus-circle',
+        'task_completed': 'check-circle',
+        'note_added': 'chat-left-text'
     };
     return icons[type] || 'activity';
 }
@@ -343,6 +576,14 @@ function viewAllContacts() {
 
 function addNewContact() {
     window.location.href = basePath + '/employee/contacts/add';
+}
+
+function openInstantEmail() {
+    window.location.href = basePath + '/employee/instant-email';
+}
+
+function createCampaign() {
+    window.location.href = basePath + '/employee/campaigns/create';
 }
 
 function viewContact(id) {

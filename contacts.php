@@ -1173,7 +1173,7 @@ function viewContact(id) {
         .then(response => response.json())
         .then(data => {
             if (data.success) {
-                const contact = data.contact;
+                const contact = data.data;  // Changed from data.contact to data.data
                 document.getElementById('viewName').textContent = contact.name || '-';
                 document.getElementById('viewEmail').textContent = contact.email || '-';
                 document.getElementById('viewCompany').textContent = contact.company || '-';

@@ -255,6 +255,7 @@ function getContactDetails($contactController) {
             error_log("Invalid contact ID provided: " . ($_GET['id'] ?? 'not provided'));
             http_response_code(400);
             echo json_encode([
+                'success' => false,
                 'error' => 'Invalid contact ID',
                 'debug' => [
                     'provided_id' => $_GET['id'] ?? 'not provided',
@@ -269,11 +270,17 @@ function getContactDetails($contactController) {
         error_log("ContactController result: " . json_encode(['success' => $result['success'] ?? false]));
         
         if ($result['success']) {
-            echo json_encode($result);
+            // Ensure we have the correct data structure
+            $response = [
+                'success' => true,
+                'data' => $result['data']
+            ];
+            echo json_encode($response);
         } else {
             error_log("Contact not found: " . $result['message']);
             http_response_code(404);
             echo json_encode([
+                'success' => false,
                 'error' => $result['message'],
                 'debug' => [
                     'contact_id' => $contact_id,
@@ -286,6 +293,7 @@ function getContactDetails($contactController) {
         error_log("getContactDetails exception: " . $e->getMessage() . " in " . $e->getFile() . ":" . $e->getLine());
         http_response_code(500);
         echo json_encode([
+            'success' => false,
             'error' => 'Failed to fetch contact details',
             'message' => $e->getMessage(),
             'debug' => [

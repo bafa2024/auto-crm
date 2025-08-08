@@ -369,6 +369,16 @@ if (!function_exists('isExactPage')) {
                     </a>
                 </li>
                 <?php endif; ?>
+                
+                <?php if (hasPermission($permissions, 'can_send_instant_emails')): ?>
+                <li class="nav-item">
+                    <a class="sidebar-link <?php echo isCurrentPage('/employee/instant-email') ? 'active' : ''; ?>" 
+                       href="<?php echo base_path('employee/instant-email'); ?>">
+                        <i class="bi bi-send"></i>
+                        <span>Instant Email</span>
+                    </a>
+                </li>
+                <?php endif; ?>
             </ul>
         </div>
         

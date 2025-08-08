@@ -597,56 +597,114 @@ class EmailService {
     }
     
     /**
-     * Send instant email to a custom email address
+     * Send instant email
      */
     public function sendInstantEmail($data) {
         try {
             $to = $data['to'];
             $subject = $data['subject'];
             $message = $data['message'];
-            $from_name = $data['from_name'] ?? 'AutoDial Pro';
-            $from_email = $data['from_email'] ?? 'noreply@acrm.regrowup.ca';
+            $cc = $data['cc'] ?? [];
+            $bcc = $data['bcc'] ?? [];
+            $senderName = $data['sender_name'] ?? 'AutoDial Pro';
             
-            // Convert plain text to HTML if needed
-            $htmlBody = nl2br($message);
+            if ($this->config['driver'] === 'smtp' && class_exists('PHPMailer\PHPMailer\PHPMailer')) {
+                return $this->sendViaPHPMailer($to, $subject, $message, $cc, $bcc, $senderName);
+            } else {
+                return $this->sendViaMailInstant($to, $subject, $message, $cc, $bcc, $senderName);
+            }
             
-            // Add basic styling
-            $htmlBody = "
-                <html>
-                <body style='font-family: Arial, sans-serif; line-height: 1.6; color: #333;'>
-                    <div style='max-width: 600px; margin: 0 auto; padding: 20px;'>
-                        {$htmlBody}
-                        <hr style='margin: 30px 0; border: none; border-top: 1px solid #eee;'>
-                        <p style='font-size: 12px; color: #666;'>
-                            Sent via AutoDial Pro Email Marketing Platform
-                        </p>
-                    </div>
-                </body>
-                </html>
-            ";
+        } catch (Exception $e) {
+            error_log("Instant email send error: " . $e->getMessage());
+            return false;
+        }
+    }
+    
+    /**
+     * Send via PHPMailer for instant emails
+     */
+    private function sendViaPHPMailer($to, $subject, $message, $cc = [], $bcc = [], $senderName = '') {
+        try {
+            $mail = new PHPMailer(true);
             
-            // Send the email
-            $result = $this->send($to, $subject, $htmlBody, [
-                'from_name' => $from_name,
-                'from_email' => $from_email
-            ]);
+            // Server settings
+            $mail->isSMTP();
+            $mail->Host = $this->config['smtp']['host'];
+            $mail->SMTPAuth = true;
+            $mail->Username = $this->config['smtp']['username'];
+            $mail->Password = $this->config['smtp']['password'];
+            $mail->SMTPSecure = $this->config['smtp']['encryption'];
+            $mail->Port = $this->config['smtp']['port'];
             
-            // Log the instant email send
-            if ($result['success']) {
-                $this->logInstantEmail($to, $subject, $from_name, $from_email);
+            // Recipients
+            $mail->setFrom($this->config['from']['address'], $senderName ?: $this->config['from']['name']);
+            $mail->addAddress($to);
+            
+            // Add CC recipients
+            foreach ($cc as $ccEmail) {
+                $mail->addCC($ccEmail);
+            }
+            
+            // Add BCC recipients
+            foreach ($bcc as $bccEmail) {
+                $mail->addBCC($bccEmail);
+            }
+            
+            // Content
+            $mail->isHTML(true);
+            $mail->Subject = $subject;
+            $mail->Body = nl2br(htmlspecialchars($message));
+            $mail->AltBody = strip_tags($message);
+            
+            $mail->send();
+            
+            // Log the instant email
+            $this->logInstantEmail($to, $subject, $senderName, $this->config['from']['address']);
+            
+            return true;
+            
+        } catch (Exception $e) {
+            error_log("PHPMailer instant email error: " . $e->getMessage());
+            return false;
+        }
+    }
+    
+    /**
+     * Send via built-in mail() function for instant emails
+     */
+    private function sendViaMailInstant($to, $subject, $message, $cc = [], $bcc = [], $senderName = '') {
+        try {
+            $headers = [];
+            $headers[] = 'MIME-Version: 1.0';
+            $headers[] = 'Content-type: text/html; charset=UTF-8';
+            $headers[] = 'From: ' . ($senderName ?: $this->config['from']['name']) . ' <' . $this->config['from']['address'] . '>';
+            
+            if (!empty($cc)) {
+                $headers[] = 'Cc: ' . implode(', ', $cc);
+            }
+            
+            if (!empty($bcc)) {
+                $headers[] = 'Bcc: ' . implode(', ', $bcc);
+            }
+            
+            $htmlMessage = nl2br(htmlspecialchars($message));
+            
+            $result = mail($to, $subject, $htmlMessage, implode("
+", $headers));
+            
+            if ($result) {
+                // Log the instant email
+                $this->logInstantEmail($to, $subject, $senderName, $this->config['from']['address']);
             }
             
             return $result;
             
         } catch (Exception $e) {
-            error_log("Instant email error: " . $e->getMessage());
-            return ['success' => false, 'message' => $e->getMessage()];
+            error_log("Mail() instant email error: " . $e->getMessage());
+            return false;
         }
     }
     
-    /**
-     * Log instant email sends for tracking
-     */
     private function logInstantEmail($to, $subject, $from_name, $from_email) {
         try {
             // First, check if recipient exists in contacts table

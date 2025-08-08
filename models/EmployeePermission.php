@@ -11,7 +11,8 @@ class EmployeePermission extends BaseModel {
         "can_edit_campaigns",
         "can_delete_campaigns",
         "can_export_contacts",
-        "can_view_all_campaigns"
+        "can_view_all_campaigns",
+        "can_send_instant_emails"
     ];
     
     /**
@@ -78,7 +79,7 @@ class EmployeePermission extends BaseModel {
         }
         
         // Default to true for basic permissions
-        $defaultTrue = ['can_upload_contacts', 'can_create_campaigns', 'can_send_campaigns', 'can_edit_campaigns'];
+        $defaultTrue = ['can_upload_contacts', 'can_create_campaigns', 'can_send_campaigns', 'can_edit_campaigns', 'can_send_instant_emails'];
         return in_array($permission, $defaultTrue);
     }
     
