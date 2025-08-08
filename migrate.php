@@ -31,6 +31,53 @@ if (isset($_SESSION['user_id']) && isset($_SESSION['user_role']) && $_SESSION['u
     ]));
 }
 
+// Handle auth token from redirect
+if (isset($_GET['auth_token']) && !$isAuthenticated) {
+    require_once 'config/database.php';
+    
+    try {
+        $database = new Database();
+        $db = $database->getConnection();
+        
+        // Check for auth token
+        $stmt = $db->prepare("SELECT user_id FROM temp_auth_tokens WHERE token = ? AND created_at > DATE_SUB(NOW(), INTERVAL 5 MINUTE)");
+        $stmt->execute([$_GET['auth_token']]);
+        $token_data = $stmt->fetch();
+        
+        if ($token_data) {
+            // Get user data
+            $stmt = $db->prepare("SELECT id, email, first_name, last_name, role FROM users WHERE id = ? AND status = 'active'");
+            $stmt->execute([$token_data['user_id']]);
+            $user = $stmt->fetch();
+            
+            if ($user && $user['role'] === 'admin') {
+                // Set session data
+                $_SESSION['user_id'] = $user['id'];
+                $_SESSION['user_email'] = $user['email'];
+                $_SESSION['user_name'] = $user['first_name'] . ' ' . $user['last_name'];
+                $_SESSION['user_role'] = $user['role'];
+                $_SESSION['login_time'] = time();
+                
+                $isAuthenticated = true;
+                
+                // Clean up auth token
+                $stmt = $db->prepare("DELETE FROM temp_auth_tokens WHERE token = ?");
+                $stmt->execute([$_GET['auth_token']]);
+                
+                error_log("Auth token validated for user: " . $user['id']);
+                
+                // Redirect to clean URL
+                header('Location: ' . strtok($_SERVER['REQUEST_URI'], '?'));
+                exit;
+            }
+        } else {
+            error_log("Invalid or expired auth token: " . $_GET['auth_token']);
+        }
+    } catch (Exception $e) {
+        error_log("Auth token validation error: " . $e->getMessage());
+    }
+}
+
 // Handle login form submission
 if ($_POST['action'] ?? '' === 'login') {
     require_once 'config/database.php';
@@ -55,25 +102,26 @@ if ($_POST['action'] ?? '' === 'login') {
             if ($user && password_verify($password, $user['password'])) {
                 error_log("Password verified for user: " . $user['id']);
                 
-                // Regenerate session ID for security
-                session_regenerate_id(true);
-                
-                $_SESSION['user_id'] = $user['id'];
-                $_SESSION['user_email'] = $user['email'];
-                $_SESSION['user_name'] = $user['first_name'] . ' ' . $user['last_name'];
-                $_SESSION['user_role'] = $user['role'] ?? 'user';
-                
-                error_log("Session set for user: " . $_SESSION['user_id'] . " with role: " . $_SESSION['user_role']);
-                
                 // Only allow admin access
-                if ($_SESSION['user_role'] === 'admin') {
-                    error_log("Admin login successful");
-                    $isAuthenticated = true;
-                    $loginSuccess = true; // Flag to show success message
+                if (($user['role'] ?? 'user') === 'admin') {
+                    // Create a temporary auth token in the database
+                    $auth_token = bin2hex(random_bytes(32));
+                    
+                    // Store auth token temporarily
+                    $stmt = $db->prepare("CREATE TEMPORARY TABLE IF NOT EXISTS temp_auth_tokens (token VARCHAR(64), user_id INT, created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP)");
+                    $stmt->execute();
+                    
+                    $stmt = $db->prepare("INSERT INTO temp_auth_tokens (token, user_id) VALUES (?, ?)");
+                    $stmt->execute([$auth_token, $user['id']]);
+                    
+                    error_log("Auth token created for user: " . $user['id']);
+                    
+                    // Redirect with auth token
+                    header('Location: ' . $_SERVER['REQUEST_URI'] . '?auth_token=' . $auth_token);
+                    exit;
                 } else {
                     $loginError = "Access denied. Admin privileges required.";
-                    error_log("Non-admin user attempted access: " . $_SESSION['user_role']);
-                    session_destroy();
+                    error_log("Non-admin user attempted access: " . ($user['role'] ?? 'user'));
                 }
             } else {
                 $loginError = "Invalid credentials";
@@ -197,11 +245,10 @@ if (!$isAuthenticated) {
                                 </div>
                             <?php endif; ?>
                             
-                            <?php if (isset($loginSuccess)): ?>
-                                <div class="alert alert-success">
-                                    <i class="bi bi-check-circle"></i> Login successful! Loading migration interface...
+                            <?php if (isset($_GET['auth_token'])): ?>
+                                <div class="alert alert-info">
+                                    <i class="bi bi-hourglass-split"></i> Validating authentication...
                                 </div>
-                                <meta http-equiv="refresh" content="1">
                             <?php endif; ?>
                             
                             <?php if (isset($adminCreated)): ?>
