@@ -230,7 +230,8 @@ try {
                 header("Location: " . base_path('employee/login'));
                 exit;
             }
-            require_once __DIR__ . "/views/employee/contacts.php";
+            // Use the admin-like employee contacts UI
+            require_once __DIR__ . "/views/employee/contacts_admin_like.php";
             break;
             
         // Employee Profile
