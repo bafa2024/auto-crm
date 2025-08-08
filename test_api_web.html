@@ -1,0 +1,40 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Test Contacts API</title>
+</head>
+<body>
+    <h1>Contacts API Test</h1>
+    <div id="results"></div>
+    
+    <script>
+    async function testAPI() {
+        const resultsDiv = document.getElementById('results');
+        
+        try {
+            // Test the contacts list API
+            const response = await fetch('api/contacts_api.php?action=list&page=1');
+            const data = await response.json();
+            
+            resultsDiv.innerHTML = `
+                <h2>API Test Results</h2>
+                <p><strong>Status:</strong> ${response.ok ? 'Success' : 'Error'}</p>
+                <p><strong>Response Status:</strong> ${response.status}</p>
+                <p><strong>Success:</strong> ${data.success ? 'true' : 'false'}</p>
+                <p><strong>Contacts Found:</strong> ${data.data ? data.data.length : 0}</p>
+                <h3>Raw Response:</h3>
+                <pre>${JSON.stringify(data, null, 2)}</pre>
+            `;
+        } catch (error) {
+            resultsDiv.innerHTML = `
+                <h2>API Test Error</h2>
+                <p><strong>Error:</strong> ${error.message}</p>
+            `;
+        }
+    }
+    
+    // Run test when page loads
+    testAPI();
+    </script>
+</body>
+</html>

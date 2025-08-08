@@ -10,6 +10,214 @@
 session_start();
 
 // Security: Check if user is logged in as admin
+$isAuthenticated = false;
+
+// Check if already logged in
+if (isset($_SESSION['user_id']) && isset($_SESSION['user_role']) && $_SESSION['user_role'] === 'admin') {
+    $isAuthenticated = true;
+}
+
+// Handle login form submission
+if ($_POST['action'] ?? '' === 'login') {
+    require_once 'config/database.php';
+    
+    $email = $_POST['email'] ?? '';
+    $password = $_POST['password'] ?? '';
+    
+    if ($email && $password) {
+        try {
+            $database = new Database();
+            $db = $database->getConnection();
+            
+            $stmt = $db->prepare("SELECT id, email, first_name, last_name, password, role FROM users WHERE email = ? AND status = 'active'");
+            $stmt->execute([$email]);
+            $user = $stmt->fetch();
+            
+            if ($user && password_verify($password, $user['password'])) {
+                $_SESSION['user_id'] = $user['id'];
+                $_SESSION['user_email'] = $user['email'];
+                $_SESSION['user_name'] = $user['first_name'] . ' ' . $user['last_name'];
+                $_SESSION['user_role'] = $user['role'] ?? 'user';
+                
+                // Only allow admin access
+                if ($_SESSION['user_role'] === 'admin') {
+                    $isAuthenticated = true;
+                } else {
+                    $loginError = "Access denied. Admin privileges required.";
+                    session_destroy();
+                }
+            } else {
+                $loginError = "Invalid credentials";
+            }
+        } catch (Exception $e) {
+            $loginError = "Database connection error: " . $e->getMessage();
+        }
+    } else {
+        $loginError = "Email and password are required";
+    }
+}
+
+// Handle admin creation
+if ($_POST['action'] ?? '' === 'create_admin') {
+    require_once 'config/database.php';
+    
+    try {
+        $database = new Database();
+        $db = $database->getConnection();
+        
+        $adminEmail = 'admin@autocrm.com';
+        $adminPassword = 'admin123';
+        $hashedPassword = password_hash($adminPassword, PASSWORD_DEFAULT);
+        
+        // Check if admin already exists
+        $stmt = $db->prepare("SELECT id FROM users WHERE email = ?");
+        $stmt->execute([$adminEmail]);
+        $existingAdmin = $stmt->fetch();
+        
+        if ($existingAdmin) {
+            // Update existing admin
+            $stmt = $db->prepare("
+                UPDATE users SET 
+                    first_name = ?, 
+                    last_name = ?, 
+                    password = ?, 
+                    company_name = ?, 
+                    phone = ?,
+                    role = 'admin',
+                    status = 'active',
+                    updated_at = CURRENT_TIMESTAMP
+                WHERE email = ?
+            ");
+            $stmt->execute([
+                'Admin',
+                'User',
+                $hashedPassword,
+                'AutoDial Pro',
+                '+1-555-0100',
+                $adminEmail
+            ]);
+            $adminCreated = "Admin account updated successfully";
+        } else {
+            // Create new admin
+            $stmt = $db->prepare("
+                INSERT INTO users (first_name, last_name, email, password, company_name, phone, role, status) 
+                VALUES (?, ?, ?, ?, ?, ?, 'admin', 'active')
+            ");
+            $stmt->execute([
+                'Admin',
+                'User',
+                $adminEmail,
+                $hashedPassword,
+                'AutoDial Pro',
+                '+1-555-0100'
+            ]);
+            $adminCreated = "Admin account created successfully";
+        }
+        
+    } catch (Exception $e) {
+        $adminCreationError = "Failed to create admin: " . $e->getMessage();
+    }
+}
+
+// Handle logout
+if ($_POST['action'] ?? '' === 'logout') {
+    session_destroy();
+    header('Location: ' . $_SERVER['REQUEST_URI']);
+    exit;
+}
+
+// If not authenticated, show login form
+if (!$isAuthenticated) {
+    ?>
+    <!DOCTYPE html>
+    <html lang="en">
+    <head>
+        <meta charset="UTF-8">
+        <meta name="viewport" content="width=device-width, initial-scale=1.0">
+        <title>ACRM Migration - Admin Login</title>
+        <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet">
+        <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.1/font/bootstrap-icons.css" rel="stylesheet">
+    </head>
+    <body class="bg-light">
+        <div class="container mt-5">
+            <div class="row justify-content-center">
+                <div class="col-md-6">
+                    <div class="card shadow">
+                        <div class="card-header bg-primary text-white">
+                            <h4 class="mb-0">
+                                <i class="bi bi-shield-lock"></i> 
+                                ACRM Migration - Admin Access
+                            </h4>
+                        </div>
+                        <div class="card-body">
+                            <?php if (isset($loginError)): ?>
+                                <div class="alert alert-danger">
+                                    <i class="bi bi-exclamation-triangle"></i> <?php echo htmlspecialchars($loginError); ?>
+                                </div>
+                            <?php endif; ?>
+                            
+                            <?php if (isset($adminCreated)): ?>
+                                <div class="alert alert-success">
+                                    <i class="bi bi-check-circle"></i> <?php echo htmlspecialchars($adminCreated); ?>
+                                    <br><strong>Email:</strong> admin@autocrm.com
+                                    <br><strong>Password:</strong> admin123
+                                </div>
+                            <?php endif; ?>
+                            
+                            <?php if (isset($adminCreationError)): ?>
+                                <div class="alert alert-danger">
+                                    <i class="bi bi-exclamation-triangle"></i> <?php echo htmlspecialchars($adminCreationError); ?>
+                                </div>
+                            <?php endif; ?>
+                            
+                            <form method="POST">
+                                <input type="hidden" name="action" value="login">
+                                <div class="mb-3">
+                                    <label for="email" class="form-label">Admin Email</label>
+                                    <input type="email" class="form-control" id="email" name="email" value="admin@autocrm.com" required>
+                                    <small class="form-text text-muted">Default: admin@autocrm.com</small>
+                                </div>
+                                <div class="mb-3">
+                                    <label for="password" class="form-label">Password</label>
+                                    <input type="password" class="form-control" id="password" name="password" value="admin123" required>
+                                    <small class="form-text text-muted">Default: admin123</small>
+                                </div>
+                                <button type="submit" class="btn btn-primary">
+                                    <i class="bi bi-box-arrow-in-right"></i> Login
+                                </button>
+                            </form>
+                            
+                            <hr>
+                            
+                            <div class="row">
+                                <div class="col-md-6">
+                                    <div class="alert alert-info">
+                                        <h6><i class="bi bi-info-circle"></i> No Admin Account?</h6>
+                                        <form method="POST">
+                                            <input type="hidden" name="action" value="create_admin">
+                                            <button type="submit" class="btn btn-success btn-sm">
+                                                <i class="bi bi-person-plus"></i> Create Admin Account
+                                            </button>
+                                        </form>
+                                    </div>
+                                </div>
+                                <div class="col-md-6">
+                                    <div class="alert alert-warning">
+                                        <h6><i class="bi bi-terminal"></i> Via Command Line:</h6>
+                                        <code>php create_admin.php</code>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </body>
+    </html>
+    <?php
+    exit;
+}
 
 require_once 'config/database.php';
 
@@ -356,12 +564,20 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['run_migration'])) {
         <div class="row justify-content-center">
             <div class="col-lg-10">
                 <div class="card shadow">
-                    <div class="card-header bg-primary text-white">
-                        <h3 class="mb-0">
-                            <i class="bi bi-database-gear"></i> 
-                            ACRM Campaign Scheduling Migration
-                        </h3>
-                        <small>Server: https://acrm.regrowup.ca/</small>
+                    <div class="card-header bg-primary text-white d-flex justify-content-between align-items-center">
+                        <div>
+                            <h3 class="mb-0">
+                                <i class="bi bi-database-gear"></i> 
+                                ACRM Campaign Scheduling Migration
+                            </h3>
+                            <small>Server: https://acrm.regrowup.ca/ | Logged in as: <?php echo htmlspecialchars($_SESSION['user_name'] ?? $_SESSION['user_email']); ?></small>
+                        </div>
+                        <form method="POST" class="d-inline">
+                            <input type="hidden" name="action" value="logout">
+                            <button type="submit" class="btn btn-outline-light btn-sm">
+                                <i class="bi bi-box-arrow-right"></i> Logout
+                            </button>
+                        </form>
                     </div>
                     <div class="card-body">
                         

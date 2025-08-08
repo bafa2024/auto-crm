@@ -33,13 +33,24 @@ if (isset($_SERVER['REQUEST_METHOD']) && $_SERVER['REQUEST_METHOD'] === 'OPTIONS
 //     exit();
 // }
 
-// Initialize database connection
+// Initialize database connection using the Database class
 try {
-    $pdo = new PDO("mysql:host=" . DB_HOST . ";dbname=" . DB_NAME, DB_USER, DB_PASS);
-    $pdo->setAttribute(PDO::ATTR_ERRMODE, PDO::ERRMODE_EXCEPTION);
-} catch (PDOException $e) {
+    $database = new Database();
+    $pdo = $database->getConnection();
+    
+    if (!$pdo) {
+        throw new Exception("Database connection failed");
+    }
+} catch (Exception $e) {
     http_response_code(500);
-    echo json_encode(['error' => 'Database connection failed']);
+    echo json_encode([
+        'error' => 'Database connection failed',
+        'message' => $e->getMessage(),
+        'debug' => [
+            'timestamp' => date('Y-m-d H:i:s'),
+            'server' => $_SERVER['HTTP_HOST'] ?? 'unknown'
+        ]
+    ]);
     exit();
 }
 
@@ -213,7 +224,13 @@ function getContactDetails($contactController) {
         
         if ($contact_id <= 0) {
             http_response_code(400);
-            echo json_encode(['error' => 'Invalid contact ID']);
+            echo json_encode([
+                'error' => 'Invalid contact ID',
+                'debug' => [
+                    'provided_id' => $_GET['id'] ?? 'not provided',
+                    'parsed_id' => $contact_id
+                ]
+            ]);
             return;
         }
         
@@ -223,12 +240,27 @@ function getContactDetails($contactController) {
             echo json_encode($result);
         } else {
             http_response_code(404);
-            echo json_encode(['error' => $result['message']]);
+            echo json_encode([
+                'error' => $result['message'],
+                'debug' => [
+                    'contact_id' => $contact_id,
+                    'timestamp' => date('Y-m-d H:i:s')
+                ]
+            ]);
         }
         
     } catch (Exception $e) {
         http_response_code(500);
-        echo json_encode(['error' => 'Failed to fetch contact details: ' . $e->getMessage()]);
+        echo json_encode([
+            'error' => 'Failed to fetch contact details',
+            'message' => $e->getMessage(),
+            'debug' => [
+                'contact_id' => $contact_id ?? 'unknown',
+                'file' => $e->getFile(),
+                'line' => $e->getLine(),
+                'timestamp' => date('Y-m-d H:i:s')
+            ]
+        ]);
     }
 }
 

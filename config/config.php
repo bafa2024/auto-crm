@@ -1,7 +1,8 @@
 <?php
 // Application Configuration
 //if local
-if (strpos($_SERVER['HTTP_HOST'], 'localhost') !== false) {
+$http_host = $_SERVER['HTTP_HOST'] ?? '';
+if (strpos($http_host, 'localhost') !== false) {
 define('DB_HOST', 'localhost');
 define('DB_NAME', 'autocrm');
 define('DB_USER', 'root');
