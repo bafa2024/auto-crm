@@ -1,0 +1,59 @@
+/* Debug CSS for Instant Email Visibility */
+
+/* Ensure sidebar is visible and properly sized */
+.modern-sidebar {
+    width: 260px !important;
+    display: flex !important;
+    visibility: visible !important;
+    opacity: 1 !important;
+}
+
+/* Ensure all navigation items are visible */
+.sidebar-nav .nav-item {
+    display: block !important;
+    visibility: visible !important;
+    opacity: 1 !important;
+}
+
+/* Ensure instant email link is visible */
+.sidebar-nav .nav-item a[href*="instant_email"] {
+    display: flex !important;
+    visibility: visible !important;
+    opacity: 1 !important;
+    background-color: rgba(255, 255, 255, 0.05);
+    border: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+/* Fix main content area margin */
+.main-content {
+    margin-left: 260px !important;
+}
+
+/* Responsive fixes */
+@media (max-width: 768px) {
+    .main-content {
+        margin-left: 0 !important;
+    }
+    
+    .modern-sidebar {
+        transform: translateX(-100%);
+    }
+    
+    .modern-sidebar.show {
+        transform: translateX(0);
+    }
+}
+
+/* Force visibility of instant email menu item */
+.sidebar-link[href*="instant_email"] {
+    display: flex !important;
+    min-height: 44px !important;
+}
+
+/* Debug border to make instant email visible */
+.sidebar-link[href*="instant_email"]:after {
+    content: " (DEBUG: Should be visible)";
+    font-size: 10px;
+    color: #fbbf24;
+    margin-left: 5px;
+}

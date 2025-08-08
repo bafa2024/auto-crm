@@ -71,6 +71,10 @@ class EmailService {
                 $this->config['smtp']['encryption'] = $dbSettings['smtp_encryption'] ?? $this->config['smtp']['encryption'];
                 $this->config['smtp']['from']['address'] = $dbSettings['smtp_from_email'] ?? $this->config['smtp']['from']['address'];
                 $this->config['smtp']['from']['name'] = $dbSettings['smtp_from_name'] ?? $this->config['smtp']['from']['name'];
+                
+                // Also update main from config for fallback
+                $this->config['from']['address'] = $dbSettings['smtp_from_email'] ?? $this->config['smtp']['from']['address'];
+                $this->config['from']['name'] = $dbSettings['smtp_from_name'] ?? $this->config['smtp']['from']['name'];
             }
         } catch (Exception $e) {
             // Silently fail and use config file settings
@@ -689,7 +693,12 @@ class EmailService {
             $headers = [];
             $headers[] = 'MIME-Version: 1.0';
             $headers[] = 'Content-type: text/html; charset=UTF-8';
-            $headers[] = 'From: ' . ($senderName ?: $this->config['smtp']['from']['name']) . ' <' . $this->config['smtp']['from']['address'] . '>';
+            
+            // Use correct config path for from address
+            $fromAddress = $this->config['from']['address'] ?? $this->config['smtp']['from']['address'] ?? 'noreply@autocrm.com';
+            $fromName = $senderName ?: ($this->config['from']['name'] ?? $this->config['smtp']['from']['name'] ?? 'AutoCRM System');
+            
+            $headers[] = 'From: ' . $fromName . ' <' . $fromAddress . '>';
             
             if (!empty($cc)) {
                 $headers[] = 'Cc: ' . implode(', ', $cc);
@@ -701,12 +710,11 @@ class EmailService {
             
             $htmlMessage = nl2br(htmlspecialchars($message));
             
-            $result = mail($to, $subject, $htmlMessage, implode("
-", $headers));
+            $result = mail($to, $subject, $htmlMessage, implode("\r\n", $headers));
             
             if ($result) {
                 // Log the instant email
-                $this->logInstantEmail($to, $subject, $senderName, $this->config['smtp']['from']['address']);
+                $this->logInstantEmail($to, $subject, $senderName, $fromAddress);
             }
             
             return $result;
