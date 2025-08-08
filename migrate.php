@@ -6,6 +6,13 @@
  * Usage: Access via browser: https://acrm.regrowup.ca/migrate.php
  */
 
+// Configure session settings for better reliability
+ini_set('session.cookie_lifetime', 3600); // 1 hour
+ini_set('session.gc_maxlifetime', 3600);
+ini_set('session.cookie_secure', isset($_SERVER['HTTPS']) ? '1' : '0');
+ini_set('session.cookie_httponly', 1);
+ini_set('session.use_strict_mode', 1);
+
 // Start session for authentication
 session_start();
 
@@ -48,6 +55,9 @@ if ($_POST['action'] ?? '' === 'login') {
             if ($user && password_verify($password, $user['password'])) {
                 error_log("Password verified for user: " . $user['id']);
                 
+                // Regenerate session ID for security
+                session_regenerate_id(true);
+                
                 $_SESSION['user_id'] = $user['id'];
                 $_SESSION['user_email'] = $user['email'];
                 $_SESSION['user_name'] = $user['first_name'] . ' ' . $user['last_name'];
@@ -57,10 +67,9 @@ if ($_POST['action'] ?? '' === 'login') {
                 
                 // Only allow admin access
                 if ($_SESSION['user_role'] === 'admin') {
-                    error_log("Admin login successful, redirecting...");
-                    // Redirect to prevent form resubmission and ensure clean page load
-                    header('Location: ' . $_SERVER['REQUEST_URI']);
-                    exit;
+                    error_log("Admin login successful");
+                    $isAuthenticated = true;
+                    $loginSuccess = true; // Flag to show success message
                 } else {
                     $loginError = "Access denied. Admin privileges required.";
                     error_log("Non-admin user attempted access: " . $_SESSION['user_role']);
@@ -186,6 +195,13 @@ if (!$isAuthenticated) {
                                 <div class="alert alert-danger">
                                     <i class="bi bi-exclamation-triangle"></i> <?php echo htmlspecialchars($loginError); ?>
                                 </div>
+                            <?php endif; ?>
+                            
+                            <?php if (isset($loginSuccess)): ?>
+                                <div class="alert alert-success">
+                                    <i class="bi bi-check-circle"></i> Login successful! Loading migration interface...
+                                </div>
+                                <meta http-equiv="refresh" content="1">
                             <?php endif; ?>
                             
                             <?php if (isset($adminCreated)): ?>
