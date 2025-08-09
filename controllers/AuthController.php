@@ -210,11 +210,11 @@ class AuthController extends BaseController {
         
         if ($host === 'acrm.regrowup.ca' || $host === 'www.acrm.regrowup.ca') {
             // Live server - use absolute URL
-            $redirectUrl = $protocol . "://" . $host . "/employee/email-dashboard";
+            $redirectUrl = $protocol . "://" . $host . "/employee/dashboard";
         } else {
             // Local development - use base path
             $basePath = $this->getBasePath();
-            $redirectUrl = $basePath . "/employee/email-dashboard";
+            $redirectUrl = $basePath . "/employee/dashboard";
         }
         
         $this->sendSuccess([
@@ -486,7 +486,7 @@ class AuthController extends BaseController {
         $this->sendSuccess([
             "user" => $user,
             "session_id" => session_id(),
-            "redirect" => $basePath . "/employee/email-dashboard"
+            "redirect" => $basePath . "/employee/dashboard"
         ], "Login successful");
     }
     
@@ -586,7 +586,7 @@ class AuthController extends BaseController {
         $response = [
             "user" => $this->userModel->hideFields($user),
             "session_id" => session_id(),
-            "redirect" => $basePath . "/employee/email-dashboard"
+            "redirect" => $basePath . "/employee/dashboard"
         ];
         
         error_log("Sending success response: " . json_encode($response));

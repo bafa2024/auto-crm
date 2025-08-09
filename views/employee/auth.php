@@ -50,7 +50,7 @@ $_SESSION["user_role"] = $user["role"];
 $_SESSION["login_time"] = time();
 $_SESSION["login_method"] = "magic_link";
 
-// Redirect to email dashboard for employees
+// Redirect to dashboard for employees
 require_once __DIR__ . "/../../config/base_path.php";
-header("Location: " . base_path('employee/email-dashboard'));
+header("Location: " . base_path('employee/dashboard'));
 exit();

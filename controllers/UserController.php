@@ -329,4 +329,158 @@ class UserController extends BaseController {
             $this->sendError("Failed to update profile", 500);
         }
     }
+
+    // Get employee dashboard stats
+    public function getEmployeeStats() {
+        try {
+            $userId = $_SESSION['user_id'] ?? null;
+            if (!$userId) {
+                $this->sendError('User not authenticated', 401);
+                return;
+            }
+
+            // Get total contacts for this employee
+            $contactsStmt = $this->db->prepare("SELECT COUNT(*) as total FROM email_recipients");
+            $contactsStmt->execute();
+            $totalContacts = $contactsStmt->fetch()['total'] ?? 0;
+
+            // Get emails sent this month (assuming we have email logs)
+            $emailsStmt = $this->db->prepare("
+                SELECT COUNT(*) as total 
+                FROM instant_email_log 
+                WHERE sent_by = ? 
+                AND DATE(created_at) >= DATE_SUB(CURDATE(), INTERVAL 30 DAY)
+            ");
+            $emailsStmt->execute([$userId]);
+            $emailsSent = $emailsStmt->fetch()['total'] ?? 0;
+
+            // Get emails sent today
+            $todayEmailsStmt = $this->db->prepare("
+                SELECT COUNT(*) as total 
+                FROM instant_email_log 
+                WHERE sent_by = ? 
+                AND DATE(created_at) = CURDATE()
+            ");
+            $todayEmailsStmt->execute([$userId]);
+            $emailsToday = $todayEmailsStmt->fetch()['total'] ?? 0;
+
+            // Get emails sent this week
+            $weekEmailsStmt = $this->db->prepare("
+                SELECT COUNT(*) as total 
+                FROM instant_email_log 
+                WHERE sent_by = ? 
+                AND YEARWEEK(created_at, 1) = YEARWEEK(CURDATE(), 1)
+            ");
+            $weekEmailsStmt->execute([$userId]);
+            $emailsWeek = $weekEmailsStmt->fetch()['total'] ?? 0;
+
+            // Get active campaigns (if employee has access)
+            $campaignsStmt = $this->db->prepare("
+                SELECT COUNT(*) as total 
+                FROM email_campaigns 
+                WHERE created_by = ? 
+                AND status = 'active'
+            ");
+            $campaignsStmt->execute([$userId]);
+            $activeCampaigns = $campaignsStmt->fetch()['total'] ?? 0;
+
+            // Calculate conversion rate (placeholder - you may need to adjust based on your metrics)
+            $conversionRate = $totalContacts > 0 ? round(($emailsSent / $totalContacts) * 100, 1) : 0;
+
+            $stats = [
+                'total_contacts' => $totalContacts,
+                'emails_sent' => $emailsSent,
+                'emails_today' => $emailsToday,
+                'emails_week' => $emailsWeek,
+                'active_campaigns' => $activeCampaigns,
+                'conversion_rate' => $conversionRate
+            ];
+
+            $this->sendSuccess($stats);
+        } catch (Exception $e) {
+            error_log("Error fetching employee stats: " . $e->getMessage());
+            $this->sendError("Failed to fetch stats", 500);
+        }
+    }
+
+    // Get recent contacts for employee
+    public function getRecentContacts() {
+        try {
+            $userId = $_SESSION['user_id'] ?? null;
+            if (!$userId) {
+                $this->sendError('User not authenticated', 401);
+                return;
+            }
+
+            $stmt = $this->db->prepare("
+                SELECT id, name, email, company, dot as phone, 
+                       DATE_FORMAT(created_at, '%M %d, %Y at %h:%i %p') as created_at
+                FROM email_recipients 
+                ORDER BY created_at DESC 
+                LIMIT 5
+            ");
+            $stmt->execute();
+            $contacts = $stmt->fetchAll();
+
+            $this->sendSuccess(['contacts' => $contacts]);
+        } catch (Exception $e) {
+            error_log("Error fetching recent contacts: " . $e->getMessage());
+            $this->sendError("Failed to fetch recent contacts", 500);
+        }
+    }
+
+    // Get recent activity for employee
+    public function getRecentActivity() {
+        try {
+            $userId = $_SESSION['user_id'] ?? null;
+            if (!$userId) {
+                $this->sendError('User not authenticated', 401);
+                return;
+            }
+
+            $activities = [];
+
+            // Get recent contact additions
+            $contactsStmt = $this->db->prepare("
+                SELECT 'contact_added' as type, 
+                       CONCAT('Added contact: ', name) as title,
+                       CONCAT('Contact ', name, ' was added to the system') as description,
+                       DATE_FORMAT(created_at, '%M %d at %h:%i %p') as time
+                FROM email_recipients 
+                ORDER BY created_at DESC 
+                LIMIT 3
+            ");
+            $contactsStmt->execute();
+            $contacts = $contactsStmt->fetchAll();
+            $activities = array_merge($activities, $contacts);
+
+            // Get recent email sends
+            $emailsStmt = $this->db->prepare("
+                SELECT 'email_sent' as type,
+                       CONCAT('Email sent to ', recipient_email) as title,
+                       CONCAT('Instant email with subject: \"', subject, '\"') as description,
+                       DATE_FORMAT(created_at, '%M %d at %h:%i %p') as time
+                FROM instant_email_log 
+                WHERE sent_by = ?
+                ORDER BY created_at DESC 
+                LIMIT 3
+            ");
+            $emailsStmt->execute([$userId]);
+            $emails = $emailsStmt->fetchAll();
+            $activities = array_merge($activities, $emails);
+
+            // Sort all activities by time (most recent first)
+            usort($activities, function($a, $b) {
+                return strtotime($b['time']) - strtotime($a['time']);
+            });
+
+            // Limit to 5 most recent
+            $activities = array_slice($activities, 0, 5);
+
+            $this->sendSuccess(['activities' => $activities]);
+        } catch (Exception $e) {
+            error_log("Error fetching recent activity: " . $e->getMessage());
+            $this->sendError("Failed to fetch recent activity", 500);
+        }
+    }
 } 

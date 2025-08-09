@@ -186,15 +186,23 @@ try {
             require_once __DIR__ . "/views/employee/auth.php";
             break;
             
-        // Employee Dashboard - Redirect to email dashboard
+        // Employee Dashboard - Admin-style dashboard as default
         case $requestUri === "/employee/dashboard":
             if (!isset($_SESSION["user_id"]) || !in_array($_SESSION["user_role"], ['agent', 'manager'])) {
                 header("Location: " . base_path('employee/login'));
                 exit;
             }
-            // Redirect to email dashboard for employees
-            header("Location: " . base_path('employee/email-dashboard'));
-            exit;
+            // Use the admin-style dashboard view directly
+            require_once __DIR__ . "/views/employee/admin-dashboard.php";
+            break;
+            
+        // Employee Admin-Style Dashboard
+        case $requestUri === "/employee/admin-dashboard":
+            if (!isset($_SESSION["user_id"]) || !in_array($_SESSION["user_role"], ['agent', 'manager'])) {
+                header("Location: " . base_path('employee/login'));
+                exit;
+            }
+            require_once __DIR__ . "/views/employee/admin-dashboard.php";
             break;
             
         // Employee Email Dashboard

@@ -343,8 +343,8 @@ if (!function_exists('isExactPage')) {
             <div class="nav-section-title">Main Menu</div>
             <ul class="nav flex-column">
                 <li class="nav-item">
-                    <a class="sidebar-link <?php echo isCurrentPage('/employee/email-dashboard') ? 'active' : ''; ?>" 
-                       href="<?php echo base_path('employee/email-dashboard'); ?>">
+                    <a class="sidebar-link <?php echo isCurrentPage('/employee/dashboard') ? 'active' : ''; ?>" 
+                       href="<?php echo base_path('employee/dashboard'); ?>">
                         <i class="bi bi-speedometer2"></i>
                         <span>Dashboard</span>
                     </a>

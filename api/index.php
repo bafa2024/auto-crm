@@ -557,6 +557,30 @@ function handleEmployeeProfileRoutes($controller, $action, $subAction) {
                 echo json_encode(['error' => 'Method not allowed']);
             }
             break;
+        case 'stats':
+            if ($_SERVER['REQUEST_METHOD'] === 'GET') {
+                $controller->getEmployeeStats();
+            } else {
+                http_response_code(405);
+                echo json_encode(['error' => 'Method not allowed']);
+            }
+            break;
+        case 'recent-contacts':
+            if ($_SERVER['REQUEST_METHOD'] === 'GET') {
+                $controller->getRecentContacts();
+            } else {
+                http_response_code(405);
+                echo json_encode(['error' => 'Method not allowed']);
+            }
+            break;
+        case 'recent-activity':
+            if ($_SERVER['REQUEST_METHOD'] === 'GET') {
+                $controller->getRecentActivity();
+            } else {
+                http_response_code(405);
+                echo json_encode(['error' => 'Method not allowed']);
+            }
+            break;
         default:
             http_response_code(404);
             echo json_encode(['error' => 'Employee profile endpoint not found']);
