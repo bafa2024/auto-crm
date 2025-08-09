@@ -95,7 +95,10 @@ try {
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.2/font/bootstrap-icons.min.css">
     <link rel="stylesheet" href="css/styles.css">
     <link rel="stylesheet" href="css/sidebar-fix.css">
+<<<<<<< HEAD
     <link rel="stylesheet" href="css/sidebar-layout-fix.css">
+=======
+>>>>>>> 074aaca5c4c3566b4bb6ea4fc3847d284023713e
     <style>
         .email-form {
             background: white;
