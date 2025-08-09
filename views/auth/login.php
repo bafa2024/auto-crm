@@ -68,100 +68,66 @@ document.addEventListener("DOMContentLoaded", function() {
     loginForm.addEventListener("submit", async function(e) {
         e.preventDefault();
         
+        // Show loading state
         btnText.classList.add("d-none");
         btnLoading.classList.remove("d-none");
         loginBtn.disabled = true;
         
+        // Clear messages
         messagesContainer.innerHTML = "";
         
+        // Get form data
         const formData = new FormData(loginForm);
         const data = Object.fromEntries(formData.entries());
         
-        // Debug: Log the data being sent
-        console.log("Sending login data:", data);
-        console.log("Base Path:", basePath);
-        console.log("API URL:", basePath + "/api/auth/login");
-        console.log("Full URL:", window.location.origin + basePath + "/api/auth/login");
-        
         try {
+            // Make API request
             const apiUrl = basePath + "/api/auth/login";
+            console.log("Making login request to:", apiUrl);
             
-            console.log("Making fetch request to:", apiUrl);
-            
-            // Fallback for live server - try different URL patterns
-            let response;
-            try {
-                response = await fetch(apiUrl, {
-                    method: "POST",
-                    headers: {
-                        "Content-Type": "application/json",
-                    },
-                    body: JSON.stringify(data)
-                });
-            } catch (fetchError) {
-                console.log("First attempt failed, trying fallback URLs...");
-                
-                // Try alternative URLs for live server
-                const fallbackUrls = [
-                    "/api/auth/login",
-                    "/acrm/api/auth/login",
-                    "api/auth/login",
-                    window.location.origin + "/api/auth/login",
-                    window.location.origin + "/acrm/api/auth/login"
-                ];
-                
-                let lastError = fetchError;
-                
-                for (const fallbackUrl of fallbackUrls) {
-                    try {
-                        console.log("Trying fallback URL:", fallbackUrl);
-                        response = await fetch(fallbackUrl, {
-                            method: "POST",
-                            headers: {
-                                "Content-Type": "application/json",
-                            },
-                            body: JSON.stringify(data)
-                        });
-                        console.log("Fallback URL succeeded:", fallbackUrl);
-                        break;
-                    } catch (fallbackError) {
-                        console.log("Fallback URL failed:", fallbackUrl, fallbackError.message);
-                        lastError = fallbackError;
-                    }
-                }
-                
-                if (!response) {
-                    throw lastError;
-                }
-            }
-            
-            console.log("Response status:", response.status);
-            console.log("Response headers:", response.headers);
+            const response = await fetch(apiUrl, {
+                method: "POST",
+                headers: {
+                    "Content-Type": "application/json",
+                },
+                body: JSON.stringify(data)
+            });
             
             const result = await response.json();
-            console.log("Response data:", result);
+            console.log("Login response:", result);
             
             if (response.ok && result.success) {
+                // Show success message
                 messagesContainer.innerHTML = `
                     <div class="alert alert-success">
                         <i class="bi bi-check-circle me-2"></i>
-                        Login successful! Redirecting...
+                        Login successful! Redirecting to dashboard...
                     </div>
                 `;
-                setTimeout(() => {
-                    // Fix for live server - ensure proper URL construction
-                    let dashboardUrl;
-                    if (window.location.hostname === 'acrm.regrowup.ca') {
+                
+                // Determine redirect URL
+                let dashboardUrl = result.data?.redirect;
+                
+                if (!dashboardUrl) {
+                    // Fallback to manual URL construction
+                    if (window.location.hostname === 'acrm.regrowup.ca' || window.location.hostname === 'www.acrm.regrowup.ca') {
                         // Live server - use absolute URL
                         dashboardUrl = window.location.origin + "/dashboard";
                     } else {
                         // Local development - use base path
                         dashboardUrl = basePath + "/dashboard";
                     }
-                    console.log("Redirecting to:", dashboardUrl);
+                }
+                
+                console.log("Redirecting to:", dashboardUrl);
+                
+                // Redirect after a short delay
+                setTimeout(() => {
                     window.location.href = dashboardUrl;
                 }, 1000);
+                
             } else {
+                // Show error message
                 let errorMessage = "Invalid email or password";
                 
                 if (result.message) {
@@ -179,11 +145,6 @@ document.addEventListener("DOMContentLoaded", function() {
             }
         } catch (error) {
             console.error("Login error:", error);
-            console.error("Error details:", {
-                name: error.name,
-                message: error.message,
-                stack: error.stack
-            });
             
             let errorMessage = "Network error. Please try again.";
             
@@ -203,6 +164,7 @@ document.addEventListener("DOMContentLoaded", function() {
                 </div>
             `;
         } finally {
+            // Reset button state
             btnText.classList.remove("d-none");
             btnLoading.classList.add("d-none");
             loginBtn.disabled = false;
