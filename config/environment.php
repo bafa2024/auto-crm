@@ -29,16 +29,16 @@ switch (ENVIRONMENT) {
         ini_set('error_log', __DIR__ . '/../logs/php_errors.log');
         
         // Database settings for development
-        define('DB_HOST', 'localhost');
-        define('DB_NAME', 'acrm');
-        define('DB_USER', 'root');
-        define('DB_PASS', '');
-        define('DB_CHARSET', 'utf8mb4');
+        if (!defined('DB_HOST')) define('DB_HOST', 'localhost');
+        if (!defined('DB_NAME')) define('DB_NAME', 'acrm');
+        if (!defined('DB_USER')) define('DB_USER', 'root');
+        if (!defined('DB_PASS')) define('DB_PASS', '');
+        if (!defined('DB_CHARSET')) define('DB_CHARSET', 'utf8mb4');
         
         // File upload settings
-        define('MAX_UPLOAD_SIZE', 10 * 1024 * 1024); // 10MB
-        define('ALLOWED_UPLOAD_TYPES', ['csv', 'xlsx', 'xls']);
-        define('UPLOAD_PATH', __DIR__ . '/../uploads/');
+        if (!defined('MAX_UPLOAD_SIZE')) define('MAX_UPLOAD_SIZE', 10 * 1024 * 1024); // 10MB
+        if (!defined('ALLOWED_UPLOAD_TYPES')) define('ALLOWED_UPLOAD_TYPES', ['csv', 'xlsx', 'xls']);
+        if (!defined('UPLOAD_PATH')) define('UPLOAD_PATH', __DIR__ . '/../uploads/');
         
         // API settings
         define('API_RATE_LIMIT', 1000); // requests per hour
@@ -64,16 +64,16 @@ switch (ENVIRONMENT) {
         ini_set('error_log', __DIR__ . '/../logs/php_errors.log');
         
         // Database settings for production
-        define('DB_HOST', getenv('DB_HOST') ?: 'localhost');
-        define('DB_NAME', getenv('DB_NAME') ?: 'acrm');
-        define('DB_USER', getenv('DB_USER') ?: 'root');
-        define('DB_PASS', getenv('DB_PASS') ?: '');
-        define('DB_CHARSET', 'utf8mb4');
+        if (!defined('DB_HOST')) define('DB_HOST', getenv('DB_HOST') ?: 'localhost');
+        if (!defined('DB_NAME')) define('DB_NAME', getenv('DB_NAME') ?: 'acrm');
+        if (!defined('DB_USER')) define('DB_USER', getenv('DB_USER') ?: 'root');
+        if (!defined('DB_PASS')) define('DB_PASS', getenv('DB_PASS') ?: '');
+        if (!defined('DB_CHARSET')) define('DB_CHARSET', 'utf8mb4');
         
         // File upload settings
-        define('MAX_UPLOAD_SIZE', 5 * 1024 * 1024); // 5MB
-        define('ALLOWED_UPLOAD_TYPES', ['csv', 'xlsx', 'xls']);
-        define('UPLOAD_PATH', __DIR__ . '/../uploads/');
+        if (!defined('MAX_UPLOAD_SIZE')) define('MAX_UPLOAD_SIZE', 5 * 1024 * 1024); // 5MB
+        if (!defined('ALLOWED_UPLOAD_TYPES')) define('ALLOWED_UPLOAD_TYPES', ['csv', 'xlsx', 'xls']);
+        if (!defined('UPLOAD_PATH')) define('UPLOAD_PATH', __DIR__ . '/../uploads/');
         
         // API settings
         define('API_RATE_LIMIT', 100); // requests per hour
@@ -92,7 +92,7 @@ switch (ENVIRONMENT) {
 }
 
 // Common settings
-define('APP_NAME', 'ACRM');
+if (!defined('APP_NAME')) define('APP_NAME', 'ACRM');
 define('APP_VERSION', '1.0.0');
 define('TIMEZONE', 'UTC');
 

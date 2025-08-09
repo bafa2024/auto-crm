@@ -3,49 +3,49 @@
 //if local
 $http_host = $_SERVER['HTTP_HOST'] ?? '';
 if (strpos($http_host, 'localhost') !== false) {
-define('DB_HOST', 'localhost');
-define('DB_NAME', 'autocrm');
-define('DB_USER', 'root');
-define('DB_PASS', '');
+if (!defined('DB_HOST')) define('DB_HOST', 'localhost');
+if (!defined('DB_NAME')) define('DB_NAME', 'autocrm');
+if (!defined('DB_USER')) define('DB_USER', 'root');
+if (!defined('DB_PASS')) define('DB_PASS', '');
 } else {
   
 
-    define('DB_HOST', 'localhost');
-    define('DB_NAME', 'u946493694_autocrm');
-    define('DB_USER', 'u946493694_autocrmu');
-    define('DB_PASS', 'CDExzsawq123@#$');
+    if (!defined('DB_HOST')) define('DB_HOST', 'localhost');
+    if (!defined('DB_NAME')) define('DB_NAME', 'u946493694_autocrm');
+    if (!defined('DB_USER')) define('DB_USER', 'u946493694_autocrmu');
+    if (!defined('DB_PASS')) define('DB_PASS', 'CDExzsawq123@#$');
 }
 
 //
 
 // Application settings
-define('APP_NAME', 'AutoDial Pro CRM');
-define('APP_URL', 'https://autocrm.regrowup.ca/');
-define('APP_VERSION', '1.0.0');
+if (!defined('APP_NAME')) define('APP_NAME', 'AutoDial Pro CRM');
+if (!defined('APP_URL')) define('APP_URL', 'https://autocrm.regrowup.ca/');
+if (!defined('APP_VERSION')) define('APP_VERSION', '1.0.0');
 
 // Email settings (these should come from database settings)
-define('SMTP_HOST', 'localhost');
-define('SMTP_PORT', 587);
-define('SMTP_USERNAME', '');
-define('SMTP_PASSWORD', '');
-define('SMTP_ENCRYPTION', 'tls');
+if (!defined('SMTP_HOST')) define('SMTP_HOST', 'localhost');
+if (!defined('SMTP_PORT')) define('SMTP_PORT', 587);
+if (!defined('SMTP_USERNAME')) define('SMTP_USERNAME', '');
+if (!defined('SMTP_PASSWORD')) define('SMTP_PASSWORD', '');
+if (!defined('SMTP_ENCRYPTION')) define('SMTP_ENCRYPTION', 'tls');
 
 // File upload settings
-define('MAX_UPLOAD_SIZE', 10485760); // 10MB in bytes
-define('ALLOWED_UPLOAD_TYPES', ['csv', 'xlsx', 'xls']);
-define('UPLOAD_PATH', __DIR__ . '/../uploads/');
+if (!defined('MAX_UPLOAD_SIZE')) define('MAX_UPLOAD_SIZE', 10485760); // 10MB in bytes
+if (!defined('ALLOWED_UPLOAD_TYPES')) define('ALLOWED_UPLOAD_TYPES', ['csv', 'xlsx', 'xls']);
+if (!defined('UPLOAD_PATH')) define('UPLOAD_PATH', __DIR__ . '/../uploads/');
 
 // Security settings
-define('JWT_SECRET', 'your-secret-key-change-this');
-define('BCRYPT_COST', 12);
-define('SESSION_LIFETIME', 3600); // 1 hour
+if (!defined('JWT_SECRET')) define('JWT_SECRET', 'your-secret-key-change-this');
+if (!defined('BCRYPT_COST')) define('BCRYPT_COST', 12);
+if (!defined('SESSION_LIFETIME')) define('SESSION_LIFETIME', 3600); // 1 hour
 
 // Email rate limiting
-define('EMAIL_RATE_LIMIT', 100); // emails per hour
-define('EMAIL_BATCH_SIZE', 50); // emails per batch
+if (!defined('EMAIL_RATE_LIMIT')) define('EMAIL_RATE_LIMIT', 100); // emails per hour
+if (!defined('EMAIL_BATCH_SIZE')) define('EMAIL_BATCH_SIZE', 50); // emails per batch
 
 // Timezone
-define('DEFAULT_TIMEZONE', 'UTC');
+if (!defined('DEFAULT_TIMEZONE')) define('DEFAULT_TIMEZONE', 'UTC');
 date_default_timezone_set(DEFAULT_TIMEZONE);
 
 // Error reporting (set to 0 in production)
@@ -59,26 +59,26 @@ if (defined('API_MODE') && API_MODE) {
 }
 
 // CORS settings for API
-define('CORS_ALLOWED_ORIGINS', ['http://localhost', 'http://localhost:3000', 'http://localhost:8080', '*']);
-define('CORS_ALLOWED_METHODS', ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS']);
-define('CORS_ALLOWED_HEADERS', ['Content-Type', 'Authorization', 'X-Requested-With']);
+if (!defined('CORS_ALLOWED_ORIGINS')) define('CORS_ALLOWED_ORIGINS', ['http://localhost', 'http://localhost:3000', 'http://localhost:8080', '*']);
+if (!defined('CORS_ALLOWED_METHODS')) define('CORS_ALLOWED_METHODS', ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS']);
+if (!defined('CORS_ALLOWED_HEADERS')) define('CORS_ALLOWED_HEADERS', ['Content-Type', 'Authorization', 'X-Requested-With']);
 
 // Pagination defaults
-define('DEFAULT_PAGE_SIZE', 25);
-define('MAX_PAGE_SIZE', 100);
+if (!defined('DEFAULT_PAGE_SIZE')) define('DEFAULT_PAGE_SIZE', 25);
+if (!defined('MAX_PAGE_SIZE')) define('MAX_PAGE_SIZE', 100);
 
 // Cache settings
-define('CACHE_ENABLED', true);
-define('CACHE_DURATION', 3600); // 1 hour
+if (!defined('CACHE_ENABLED')) define('CACHE_ENABLED', true);
+if (!defined('CACHE_DURATION')) define('CACHE_DURATION', 3600); // 1 hour
 
 // API rate limiting
-define('API_RATE_LIMIT', 1000); // requests per hour per IP
-define('API_RATE_WINDOW', 3600); // 1 hour in seconds
+if (!defined('API_RATE_LIMIT')) define('API_RATE_LIMIT', 1000); // requests per hour per IP
+if (!defined('API_RATE_WINDOW')) define('API_RATE_WINDOW', 3600); // 1 hour in seconds
 
 // File paths
-define('LOG_PATH', __DIR__ . '/../logs/');
-define('TEMP_PATH', __DIR__ . '/../temp/');
-define('BACKUP_PATH', __DIR__ . '/../backups/');
+if (!defined('LOG_PATH')) define('LOG_PATH', __DIR__ . '/../logs/');
+if (!defined('TEMP_PATH')) define('TEMP_PATH', __DIR__ . '/../temp/');
+if (!defined('BACKUP_PATH')) define('BACKUP_PATH', __DIR__ . '/../backups/');
 
 // Create necessary directories if they don't exist
 $dirs = [UPLOAD_PATH, LOG_PATH, TEMP_PATH, BACKUP_PATH];
