@@ -49,6 +49,7 @@ try {
                 password = ?, 
                 company_name = ?, 
                 phone = ?,
+                role = ?,
                 updated_at = CURRENT_TIMESTAMP,
                 status = 'active'
             WHERE email = ?
@@ -59,6 +60,7 @@ try {
             $hashedPassword,
             'AutoDial Pro',
             '+1-555-0100',
+            'admin',
             $adminEmail
         ]);
         echo "✓ Updated existing admin account\n";
@@ -66,8 +68,8 @@ try {
     } else {
         // Create new admin
         $stmt = $db->prepare("
-            INSERT INTO users (first_name, last_name, email, password, company_name, phone, status) 
-            VALUES (?, ?, ?, ?, ?, ?, 'active')
+            INSERT INTO users (first_name, last_name, email, password, company_name, phone, role, status) 
+            VALUES (?, ?, ?, ?, ?, ?, ?, 'active')
         ");
         $stmt->execute([
             'Admin',
@@ -75,7 +77,8 @@ try {
             $adminEmail,
             $hashedPassword,
             'AutoDial Pro',
-            '+1-555-0100'
+            '+1-555-0100',
+            'admin'
         ]);
         echo "✓ Created new admin account\n";
         $adminId = $db->lastInsertId();

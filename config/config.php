@@ -52,8 +52,14 @@ date_default_timezone_set(DEFAULT_TIMEZONE);
 error_reporting(E_ALL);
 ini_set('display_errors', 1);
 
+// If running in API mode, force JSON-safe error output (no HTML)
+if (defined('API_MODE') && API_MODE) {
+    ini_set('display_errors', '0');
+    ini_set('html_errors', '0');
+}
+
 // CORS settings for API
-define('CORS_ALLOWED_ORIGINS', ['http://localhost:3000', 'http://localhost:8080']);
+define('CORS_ALLOWED_ORIGINS', ['http://localhost', 'http://localhost:3000', 'http://localhost:8080', '*']);
 define('CORS_ALLOWED_METHODS', ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS']);
 define('CORS_ALLOWED_HEADERS', ['Content-Type', 'Authorization', 'X-Requested-With']);
 
@@ -129,12 +135,9 @@ set_error_handler(function($severity, $message, $file, $line) {
     }
     
     if (defined('API_MODE') && API_MODE) {
-        // For development, show more detailed errors
-        if (ini_get('display_errors')) {
-            return false; // Let PHP handle the error display
-        }
         http_response_code(500);
-        echo json_encode(['error' => 'Internal server error']);
+        header('Content-Type: application/json');
+        echo json_encode(['success' => false, 'error' => 'Internal server error']);
         exit;
     }
     
@@ -159,10 +162,8 @@ set_exception_handler(function($exception) {
     
     if (defined('API_MODE') && API_MODE) {
         http_response_code(500);
-        echo json_encode([
-            'error' => 'Internal server error',
-            'message' => ini_get('display_errors') ? $exception->getMessage() : 'An error occurred'
-        ]);
+        header('Content-Type: application/json');
+        echo json_encode(['success' => false, 'error' => 'Internal server error']);
         exit;
     }
 });

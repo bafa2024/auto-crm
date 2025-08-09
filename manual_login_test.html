@@ -1,0 +1,90 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Login Test</title>
+</head>
+<body>
+    <h2>Manual Login Test</h2>
+    
+    <form id="testForm">
+        <label>Email: <input type="email" id="email" value="admin@example.com" required></label><br><br>
+        <label>Password: <input type="password" id="password" value="password" required></label><br><br>
+        <button type="submit">Test Login</button>
+    </form>
+    
+    <div id="results"></div>
+    
+    <script>
+    document.getElementById('testForm').addEventListener('submit', async function(e) {
+        e.preventDefault();
+        
+        const email = document.getElementById('email').value;
+        const password = document.getElementById('password').value;
+        const results = document.getElementById('results');
+        
+        results.innerHTML = '<h3>Testing...</h3>';
+        
+        const basePath = '/acrm';
+        const apiUrl = basePath + '/api/auth/login';
+        
+        console.log('Testing URL:', apiUrl);
+        console.log('Full URL:', window.location.origin + apiUrl);
+        
+        try {
+            const response = await fetch(apiUrl, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify({
+                    email: email,
+                    password: password
+                })
+            });
+            
+            console.log('Response status:', response.status);
+            console.log('Response headers:', response.headers);
+            
+            const result = await response.json();
+            console.log('Response data:', result);
+            
+            results.innerHTML = `
+                <h3>API Response</h3>
+                <p><strong>Status:</strong> ${response.status}</p>
+                <p><strong>Success:</strong> ${response.ok}</p>
+                <p><strong>Data:</strong></p>
+                <pre>${JSON.stringify(result, null, 2)}</pre>
+            `;
+            
+        } catch (error) {
+            console.error('Error:', error);
+            results.innerHTML = `
+                <h3>Error Occurred</h3>
+                <p><strong>Error:</strong> ${error.message}</p>
+                <p><strong>Type:</strong> ${error.name}</p>
+                <p><strong>Stack:</strong></p>
+                <pre>${error.stack}</pre>
+                
+                <h4>Possible Issues:</h4>
+                <ul>
+                    <li>XAMPP Apache server not running</li>
+                    <li>Incorrect URL path</li>
+                    <li>PHP errors in API files</li>
+                    <li>CORS issues</li>
+                    <li>Network connectivity problems</li>
+                </ul>
+                
+                <h4>Things to check:</h4>
+                <ol>
+                    <li>Open browser developer tools Network tab</li>
+                    <li>Check if the request is being made</li>
+                    <li>Check response status and headers</li>
+                    <li>Verify XAMPP control panel shows Apache running</li>
+                    <li>Try accessing ${window.location.origin}${apiUrl} directly in browser</li>
+                </ol>
+            `;
+        }
+    });
+    </script>
+</body>
+</html>

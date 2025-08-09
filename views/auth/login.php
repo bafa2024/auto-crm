@@ -45,7 +45,8 @@ require_once __DIR__ . '/../../config/base_path.php';
                             </span>
                         </button>
                         <div class="text-center">
-                            <p class="mb-0">Employee login? <a href="<?php echo base_path('employee/login'); ?>">Click here</a></p>
+                            <p class="mb-1">Employee login? <a href="<?php echo base_path('employee/login'); ?>">Click here</a></p>
+                            <p class="mb-0"><small>Having login issues? Try <a href="<?php echo base_path('simple-auth'); ?>">Simple Login</a></small></p>
                         </div>
                     </form>
                 </div>

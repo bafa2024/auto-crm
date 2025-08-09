@@ -82,6 +82,10 @@ try {
             require_once __DIR__ . "/views/auth/login.php";
             break;
             
+        case $requestUri === "/simple-auth":
+            require_once __DIR__ . "/simple-auth.php";
+            break;
+            
         case $requestUri === "/signup":
             require_once __DIR__ . "/views/auth/signup.php";
             break;
