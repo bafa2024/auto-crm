@@ -171,7 +171,7 @@ $showSignup = isset($_GET['signup']) || (isset($_POST['action']) && $_POST['acti
                             
                             <div class="text-center">
                                 <p class="mb-0">Already have an account? 
-                                    <a href="<?php echo base_path('simple-auth'); ?>">Sign in here</a>
+                                    <a href="<?php echo base_path('login'); ?>">Sign in here</a>
                                 </p>
                                 <p class="mb-0">Employee login? 
                                     <a href="<?php echo base_path('employee/login'); ?>">Click here</a>
@@ -212,7 +212,7 @@ $showSignup = isset($_GET['signup']) || (isset($_POST['action']) && $_POST['acti
                             
                             <div class="text-center">
                                 <p class="mb-0">Need an admin account? 
-                                    <a href="<?php echo base_path('simple-auth?signup=1'); ?>">Sign up here</a>
+                                    <a href="<?php echo base_path('login?signup=1'); ?>">Sign up here</a>
                                 </p>
                                 <p class="mb-0">Employee login? 
                                     <a href="<?php echo base_path('employee/login'); ?>">Click here</a>
@@ -244,7 +244,7 @@ $showSignup = isset($_GET['signup']) || (isset($_POST['action']) && $_POST['acti
                     
                     <?php if (!$showSignup): ?>
                         <div class="d-grid gap-2">
-                            <a href="<?php echo base_path('simple-auth?signup=1'); ?>" class="btn btn-outline-info btn-sm">
+                            <a href="<?php echo base_path('login?signup=1'); ?>" class="btn btn-outline-info btn-sm">
                                 <i class="bi bi-person-plus me-2"></i>Create New Admin Account
                             </a>
                         </div>

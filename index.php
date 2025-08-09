@@ -79,6 +79,10 @@ try {
             
         // Auth pages
         case $requestUri === "/login":
+            require_once __DIR__ . "/simple-auth.php";
+            break;
+            
+        case $requestUri === "/old-login":
             require_once __DIR__ . "/views/auth/login.php";
             break;
             
