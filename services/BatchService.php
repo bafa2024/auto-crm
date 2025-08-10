@@ -6,8 +6,15 @@ class BatchService {
     private $batchSize = 200;
     
     public function __construct($database) {
-        $this->db = $database->getConnection();
-        $this->dbType = $database->getDatabaseType();
+        if ($database instanceof PDO) {
+            // Direct PDO connection passed
+            $this->db = $database;
+            $this->dbType = 'mysql'; // Default for PDO connections
+        } else {
+            // Database object passed
+            $this->db = $database->getConnection();
+            $this->dbType = $database->getDatabaseType();
+        }
     }
     
     /**
@@ -18,32 +25,30 @@ class BatchService {
             // Create batches table if it doesn't exist
             $this->createBatchesTable();
             
-            // Get fresh, unique recipients for the campaign if not provided
+            // Get recipients for the campaign if not provided
             if ($recipientIds === null) {
-                // Get recipients that haven't been sent yet and have unique emails
+                // Get all active recipients for the campaign (allow re-sending)
                 $sql = "SELECT DISTINCT r.id, LOWER(r.email) as email_lower 
                         FROM email_recipients r
-                        LEFT JOIN campaign_sends cs ON r.id = cs.recipient_id AND cs.campaign_id = ? AND cs.status = 'sent'
                         WHERE r.campaign_id = ? 
-                        AND cs.id IS NULL
-                        AND r.status = 'pending'
+                        AND (r.status = 'pending' OR r.status IS NULL OR r.status = '')
                         GROUP BY LOWER(r.email)
                         ORDER BY r.id";
                 $stmt = $this->db->prepare($sql);
-                $stmt->execute([$campaignId, $campaignId]);
+                $stmt->execute([$campaignId]);
                 $recipients = $stmt->fetchAll(PDO::FETCH_ASSOC);
                 
                 // Extract just the IDs
                 $recipientIds = array_column($recipients, 'id');
             } else {
-                // Filter provided IDs to ensure they're fresh and unique
-                $recipientIds = $this->filterFreshUniqueRecipients($campaignId, $recipientIds);
+                // Filter provided IDs to ensure they exist and are unique by email
+                $recipientIds = $this->filterUniqueRecipients($campaignId, $recipientIds);
             }
             
             if (empty($recipientIds)) {
                 return [
                     'success' => false,
-                    'message' => 'No fresh recipients found for batching'
+                    'message' => 'No recipients found for batching'
                 ];
             }
             
@@ -89,7 +94,43 @@ class BatchService {
     }
     
     /**
-     * Filter recipients to get only fresh, unique emails
+     * Filter recipients to get only unique emails (allows re-sending)
+     */
+    private function filterUniqueRecipients($campaignId, $recipientIds) {
+        if (empty($recipientIds)) {
+            return [];
+        }
+        
+        try {
+            $placeholders = str_repeat('?,', count($recipientIds) - 1) . '?';
+            
+            // Get recipients with unique emails (case-insensitive) - allows re-sending
+            $sql = "SELECT r1.id 
+                    FROM email_recipients r1
+                    WHERE r1.id IN ($placeholders)
+                    AND r1.campaign_id = ?
+                    AND r1.id = (
+                        SELECT MIN(r2.id) 
+                        FROM email_recipients r2 
+                        WHERE LOWER(r2.email) = LOWER(r1.email) 
+                        AND r2.campaign_id = r1.campaign_id
+                    )
+                    ORDER BY r1.id";
+            
+            $params = array_merge($recipientIds, [$campaignId]);
+            $stmt = $this->db->prepare($sql);
+            $stmt->execute($params);
+            
+            return $stmt->fetchAll(PDO::FETCH_COLUMN);
+            
+        } catch (Exception $e) {
+            error_log("Error filtering unique recipients: " . $e->getMessage());
+            return [];
+        }
+    }
+
+    /**
+     * Filter recipients to get only fresh, unique emails (legacy method - prevents re-sending)
      */
     private function filterFreshUniqueRecipients($campaignId, $recipientIds) {
         if (empty($recipientIds)) {
