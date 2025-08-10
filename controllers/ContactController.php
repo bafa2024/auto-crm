@@ -421,15 +421,34 @@ class ContactController extends BaseController {
                 ];
             }
             
-            // Since the foreign key has ON DELETE CASCADE, we can delete directly
-            // The CASCADE will handle any related records automatically
-            $stmt = $this->db->prepare("DELETE FROM email_recipients WHERE id = ?");
-            $stmt->execute([$id]);
+            // Start transaction
+            $this->db->beginTransaction();
             
-            return [
-                'success' => true,
-                'message' => 'Contact deleted successfully'
-            ];
+            try {
+                // Delete related records first to avoid foreign key constraints
+                // Delete from campaign_sends
+                $stmt = $this->db->prepare("DELETE FROM campaign_sends WHERE recipient_id = ?");
+                $stmt->execute([$id]);
+                
+                // Delete from batch_recipients
+                $stmt = $this->db->prepare("DELETE FROM batch_recipients WHERE recipient_id = ?");
+                $stmt->execute([$id]);
+                
+                // Now delete the contact
+                $stmt = $this->db->prepare("DELETE FROM email_recipients WHERE id = ?");
+                $stmt->execute([$id]);
+                
+                // Commit transaction
+                $this->db->commit();
+                
+                return [
+                    'success' => true,
+                    'message' => 'Contact deleted successfully'
+                ];
+            } catch (Exception $e) {
+                $this->db->rollBack();
+                throw $e;
+            }
             
         } catch (Exception $e) {
             // If we still get a foreign key error, it might be from another table
@@ -441,6 +460,10 @@ class ContactController extends BaseController {
                     
                     // Delete any related campaign_sends records first
                     $stmt = $this->db->prepare("DELETE FROM campaign_sends WHERE recipient_id = ?");
+                    $stmt->execute([$id]);
+                    
+                    // Delete any related batch_recipients records
+                    $stmt = $this->db->prepare("DELETE FROM batch_recipients WHERE recipient_id = ?");
                     $stmt->execute([$id]);
                     
                     // Now try to delete the contact again
@@ -498,7 +521,11 @@ class ContactController extends BaseController {
                 $stmt = $this->db->prepare("DELETE FROM campaign_sends WHERE recipient_id IN ($placeholders)");
                 $stmt->execute($valid_ids);
                 
-                // Now delete the contacts - CASCADE will handle campaign associations
+                // Delete any related batch_recipients records
+                $stmt = $this->db->prepare("DELETE FROM batch_recipients WHERE recipient_id IN ($placeholders)");
+                $stmt->execute($valid_ids);
+                
+                // Now delete the contacts
                 $stmt = $this->db->prepare("DELETE FROM email_recipients WHERE id IN ($placeholders)");
                 $stmt->execute($valid_ids);
                 
