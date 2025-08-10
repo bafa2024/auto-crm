@@ -439,37 +439,11 @@ class EmailCampaignService {
     }
     
     /**
-     * Create HTML email template
+     * Create HTML email - now just returns the content as-is
      */
     private function createHtmlEmail($content, $senderName, $recipient = null) {
-        $greeting = '';
-        if ($recipient && !empty($recipient['name'])) {
-            $firstName = $this->getFirstName($recipient['name']);
-            $greeting = '<p>Hi ' . htmlspecialchars($firstName) . ',</p>';
-        }
-        return '
-        <!DOCTYPE html>
-        <html>
-        <head>
-            <meta charset="UTF-8">
-            <meta name="viewport" content="width=device-width, initial-scale=1.0">
-            <title>Email</title>
-            <style>
-                body { font-family: Arial, sans-serif; background: #fff; color: #222; margin: 0; padding: 0; }
-                .email-body { max-width: 600px; margin: 0 auto; padding: 24px; background: #fff; border: 1px solid #eee; border-radius: 8px; }
-                .footer { font-size: 12px; color: #888; margin-top: 32px; text-align: left; }
-            </style>
-        </head>
-        <body>
-            <div class="email-body">
-                ' . $greeting . '
-                <div>' . nl2br($content) . '</div>
-                <div class="footer">
-                    <br>This message was sent by ' . htmlspecialchars($senderName) . '.
-                </div>
-            </div>
-        </body>
-        </html>';
+        // Return content as-is without any template or watermark
+        return $content;
     }
     
     /**

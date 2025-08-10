@@ -658,12 +658,13 @@ class EmailService {
             $message = $data['message'];
             $cc = $data['cc'] ?? [];
             $bcc = $data['bcc'] ?? [];
-            $senderName = $data['sender_name'] ?? 'AutoDial Pro';
+            $senderName = $data['from_name'] ?? $data['sender_name'] ?? 'AutoDial Pro';
+            $senderEmail = $data['from_email'] ?? $data['sender_email'] ?? null;
             
             if ($this->config['driver'] === 'smtp' && class_exists('PHPMailer\PHPMailer\PHPMailer')) {
-                return $this->sendViaPHPMailer($to, $subject, $message, $cc, $bcc, $senderName);
+                return $this->sendViaPHPMailer($to, $subject, $message, $cc, $bcc, $senderName, $senderEmail);
             } else {
-                return $this->sendViaMailInstant($to, $subject, $message, $cc, $bcc, $senderName);
+                return $this->sendViaMailInstant($to, $subject, $message, $cc, $bcc, $senderName, $senderEmail);
             }
             
         } catch (Exception $e) {
@@ -675,7 +676,7 @@ class EmailService {
     /**
      * Send via PHPMailer for instant emails
      */
-    private function sendViaPHPMailer($to, $subject, $message, $cc = [], $bcc = [], $senderName = '') {
+    private function sendViaPHPMailer($to, $subject, $message, $cc = [], $bcc = [], $senderName = '', $senderEmail = null) {
         try {
             $mail = new PHPMailer(true);
             
@@ -689,9 +690,9 @@ class EmailService {
             $mail->Port = $this->config['smtp']['port'];
             
             // Recipients
-            // Use SMTP configured from address and name
+            // Use custom sender email if provided, otherwise use config
             $mail->setFrom(
-                $this->config['smtp']['from']['address'],
+                $senderEmail ?: $this->config['smtp']['from']['address'],
                 $senderName ?: $this->config['smtp']['from']['name']
             );
             $mail->addAddress($to);
@@ -709,7 +710,7 @@ class EmailService {
             // Content
             $mail->isHTML(true);
             $mail->Subject = $subject;
-            $mail->Body = nl2br(htmlspecialchars($message));
+            $mail->Body = $message; // Send raw message without modification
             $mail->AltBody = strip_tags($message);
             
             $mail->send();
@@ -728,14 +729,14 @@ class EmailService {
     /**
      * Send via built-in mail() function for instant emails
      */
-    private function sendViaMailInstant($to, $subject, $message, $cc = [], $bcc = [], $senderName = '') {
+    private function sendViaMailInstant($to, $subject, $message, $cc = [], $bcc = [], $senderName = '', $senderEmail = null) {
         try {
             $headers = [];
             $headers[] = 'MIME-Version: 1.0';
             $headers[] = 'Content-type: text/html; charset=UTF-8';
             
-            // Use correct config path for from address
-            $fromAddress = $this->config['from']['address'] ?? $this->config['smtp']['from']['address'] ?? 'noreply@autocrm.com';
+            // Use custom sender email if provided, otherwise use config
+            $fromAddress = $senderEmail ?: ($this->config['from']['address'] ?? $this->config['smtp']['from']['address'] ?? 'noreply@autocrm.com');
             $fromName = $senderName ?: ($this->config['from']['name'] ?? $this->config['smtp']['from']['name'] ?? 'AutoCRM System');
             
             $headers[] = 'From: ' . $fromName . ' <' . $fromAddress . '>';
@@ -748,9 +749,8 @@ class EmailService {
                 $headers[] = 'Bcc: ' . implode(', ', $bcc);
             }
             
-            $htmlMessage = nl2br(htmlspecialchars($message));
-            
-            $result = mail($to, $subject, $htmlMessage, implode("\r\n", $headers));
+            // Send raw message without modification
+            $result = mail($to, $subject, $message, implode("\r\n", $headers));
             
             if ($result) {
                 // Log the instant email

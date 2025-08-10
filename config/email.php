@@ -25,8 +25,8 @@ return [
     'max_retries' => 3, // Maximum retry attempts for failed emails
     
     // Tracking settings
-    'track_opens' => true,
-    'track_clicks' => true,
+    'track_opens' => false,
+    'track_clicks' => false,
     'tracking_domain' => $_ENV['APP_URL'] ?? 'http://localhost/acrm',
     
     // Test mode - simulates email sending without actual SMTP
