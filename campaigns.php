@@ -522,18 +522,8 @@ try {
                         </div>
                         
                         <div class="mb-3">
-                            <label for="content_type" class="form-label">Content Type</label>
-                            <div class="btn-group w-100" role="group">
-                                <input type="radio" class="btn-check" name="content_type" id="content_type_html" value="html" checked>
-                                <label class="btn btn-outline-primary" for="content_type_html">HTML</label>
-                                
-                                <input type="radio" class="btn-check" name="content_type" id="content_type_text" value="text">
-                                <label class="btn btn-outline-primary" for="content_type_text">Plain Text</label>
-                            </div>
-                        </div>
-                        
-                        <div class="mb-3">
                             <label for="email_content" class="form-label">Email Content</label>
+                            <input type="hidden" name="content_type" value="text">
                             <textarea class="form-control" id="email_content" name="email_content" rows="10" required placeholder="Enter your email content here... Use {{variable_name}} for personalization"></textarea>
                         </div>
                         
@@ -709,18 +699,8 @@ try {
                         </div>
                         
                         <div class="mb-3">
-                            <label for="edit_content_type" class="form-label">Content Type</label>
-                            <div class="btn-group w-100" role="group">
-                                <input type="radio" class="btn-check" name="edit_content_type" id="edit_content_type_html" value="html" checked>
-                                <label class="btn btn-outline-primary" for="edit_content_type_html">HTML</label>
-                                
-                                <input type="radio" class="btn-check" name="edit_content_type" id="edit_content_type_text" value="text">
-                                <label class="btn btn-outline-primary" for="edit_content_type_text">Plain Text</label>
-                            </div>
-                        </div>
-                        
-                        <div class="mb-3">
                             <label for="edit_email_content" class="form-label">Email Content</label>
+                            <input type="hidden" name="edit_content_type" value="text">
                             <textarea class="form-control" id="edit_email_content" name="email_content" rows="10" required placeholder="Enter your email content here... Use {{variable_name}} for personalization"></textarea>
                         </div>
                         
@@ -1527,7 +1507,7 @@ try {
         function previewEmail() {
             const subject = document.getElementById('email_subject').value;
             const content = document.getElementById('email_content').value;
-            const contentType = document.querySelector('input[name="content_type"]:checked').value;
+            const contentType = 'text'; // Always text since HTML option removed
             
             // Sample data for preview
             const sampleData = {
@@ -1563,7 +1543,7 @@ try {
                                         <strong>Subject:</strong> ${escapeHtml(previewSubject)}
                                     </div>
                                     <div class="card-body">
-                                        ${contentType === 'html' ? previewContent : '<pre>' + escapeHtml(previewContent) + '</pre>'}
+                                        <pre>${escapeHtml(previewContent)}</pre>
                                     </div>
                                 </div>
                             </div>
@@ -1618,18 +1598,7 @@ try {
         // Add event listeners for real-time preview
         document.getElementById('email_subject').addEventListener('input', updateEmailPreview);
         
-        // Toggle content editor based on type
-        document.querySelectorAll('input[name="content_type"]').forEach(radio => {
-            radio.addEventListener('change', function() {
-                const textarea = document.getElementById('email_content');
-                if (this.value === 'text') {
-                    // Convert HTML to plain text if switching
-                    const tempDiv = document.createElement('div');
-                    tempDiv.innerHTML = textarea.value;
-                    textarea.value = tempDiv.textContent || tempDiv.innerText || '';
-                }
-            });
-        });
+        // Content type selection removed - all emails are plain text only
         
         // Template functionality removed - emails sent exactly as users write them
         
@@ -1637,7 +1606,7 @@ try {
         function previewEditEmail() {
             const subject = document.getElementById('edit_email_subject').value;
             const content = document.getElementById('edit_email_content').value;
-            const contentType = document.querySelector('input[name="edit_content_type"]:checked').value;
+            const contentType = 'text'; // Always text since HTML option removed
             
             // Sample data for preview
             const sampleData = {
@@ -1673,7 +1642,7 @@ try {
                                         <strong>Subject:</strong> ${escapeHtml(previewSubject)}
                                     </div>
                                     <div class="card-body">
-                                        ${contentType === 'html' ? previewContent : '<pre>' + escapeHtml(previewContent) + '</pre>'}
+                                        <pre>${escapeHtml(previewContent)}</pre>
                                     </div>
                                 </div>
                             </div>
