@@ -93,6 +93,11 @@ class EmailService {
                 $body = $this->replaceMergeTags($body, $options['merge_data']);
             }
             
+            // Check if test mode is enabled
+            if ($this->config['test_mode'] ?? false) {
+                return $this->sendViaTestMode($to, $subject, $body, $options);
+            }
+            
             if ($this->config['driver'] === 'smtp' && class_exists('PHPMailer\PHPMailer\PHPMailer')) {
                 return $this->sendViaSMTP($to, $subject, $body, $options);
             } else {
@@ -195,6 +200,41 @@ class EmailService {
         } catch (Exception $e) {
             return ['success' => false, 'error' => $mail->ErrorInfo];
         }
+    }
+    
+    /**
+     * Send email via test mode (simulates sending)
+     */
+    private function sendViaTestMode($to, $subject, $body, $options = []) {
+        $to_email = is_array($to) ? $to['email'] : $to;
+        $from_email = $options['from_email'] ?? $this->config['smtp']['from']['address'];
+        $from_name = $options['from_name'] ?? $this->config['smtp']['from']['name'];
+        
+        // Log the email details
+        $logEntry = [
+            'timestamp' => date('Y-m-d H:i:s'),
+            'to' => $to_email,
+            'from' => "$from_name <$from_email>",
+            'subject' => $subject,
+            'body_length' => strlen($body),
+            'options' => $options
+        ];
+        
+        // Create logs directory if it doesn't exist
+        $logDir = dirname($this->config['test_mode_log_path']);
+        if (!is_dir($logDir)) {
+            mkdir($logDir, 0777, true);
+        }
+        
+        // Write to log file
+        $logLine = date('Y-m-d H:i:s') . " - TO: $to_email - SUBJECT: $subject - FROM: $from_name <$from_email>\n";
+        file_put_contents($this->config['test_mode_log_path'], $logLine, FILE_APPEND | LOCK_EX);
+        
+        // Log to error log as well
+        error_log("TEST MODE: Email would be sent to: $to_email with subject: $subject");
+        
+        // Simulate successful sending
+        return ['success' => true, 'test_mode' => true];
     }
     
     /**
