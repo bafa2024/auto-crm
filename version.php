@@ -5,10 +5,26 @@
  */
 
 class VersionManager {
-    private static $version = '3.1.0';
-    private static $buildDate = '2025-01-20';
+    private static $version = '3.1.1';
+    private static $buildDate = '2025-01-21';
     private static $commitHash = '';
     private static $deploymentDate = '';
+    private static $timezone = 'America/New_York'; // Default timezone
+    
+    /**
+     * Initialize timezone
+     */
+    public static function initializeTimezone() {
+        // Try to get timezone from config or use default
+        $configFile = __DIR__ . '/config/config.php';
+        if (file_exists($configFile)) {
+            require_once $configFile;
+            if (defined('APP_TIMEZONE')) {
+                self::$timezone = APP_TIMEZONE;
+            }
+        }
+        date_default_timezone_set(self::$timezone);
+    }
     
     /**
      * Get current version
@@ -25,16 +41,18 @@ class VersionManager {
     }
     
     /**
-     * Get deployment date
+     * Get deployment date with timezone
      */
-    public static function getDeploymentDate() {
+    public static function getDeploymentDate($format = 'Y-m-d H:i:s T') {
+        self::initializeTimezone();
         if (empty(self::$deploymentDate)) {
             // Try to get from file, or use current time
             $deploymentFile = __DIR__ . '/deployment.txt';
             if (file_exists($deploymentFile)) {
-                self::$deploymentDate = file_get_contents($deploymentFile);
+                $timestamp = filemtime($deploymentFile);
+                self::$deploymentDate = date($format, $timestamp);
             } else {
-                self::$deploymentDate = date('Y-m-d H:i:s');
+                self::$deploymentDate = date($format);
             }
         }
         return self::$deploymentDate;
@@ -97,10 +115,25 @@ class VersionManager {
      * Update deployment date
      */
     public static function updateDeploymentDate() {
+        self::initializeTimezone();
         $deploymentFile = __DIR__ . '/deployment.txt';
-        $currentDate = date('Y-m-d H:i:s');
+        $currentDate = date('Y-m-d H:i:s T');
         file_put_contents($deploymentFile, $currentDate);
         self::$deploymentDate = $currentDate;
+        
+        // Also update version info file for deployment verification
+        $versionInfo = [
+            'version' => self::$version,
+            'build_date' => self::$buildDate,
+            'deployment_date' => $currentDate,
+            'commit_hash' => self::getCommitHash(),
+            'environment' => self::getEnvironment(),
+            'timezone' => self::$timezone,
+            'server_time' => date('Y-m-d H:i:s T'),
+            'timestamp' => time()
+        ];
+        file_put_contents(__DIR__ . '/version-info.json', json_encode($versionInfo, JSON_PRETTY_PRINT));
+        
         return $currentDate;
     }
     
@@ -108,20 +141,25 @@ class VersionManager {
      * Get version badge HTML
      */
     public static function getVersionBadge() {
+        self::initializeTimezone();
         $env = self::getEnvironment();
         $version = self::getVersion();
-        $deploymentDate = self::getDeploymentDate();
+        $deploymentDate = self::getDeploymentDate('M d, Y H:i');
         $commitHash = self::getCommitHash();
         
         $envClass = $env === 'live' ? 'bg-success' : ($env === 'local' ? 'bg-warning' : 'bg-info');
         $envText = ucfirst($env);
         
+        // Get current server time for display
+        $currentTime = date('H:i T');
+        
         return "
         <div class='version-badge d-flex align-items-center gap-2'>
             <span class='badge {$envClass}'>v{$version}</span>
             <span class='badge bg-secondary'>{$envText}</span>
-            <small class='text-muted d-none d-md-inline'>Deployed: {$deploymentDate}</small>
-            " . ($commitHash ? "<small class='text-muted d-none d-lg-inline'>Commit: {$commitHash}</small>" : "") . "
+            <small class='text-muted d-none d-md-inline' title='Deployment Date'>Deployed: {$deploymentDate}</small>
+            " . ($commitHash ? "<small class='text-muted d-none d-lg-inline' title='Git Commit'>#{$commitHash}</small>" : "") . "
+            <small class='text-muted d-none d-xl-inline' title='Server Time'>{$currentTime}</small>
         </div>";
     }
     

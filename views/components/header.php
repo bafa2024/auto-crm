@@ -58,6 +58,15 @@ require_once __DIR__ . '/../../version.php';
                 margin-left: 0 !important;
             }
         }
+        .deployment-link {
+            color: rgba(255, 255, 255, 0.7);
+            text-decoration: none;
+            font-size: 0.8rem;
+            margin-left: 10px;
+        }
+        .deployment-link:hover {
+            color: rgba(255, 255, 255, 0.9);
+        }
     </style>
 </head>
 <body>
@@ -75,6 +84,10 @@ require_once __DIR__ . '/../../version.php';
             $currentUri = $_SERVER["REQUEST_URI"] ?? "/";
             if ($currentUri !== "/" && $currentUri !== "/index.php") {
                 echo VersionManager::getVersionBadge(); 
+                // Add deployment info link for admins
+                if (isset($_SESSION['role']) && $_SESSION['role'] === 'admin') {
+                    echo '<a href="/deployment-info.php" class="deployment-link" title="View deployment details"><i class="bi bi-info-circle"></i></a>';
+                }
             }
             ?>
         </div>

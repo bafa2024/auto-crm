@@ -44,9 +44,10 @@ if (!defined('SESSION_LIFETIME')) define('SESSION_LIFETIME', 3600); // 1 hour
 if (!defined('EMAIL_RATE_LIMIT')) define('EMAIL_RATE_LIMIT', 100); // emails per hour
 if (!defined('EMAIL_BATCH_SIZE')) define('EMAIL_BATCH_SIZE', 50); // emails per batch
 
-// Timezone
-if (!defined('DEFAULT_TIMEZONE')) define('DEFAULT_TIMEZONE', 'UTC');
-date_default_timezone_set(DEFAULT_TIMEZONE);
+// Timezone - Set your preferred timezone here
+if (!defined('APP_TIMEZONE')) define('APP_TIMEZONE', 'America/New_York'); // Change this to your timezone
+if (!defined('DEFAULT_TIMEZONE')) define('DEFAULT_TIMEZONE', APP_TIMEZONE);
+date_default_timezone_set(APP_TIMEZONE);
 
 // Error reporting (set to 0 in production)
 error_reporting(E_ALL);
