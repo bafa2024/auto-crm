@@ -646,11 +646,12 @@ class EmailCampaignService {
                 ];
             }
             
-            // Check if campaign can be edited (only block if currently sending)
-            if (in_array($existingCampaign['status'], ['sending'])) {
+            // Allow unlimited editing - only restrict if campaign is actively sending
+            // Remove all status-based restrictions to allow unlimited modifications
+            if (in_array($existingCampaign['status'], ['sending', 'processing'])) {
                 return [
                     'success' => false,
-                    'message' => 'Cannot edit campaign that is currently in progress'
+                    'message' => 'Cannot edit campaign that is currently being processed or sent. Please wait for it to complete.'
                 ];
             }
             

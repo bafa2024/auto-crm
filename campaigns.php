@@ -931,6 +931,9 @@ try {
                                 <option value="scheduled">Scheduled</option>
                                 <option value="active">Active</option>
                                 <option value="paused">Paused</option>
+                                <option value="sent">Sent</option>
+                                <option value="completed">Completed</option>
+                                <option value="failed">Failed</option>
                             </select>
                         </div>
                     </div>
@@ -1020,6 +1023,8 @@ try {
         }
         
         function editCampaign(campaignId) {
+            // UNLIMITED EDITING: Campaigns can now be edited regardless of status
+            // Only restriction: campaigns actively being sent/processed cannot be modified
             console.log('=== EDIT CAMPAIGN DEBUG ===');
             console.log('Campaign ID:', campaignId);
             console.log('Current URL:', window.location.href);
