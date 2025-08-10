@@ -1300,6 +1300,13 @@ try {
                     
                     // Apply initial filter
                     applyContactFilter();
+                    
+                    // Enable/disable send button based on recipients
+                    if (recipients.length === 0) {
+                        document.querySelector('#sendCampaignForm button[type="submit"]').disabled = true;
+                    } else {
+                        document.querySelector('#sendCampaignForm button[type="submit"]').disabled = false;
+                    }
                 })
                 .catch(error => {
                     console.error('Error fetching contacts:', error);
@@ -1444,17 +1451,29 @@ try {
             const filter = document.getElementById('contactFilter').value;
             const recipientsList = document.getElementById('recipientsList');
             
+            console.log('Applying filter:', filter);
+            console.log('All recipients:', allRecipients);
+            console.log('Total recipients count:', allRecipients.length);
+            
             let filteredRecipients = [];
             
             switch(filter) {
                 case 'new_only':
-                    filteredRecipients = allRecipients.filter(r => r.send_status !== 'sent');
+                    // Include never_sent, pending, or no status (but exclude sent)
+                    filteredRecipients = allRecipients.filter(r => {
+                        const status = r.send_status || 'never_sent';
+                        console.log(`Contact ${r.email} has status: ${status}`);
+                        return status !== 'sent';
+                    });
+                    console.log('Filtered (new only):', filteredRecipients.length);
                     break;
                 case 'include_sent':
                     filteredRecipients = allRecipients;
+                    console.log('Filtered (include sent):', filteredRecipients.length);
                     break;
                 case 'failed_only':
                     filteredRecipients = allRecipients.filter(r => r.send_status === 'failed');
+                    console.log('Filtered (failed only):', filteredRecipients.length);
                     break;
                 default:
                     filteredRecipients = allRecipients;
