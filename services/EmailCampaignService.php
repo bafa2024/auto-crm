@@ -720,50 +720,83 @@ class EmailCampaignService {
             // Start transaction for atomic delete
             $this->db->beginTransaction();
             
-            // Step 1: Get all recipient IDs for this campaign
-            $stmt = $this->db->prepare("SELECT id FROM email_recipients WHERE campaign_id = ?");
-            $stmt->execute([$campaignId]);
-            $recipientIds = $stmt->fetchAll(PDO::FETCH_COLUMN);
+            // Helper function to check if table exists
+            $tableExists = function($tableName) {
+                try {
+                    $stmt = $this->db->query("SHOW TABLES LIKE '$tableName'");
+                    return $stmt->rowCount() > 0;
+                } catch (Exception $e) {
+                    return false;
+                }
+            };
             
-            // Step 2: Delete batch_recipients that reference these recipients
-            if (!empty($recipientIds)) {
+            // Helper function to check if column exists in table
+            $columnExists = function($tableName, $columnName) {
+                try {
+                    $stmt = $this->db->query("SHOW COLUMNS FROM `$tableName` LIKE '$columnName'");
+                    return $stmt->rowCount() > 0;
+                } catch (Exception $e) {
+                    return false;
+                }
+            };
+            
+            // Step 1: Get all recipient IDs for this campaign (if email_recipients table has campaign_id)
+            $recipientIds = [];
+            if ($tableExists('email_recipients') && $columnExists('email_recipients', 'campaign_id')) {
+                $stmt = $this->db->prepare("SELECT id FROM email_recipients WHERE campaign_id = ?");
+                $stmt->execute([$campaignId]);
+                $recipientIds = $stmt->fetchAll(PDO::FETCH_COLUMN);
+            }
+            
+            // Step 2: Delete batch_recipients that reference these recipients (if table exists)
+            if (!empty($recipientIds) && $tableExists('batch_recipients')) {
                 $placeholders = str_repeat('?,', count($recipientIds) - 1) . '?';
                 $stmt = $this->db->prepare("DELETE FROM batch_recipients WHERE recipient_id IN ($placeholders)");
                 $stmt->execute($recipientIds);
             }
             
             // Step 3: Get all batch IDs for this campaign and delete any remaining batch_recipients
-            $stmt = $this->db->prepare("SELECT id FROM email_batches WHERE campaign_id = ?");
-            $stmt->execute([$campaignId]);
-            $batchIds = $stmt->fetchAll(PDO::FETCH_COLUMN);
-            
-            if (!empty($batchIds)) {
-                $placeholders = str_repeat('?,', count($batchIds) - 1) . '?';
-                $stmt = $this->db->prepare("DELETE FROM batch_recipients WHERE batch_id IN ($placeholders)");
-                $stmt->execute($batchIds);
+            if ($tableExists('email_batches') && $columnExists('email_batches', 'campaign_id')) {
+                $stmt = $this->db->prepare("SELECT id FROM email_batches WHERE campaign_id = ?");
+                $stmt->execute([$campaignId]);
+                $batchIds = $stmt->fetchAll(PDO::FETCH_COLUMN);
+                
+                if (!empty($batchIds) && $tableExists('batch_recipients')) {
+                    $placeholders = str_repeat('?,', count($batchIds) - 1) . '?';
+                    $stmt = $this->db->prepare("DELETE FROM batch_recipients WHERE batch_id IN ($placeholders)");
+                    $stmt->execute($batchIds);
+                }
+                
+                // Delete email batches
+                $stmt = $this->db->prepare("DELETE FROM email_batches WHERE campaign_id = ?");
+                $stmt->execute([$campaignId]);
             }
             
-            // Step 4: Delete email batches
-            $stmt = $this->db->prepare("DELETE FROM email_batches WHERE campaign_id = ?");
-            $stmt->execute([$campaignId]);
+            // Step 4: Delete campaign sends (if table exists and has campaign_id)
+            if ($tableExists('campaign_sends') && $columnExists('campaign_sends', 'campaign_id')) {
+                $stmt = $this->db->prepare("DELETE FROM campaign_sends WHERE campaign_id = ?");
+                $stmt->execute([$campaignId]);
+            }
             
-            // Step 5: Delete campaign sends
-            $stmt = $this->db->prepare("DELETE FROM campaign_sends WHERE campaign_id = ?");
-            $stmt->execute([$campaignId]);
+            // Step 5: Delete scheduled campaigns (if table exists and has campaign_id)
+            if ($tableExists('scheduled_campaigns') && $columnExists('scheduled_campaigns', 'campaign_id')) {
+                $stmt = $this->db->prepare("DELETE FROM scheduled_campaigns WHERE campaign_id = ?");
+                $stmt->execute([$campaignId]);
+            }
             
-            // Step 6: Delete scheduled campaigns (if any)
-            $stmt = $this->db->prepare("DELETE FROM scheduled_campaigns WHERE campaign_id = ?");
-            $stmt->execute([$campaignId]);
+            // Step 6: Delete instant email logs (if table exists and has campaign_id)
+            if ($tableExists('instant_email_log') && $columnExists('instant_email_log', 'campaign_id')) {
+                $stmt = $this->db->prepare("DELETE FROM instant_email_log WHERE campaign_id = ?");
+                $stmt->execute([$campaignId]);
+            }
             
-            // Step 7: Delete instant email logs related to this campaign (if any)
-            $stmt = $this->db->prepare("DELETE FROM instant_email_log WHERE campaign_id = ?");
-            $stmt->execute([$campaignId]);
+            // Step 7: Delete email recipients for this campaign (if table exists and has campaign_id)
+            if ($tableExists('email_recipients') && $columnExists('email_recipients', 'campaign_id')) {
+                $stmt = $this->db->prepare("DELETE FROM email_recipients WHERE campaign_id = ?");
+                $stmt->execute([$campaignId]);
+            }
             
-            // Step 8: Delete email recipients for this campaign
-            $stmt = $this->db->prepare("DELETE FROM email_recipients WHERE campaign_id = ?");
-            $stmt->execute([$campaignId]);
-            
-            // Step 9: Finally delete the campaign itself
+            // Step 8: Finally delete the campaign itself
             $stmt = $this->db->prepare("DELETE FROM email_campaigns WHERE id = ?");
             $result = $stmt->execute([$campaignId]);
             
