@@ -31,7 +31,6 @@ class BatchService {
                 $sql = "SELECT DISTINCT r.id, LOWER(r.email) as email_lower 
                         FROM email_recipients r
                         WHERE r.campaign_id = ? 
-                        AND (r.status = 'pending' OR r.status IS NULL OR r.status = '')
                         GROUP BY LOWER(r.email)
                         ORDER BY r.id";
                 $stmt = $this->db->prepare($sql);
@@ -107,8 +106,8 @@ class BatchService {
             // Get recipients with unique emails (case-insensitive) - allows re-sending
             $sql = "SELECT r1.id 
                     FROM email_recipients r1
-                    WHERE r1.id IN ($placeholders)
-                    AND r1.campaign_id = ?
+                    WHERE r1.campaign_id = ?
+                    AND r1.id IN ($placeholders)
                     AND r1.id = (
                         SELECT MIN(r2.id) 
                         FROM email_recipients r2 
@@ -117,7 +116,7 @@ class BatchService {
                     )
                     ORDER BY r1.id";
             
-            $params = array_merge($recipientIds, [$campaignId]);
+            $params = array_merge([$campaignId], $recipientIds);
             $stmt = $this->db->prepare($sql);
             $stmt->execute($params);
             
