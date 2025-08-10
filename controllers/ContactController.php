@@ -421,14 +421,32 @@ class ContactController extends BaseController {
                 ];
             }
             
-            // Delete contact
-            $stmt = $this->db->prepare("DELETE FROM email_recipients WHERE id = ?");
-            $stmt->execute([$id]);
+            // Start transaction
+            $this->db->beginTransaction();
             
-            return [
-                'success' => true,
-                'message' => 'Contact deleted successfully'
-            ];
+            try {
+                // First, remove the contact from any campaign associations by setting campaign_id to NULL
+                // This allows the contact to be deleted even if it's part of a campaign
+                $stmt = $this->db->prepare("UPDATE email_recipients SET campaign_id = NULL WHERE id = ?");
+                $stmt->execute([$id]);
+                
+                // Now delete the contact
+                $stmt = $this->db->prepare("DELETE FROM email_recipients WHERE id = ?");
+                $stmt->execute([$id]);
+                
+                // Commit the transaction
+                $this->db->commit();
+                
+                return [
+                    'success' => true,
+                    'message' => 'Contact deleted successfully'
+                ];
+                
+            } catch (Exception $e) {
+                // Rollback on error
+                $this->db->rollBack();
+                throw $e;
+            }
             
         } catch (Exception $e) {
             return [
@@ -456,17 +474,36 @@ class ContactController extends BaseController {
                 ];
             }
             
-            // Delete contacts
-            $placeholders = str_repeat('?,', count($valid_ids) - 1) . '?';
-            $stmt = $this->db->prepare("DELETE FROM email_recipients WHERE id IN ($placeholders)");
-            $stmt->execute($valid_ids);
+            // Start transaction
+            $this->db->beginTransaction();
             
-            $deleted_count = $stmt->rowCount();
-            
-            return [
-                'success' => true,
-                'message' => "Successfully deleted $deleted_count contact(s)"
-            ];
+            try {
+                // First, remove the contacts from any campaign associations by setting campaign_id to NULL
+                // This allows the contacts to be deleted even if they're part of campaigns
+                $placeholders = str_repeat('?,', count($valid_ids) - 1) . '?';
+                $stmt = $this->db->prepare("UPDATE email_recipients SET campaign_id = NULL WHERE id IN ($placeholders)");
+                $stmt->execute($valid_ids);
+                
+                // Now delete the contacts
+                $stmt = $this->db->prepare("DELETE FROM email_recipients WHERE id IN ($placeholders)");
+                $stmt->execute($valid_ids);
+                
+                $deleted_count = $stmt->rowCount();
+                
+                // Commit the transaction
+                $this->db->commit();
+                
+                return [
+                    'success' => true,
+                    'message' => "Successfully deleted $deleted_count contact(s)",
+                    'deleted_count' => $deleted_count
+                ];
+                
+            } catch (Exception $e) {
+                // Rollback on error
+                $this->db->rollBack();
+                throw $e;
+            }
             
         } catch (Exception $e) {
             return [
