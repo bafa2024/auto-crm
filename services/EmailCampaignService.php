@@ -717,32 +717,66 @@ class EmailCampaignService {
                 ];
             }
             
-            // Delete batch_recipients first (due to foreign key)
-            $stmt = $this->db->prepare("DELETE br FROM batch_recipients br INNER JOIN email_batches eb ON br.batch_id = eb.id WHERE eb.campaign_id = ?");
-            $stmt->execute([$campaignId]);
+            // Start transaction for atomic delete
+            $this->db->beginTransaction();
             
-            // Delete email batches (due to foreign key)
+            // Step 1: Get all recipient IDs for this campaign
+            $stmt = $this->db->prepare("SELECT id FROM email_recipients WHERE campaign_id = ?");
+            $stmt->execute([$campaignId]);
+            $recipientIds = $stmt->fetchAll(PDO::FETCH_COLUMN);
+            
+            // Step 2: Delete batch_recipients that reference these recipients
+            if (!empty($recipientIds)) {
+                $placeholders = str_repeat('?,', count($recipientIds) - 1) . '?';
+                $stmt = $this->db->prepare("DELETE FROM batch_recipients WHERE recipient_id IN ($placeholders)");
+                $stmt->execute($recipientIds);
+            }
+            
+            // Step 3: Get all batch IDs for this campaign and delete any remaining batch_recipients
+            $stmt = $this->db->prepare("SELECT id FROM email_batches WHERE campaign_id = ?");
+            $stmt->execute([$campaignId]);
+            $batchIds = $stmt->fetchAll(PDO::FETCH_COLUMN);
+            
+            if (!empty($batchIds)) {
+                $placeholders = str_repeat('?,', count($batchIds) - 1) . '?';
+                $stmt = $this->db->prepare("DELETE FROM batch_recipients WHERE batch_id IN ($placeholders)");
+                $stmt->execute($batchIds);
+            }
+            
+            // Step 4: Delete email batches
             $stmt = $this->db->prepare("DELETE FROM email_batches WHERE campaign_id = ?");
             $stmt->execute([$campaignId]);
             
-            // Delete campaign sends (due to foreign key)
+            // Step 5: Delete campaign sends
             $stmt = $this->db->prepare("DELETE FROM campaign_sends WHERE campaign_id = ?");
             $stmt->execute([$campaignId]);
             
-            // Delete email recipients for this campaign
+            // Step 6: Delete scheduled campaigns (if any)
+            $stmt = $this->db->prepare("DELETE FROM scheduled_campaigns WHERE campaign_id = ?");
+            $stmt->execute([$campaignId]);
+            
+            // Step 7: Delete instant email logs related to this campaign (if any)
+            $stmt = $this->db->prepare("DELETE FROM instant_email_log WHERE campaign_id = ?");
+            $stmt->execute([$campaignId]);
+            
+            // Step 8: Delete email recipients for this campaign
             $stmt = $this->db->prepare("DELETE FROM email_recipients WHERE campaign_id = ?");
             $stmt->execute([$campaignId]);
             
-            // Delete the campaign
+            // Step 9: Finally delete the campaign itself
             $stmt = $this->db->prepare("DELETE FROM email_campaigns WHERE id = ?");
             $result = $stmt->execute([$campaignId]);
             
             if ($result) {
+                // Commit the transaction
+                $this->db->commit();
                 return [
                     'success' => true,
                     'message' => 'Campaign deleted successfully'
                 ];
             } else {
+                // Rollback on failure
+                $this->db->rollback();
                 return [
                     'success' => false,
                     'message' => 'Failed to delete campaign'
@@ -750,6 +784,10 @@ class EmailCampaignService {
             }
             
         } catch (Exception $e) {
+            // Rollback on error
+            if ($this->db->inTransaction()) {
+                $this->db->rollback();
+            }
             return [
                 'success' => false,
                 'message' => 'Failed to delete campaign: ' . $e->getMessage()
