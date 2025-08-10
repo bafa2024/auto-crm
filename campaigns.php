@@ -997,10 +997,22 @@ try {
         }
         
         function editCampaign(campaignId) {
+            console.log('Editing campaign ID:', campaignId);
             // Load campaign data via AJAX
-            fetch('api/get_campaign.php?id=' + campaignId)
-                .then(response => response.json())
+            fetch('api/get_campaign.php?id=' + campaignId, {
+                credentials: 'same-origin' // Include cookies for session
+            })
+                .then(response => {
+                    if (!response.ok) {
+                        if (response.status === 401) {
+                            throw new Error('Session expired. Please refresh the page and log in again.');
+                        }
+                        throw new Error(`HTTP error! status: ${response.status}`);
+                    }
+                    return response.json();
+                })
                 .then(data => {
+                    console.log('Campaign data received:', data);
                     if (data.success) {
                         const campaign = data.campaign;
                         
@@ -1042,8 +1054,8 @@ try {
                     }
                 })
                 .catch(error => {
-                    console.error('Error:', error);
-                    alert('Failed to load campaign data. Please try again.');
+                    console.error('Error loading campaign:', error);
+                    alert('Failed to load campaign data: ' + error.message + '\n\nPlease check the console for more details.');
                 });
         }
         
@@ -1382,6 +1394,22 @@ try {
         }
         
         // Search functionality
+        // Keep session alive by pinging every 5 minutes
+        setInterval(function() {
+            fetch('api/keep_alive.php', {
+                credentials: 'same-origin'
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (!data.success) {
+                    console.warn('Session expired - please refresh the page');
+                }
+            })
+            .catch(error => {
+                console.error('Keep-alive error:', error);
+            });
+        }, 300000); // 5 minutes
+        
         document.addEventListener('DOMContentLoaded', function() {
             const searchInput = document.getElementById('recipientSearch');
             if (searchInput) {

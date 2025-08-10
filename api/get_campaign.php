@@ -7,8 +7,22 @@ if (session_status() === PHP_SESSION_NONE) {
 
 // Check if user is logged in
 if (!isset($_SESSION["user_id"])) {
+    // Log the session issue
+    error_log("get_campaign.php: No user_id in session. Session ID: " . session_id());
+    
+    // For debugging, include session info in response
+    $debug_info = [
+        'session_id' => session_id(),
+        'session_status' => session_status(),
+        'session_data' => $_SESSION
+    ];
+    
     http_response_code(401);
-    echo json_encode(['success' => false, 'message' => 'Unauthorized']);
+    echo json_encode([
+        'success' => false, 
+        'message' => 'Unauthorized - Please log in again',
+        'debug' => $debug_info
+    ]);
     exit;
 }
 
