@@ -240,7 +240,9 @@ class EmailCampaignService {
                         continue;
                     }
                     
-                    // Double-check that this email hasn't been sent in this campaign
+                    // Allow resending to same email addresses
+                    // Comment out the duplicate check to enable resending campaigns
+                    /*
                     $checkSql = "SELECT id FROM campaign_sends 
                                 WHERE campaign_id = :campaign_id 
                                 AND LOWER(recipient_email) = :email 
@@ -255,6 +257,7 @@ class EmailCampaignService {
                         error_log("Email already sent in this campaign: $normalizedEmail");
                         continue;
                     }
+                    */
                     
                     $processedEmails[] = $normalizedEmail;
                     
@@ -852,14 +855,12 @@ class EmailCampaignService {
      */
     public function getAllCampaignRecipients($campaignId) {
         try {
-            // Get all recipients that haven't been sent this campaign yet
+            // Get all recipients - allow resending to previously sent emails
             $sql = "SELECT r.id, r.email, r.name, r.company 
                     FROM email_recipients r
-                    LEFT JOIN campaign_sends cs ON r.id = cs.recipient_id AND cs.campaign_id = ? AND cs.status = 'sent'
-                    WHERE cs.id IS NULL
                     ORDER BY r.created_at DESC";
             $stmt = $this->db->prepare($sql);
-            $stmt->execute([$campaignId]);
+            $stmt->execute();
             return $stmt->fetchAll(PDO::FETCH_ASSOC);
         } catch (Exception $e) {
             error_log("Error in getAllCampaignRecipients: " . $e->getMessage());
@@ -872,36 +873,29 @@ class EmailCampaignService {
      */
     public function sendCampaignToAll($campaignId) {
         try {
-            // Get all fresh, unique recipient IDs
+            // Get all recipient IDs - allow resending to previously sent emails
             // This query ensures we only get one recipient per unique email address (case-insensitive)
-            // and excludes any that have already been sent
             $sql = "SELECT r1.id 
                     FROM email_recipients r1
-                    LEFT JOIN campaign_sends cs ON r1.id = cs.recipient_id AND cs.campaign_id = ? AND cs.status = 'sent'
-                    WHERE cs.id IS NULL
-                    AND r1.status = 'pending'
+                    WHERE r1.status = 'pending'
                     AND r1.id = (
                         SELECT MIN(r2.id) 
                         FROM email_recipients r2 
                         WHERE LOWER(r2.email) = LOWER(r1.email)
-                        AND r2.id NOT IN (
-                            SELECT recipient_id FROM campaign_sends 
-                            WHERE campaign_id = ? AND status = 'sent'
-                        )
                     )
                     ORDER BY r1.id";
             $stmt = $this->db->prepare($sql);
-            $stmt->execute([$campaignId, $campaignId]);
+            $stmt->execute();
             $recipientIds = $stmt->fetchAll(PDO::FETCH_COLUMN);
             
             if (empty($recipientIds)) {
                 return [
                     'success' => false,
-                    'message' => 'No fresh, unique recipients found. All unique emails have already been sent.'
+                    'message' => 'No recipients found for this campaign.'
                 ];
             }
             
-            error_log("Found " . count($recipientIds) . " fresh, unique recipients for campaign $campaignId");
+            error_log("Found " . count($recipientIds) . " recipients for campaign $campaignId");
             
             // Use the existing sendCampaign method with filtered recipient IDs
             return $this->sendCampaign($campaignId, $recipientIds);
