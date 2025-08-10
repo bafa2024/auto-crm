@@ -34,6 +34,23 @@ class EmployeePermission extends BaseModel {
         return $permissions;
     }
     
+    
+    /**
+     * Get existing columns from the table
+     */
+    private function getTableColumns() {
+        try {
+            $sql = "DESCRIBE {$this->table}";
+            $stmt = $this->db->prepare($sql);
+            $stmt->execute();
+            $columns = $stmt->fetchAll(PDO::FETCH_COLUMN);
+            return $columns;
+        } catch (Exception $e) {
+            error_log("Error getting table columns: " . $e->getMessage());
+            return [];
+        }
+    }
+    
     /**
      * Update permissions for a user
      */
@@ -42,13 +59,16 @@ class EmployeePermission extends BaseModel {
         $existing = $this->getUserPermissions($userId);
         
         if ($existing) {
+            // Get existing columns to avoid column not found errors
+            $existingColumns = $this->getTableColumns();
+            
             // Update existing permissions
             $sql = "UPDATE {$this->table} SET ";
             $fields = [];
             $values = [];
             
             foreach ($permissions as $key => $value) {
-                if (in_array($key, $this->fillable) && $key !== 'user_id') {
+                if (in_array($key, $this->fillable) && $key !== 'user_id' && in_array($key, $existingColumns)) {
                     $fields[] = "$key = ?";
                     $values[] = $value ? 1 : 0;
                 }
@@ -56,8 +76,11 @@ class EmployeePermission extends BaseModel {
             
             if (!empty($fields)) {
                 $sql .= implode(", ", $fields);
-                $sql .= ", updated_at = ? WHERE user_id = ?";
-                $values[] = date('Y-m-d H:i:s');
+                if (in_array('updated_at', $existingColumns)) {
+                    $sql .= ", updated_at = ?";
+                    $values[] = date('Y-m-d H:i:s');
+                }
+                $sql .= " WHERE user_id = ?";
                 $values[] = $userId;
                 
                 $stmt = $this->db->prepare($sql);
@@ -66,6 +89,61 @@ class EmployeePermission extends BaseModel {
         }
         
         return false;
+    }
+    
+    /**
+     * Create permissions for a user
+     */
+    public function createUserPermissions($userId, $permissions) {
+        try {
+            // Get existing columns to avoid column not found errors
+            $existingColumns = $this->getTableColumns();
+            
+            $fields = ['user_id'];
+            $placeholders = ['?'];
+            $values = [$userId];
+            
+            foreach ($permissions as $key => $value) {
+                if (in_array($key, $this->fillable) && $key !== 'user_id' && in_array($key, $existingColumns)) {
+                    $fields[] = $key;
+                    $placeholders[] = '?';
+                    $values[] = $value ? 1 : 0;
+                }
+            }
+            
+            if (in_array('created_at', $existingColumns)) {
+                $fields[] = 'created_at';
+                $placeholders[] = '?';
+                $values[] = date('Y-m-d H:i:s');
+            }
+            
+            if (in_array('updated_at', $existingColumns)) {
+                $fields[] = 'updated_at';
+                $placeholders[] = '?';
+                $values[] = date('Y-m-d H:i:s');
+            }
+            
+            $sql = "INSERT INTO {$this->table} (" . implode(", ", $fields) . ") VALUES (" . implode(", ", $placeholders) . ")";
+            $stmt = $this->db->prepare($sql);
+            return $stmt->execute($values);
+            
+        } catch (Exception $e) {
+            error_log("Error creating user permissions: " . $e->getMessage());
+            return false;
+        }
+    }
+    
+    /**
+     * Update or create permissions for a user
+     */
+    public function updateOrCreateUserPermissions($userId, $permissions) {
+        $existing = $this->getUserPermissions($userId);
+        
+        if ($existing) {
+            return $this->updateUserPermissions($userId, $permissions);
+        } else {
+            return $this->createUserPermissions($userId, $permissions);
+        }
     }
     
     /**

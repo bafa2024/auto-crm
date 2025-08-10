@@ -241,7 +241,8 @@ class UserController extends BaseController {
                 $this->sendError("Invalid permissions data");
             }
             
-            $result = $this->permissionModel->updateUserPermissions($userId, $permissions);
+            // Use updateOrCreate method to handle missing permissions records
+            $result = $this->permissionModel->updateOrCreateUserPermissions($userId, $permissions);
             
             if ($result) {
                 $this->sendSuccess([], "Permissions updated successfully");
