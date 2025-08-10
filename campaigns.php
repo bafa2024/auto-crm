@@ -105,6 +105,8 @@ if (isset($_SERVER['REQUEST_METHOD']) && $_SERVER['REQUEST_METHOD'] === 'POST') 
             case 'send_campaign':
                 $campaignId = $_POST['campaign_id'];
                 $recipientIds = $_POST['recipient_ids'] ?? [];
+                // Convert recipient IDs to integers
+                $recipientIds = array_map('intval', $recipientIds);
                 $batchSize = intval($_POST['batch_size'] ?? 200);
                 
                 // Enforce batch size limit
@@ -138,6 +140,8 @@ if (isset($_SERVER['REQUEST_METHOD']) && $_SERVER['REQUEST_METHOD'] === 'POST') 
                 $emailSubject = $_POST['email_subject'];
                 $emailContent = $_POST['email_content'];
                 $recipientIds = $_POST['recipient_ids'] ?? [];
+                // Convert recipient IDs to integers
+                $recipientIds = array_map('intval', $recipientIds);
                 
                 // Validate schedule data
                 if ($scheduleType === 'scheduled' && empty($scheduleDate)) {

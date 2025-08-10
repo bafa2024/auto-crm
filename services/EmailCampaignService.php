@@ -872,20 +872,18 @@ class EmailCampaignService {
      */
     public function sendCampaignToAll($campaignId) {
         try {
-            // Get all fresh, unique recipient IDs for the campaign
+            // Get all fresh, unique recipient IDs
             // This query ensures we only get one recipient per unique email address (case-insensitive)
             // and excludes any that have already been sent
             $sql = "SELECT r1.id 
                     FROM email_recipients r1
                     LEFT JOIN campaign_sends cs ON r1.id = cs.recipient_id AND cs.campaign_id = ? AND cs.status = 'sent'
-                    WHERE r1.campaign_id = ? 
-                    AND cs.id IS NULL
+                    WHERE cs.id IS NULL
                     AND r1.status = 'pending'
                     AND r1.id = (
                         SELECT MIN(r2.id) 
                         FROM email_recipients r2 
-                        WHERE LOWER(r2.email) = LOWER(r1.email) 
-                        AND r2.campaign_id = r1.campaign_id
+                        WHERE LOWER(r2.email) = LOWER(r1.email)
                         AND r2.id NOT IN (
                             SELECT recipient_id FROM campaign_sends 
                             WHERE campaign_id = ? AND status = 'sent'
@@ -893,7 +891,7 @@ class EmailCampaignService {
                     )
                     ORDER BY r1.id";
             $stmt = $this->db->prepare($sql);
-            $stmt->execute([$campaignId, $campaignId, $campaignId]);
+            $stmt->execute([$campaignId, $campaignId]);
             $recipientIds = $stmt->fetchAll(PDO::FETCH_COLUMN);
             
             if (empty($recipientIds)) {

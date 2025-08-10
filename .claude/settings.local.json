@@ -16,7 +16,8 @@
       "Bash(cp:*)",
       "Bash(curl:*)",
       "Bash(start http://localhost/acrm/contacts.php)",
-      "Bash(C:/xampp/mysql/bin/mysqld.exe:*)"
+      "Bash(C:/xampp/mysql/bin/mysqld.exe:*)",
+      "Bash(start http://localhost/acrm/campaigns.php)"
     ],
     "deny": []
   }

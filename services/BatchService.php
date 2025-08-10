@@ -25,26 +25,33 @@ class BatchService {
             // Create batches table if it doesn't exist
             $this->createBatchesTable();
             
+            error_log("createBatchesForCampaign called with campaignId: $campaignId, recipientIds: " . json_encode($recipientIds));
+            
             // Get recipients for the campaign if not provided
             if ($recipientIds === null) {
-                // Get all active recipients for the campaign (allow re-sending)
+                // Get all active recipients (allow re-sending)
+                // Remove campaign_id filter since recipients might not have campaign_id set
                 $sql = "SELECT DISTINCT r.id, LOWER(r.email) as email_lower 
                         FROM email_recipients r
-                        WHERE r.campaign_id = ? 
                         GROUP BY LOWER(r.email)
                         ORDER BY r.id";
                 $stmt = $this->db->prepare($sql);
-                $stmt->execute([$campaignId]);
+                $stmt->execute();
                 $recipients = $stmt->fetchAll(PDO::FETCH_ASSOC);
+                
+                error_log("Found " . count($recipients) . " recipients when recipientIds is null");
                 
                 // Extract just the IDs
                 $recipientIds = array_column($recipients, 'id');
             } else {
+                error_log("Filtering " . count($recipientIds) . " provided recipient IDs");
                 // Filter provided IDs to ensure they exist and are unique by email
                 $recipientIds = $this->filterUniqueRecipients($campaignId, $recipientIds);
+                error_log("After filtering: " . count($recipientIds) . " recipient IDs remain");
             }
             
             if (empty($recipientIds)) {
+                error_log("No recipients found after filtering. Returning error.");
                 return [
                     'success' => false,
                     'message' => 'No recipients found for batching'
@@ -97,30 +104,36 @@ class BatchService {
      */
     private function filterUniqueRecipients($campaignId, $recipientIds) {
         if (empty($recipientIds)) {
+            error_log("filterUniqueRecipients: Empty recipientIds provided");
             return [];
         }
         
         try {
+            error_log("filterUniqueRecipients: Processing " . count($recipientIds) . " recipient IDs: " . json_encode($recipientIds));
+            
             $placeholders = str_repeat('?,', count($recipientIds) - 1) . '?';
             
             // Get recipients with unique emails (case-insensitive) - allows re-sending
+            // Remove the campaign_id filter from WHERE clause since recipients might not have campaign_id set
             $sql = "SELECT r1.id 
                     FROM email_recipients r1
-                    WHERE r1.campaign_id = ?
-                    AND r1.id IN ($placeholders)
+                    WHERE r1.id IN ($placeholders)
                     AND r1.id = (
                         SELECT MIN(r2.id) 
                         FROM email_recipients r2 
-                        WHERE LOWER(r2.email) = LOWER(r1.email) 
-                        AND r2.campaign_id = r1.campaign_id
+                        WHERE LOWER(r2.email) = LOWER(r1.email)
                     )
                     ORDER BY r1.id";
             
-            $params = array_merge([$campaignId], $recipientIds);
-            $stmt = $this->db->prepare($sql);
-            $stmt->execute($params);
+            error_log("filterUniqueRecipients SQL: " . $sql);
             
-            return $stmt->fetchAll(PDO::FETCH_COLUMN);
+            $stmt = $this->db->prepare($sql);
+            $stmt->execute($recipientIds);
+            
+            $result = $stmt->fetchAll(PDO::FETCH_COLUMN);
+            error_log("filterUniqueRecipients: Found " . count($result) . " unique recipients: " . json_encode($result));
+            
+            return $result;
             
         } catch (Exception $e) {
             error_log("Error filtering unique recipients: " . $e->getMessage());
