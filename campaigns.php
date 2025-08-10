@@ -21,6 +21,62 @@ require_once 'config/database.php';
 $database = new Database();
 require_once 'services/EmailCampaignService.php';
 
+// Handle AJAX search requests
+if (isset($_GET['action']) && $_GET['action'] === 'search_recipients') {
+    header('Content-Type: application/json');
+    
+    $searchTerm = $_GET['search'] ?? '';
+    $limit = (int)($_GET['limit'] ?? 200);
+    $offset = (int)($_GET['offset'] ?? 0);
+    
+    try {
+        $sql = "SELECT id, email, name, company FROM email_recipients WHERE 1=1";
+        $params = [];
+        
+        if (!empty($searchTerm)) {
+            $sql .= " AND (email LIKE ? OR name LIKE ? OR company LIKE ?)";
+            $searchParam = '%' . $searchTerm . '%';
+            $params = [$searchParam, $searchParam, $searchParam];
+        }
+        
+        $sql .= " ORDER BY created_at DESC LIMIT ? OFFSET ?";
+        $params[] = $limit;
+        $params[] = $offset;
+        
+        $stmt = $database->getConnection()->prepare($sql);
+        $stmt->execute($params);
+        $recipients = $stmt->fetchAll(PDO::FETCH_ASSOC);
+        
+        // Get total count for pagination
+        $countSql = "SELECT COUNT(*) as total FROM email_recipients WHERE 1=1";
+        $countParams = [];
+        
+        if (!empty($searchTerm)) {
+            $countSql .= " AND (email LIKE ? OR name LIKE ? OR company LIKE ?)";
+            $countParams = [$searchParam, $searchParam, $searchParam];
+        }
+        
+        $countStmt = $database->getConnection()->prepare($countSql);
+        $countStmt->execute($countParams);
+        $totalCount = $countStmt->fetch(PDO::FETCH_ASSOC)['total'];
+        
+        echo json_encode([
+            'success' => true,
+            'recipients' => $recipients,
+            'total' => $totalCount,
+            'showing' => count($recipients)
+        ]);
+        exit;
+        
+    } catch (Exception $e) {
+        echo json_encode([
+            'success' => false,
+            'message' => 'Search failed: ' . $e->getMessage()
+        ]);
+        exit;
+    }
+}
+
 $message = '';
 $messageType = '';
 
@@ -595,7 +651,7 @@ try {
                                 </div>
                                 <div class="col-md-4">
                                     <button type="button" class="btn btn-outline-primary btn-sm" onclick="selectAllFiltered()">
-                                        <i class="bi bi-check-all"></i> Select Filtered
+                                        <i class="bi bi-check-all"></i> Select All
                                     </button>
                                     <button type="button" class="btn btn-outline-secondary btn-sm" onclick="clearAllRecipients()">
                                         <i class="bi bi-x-circle"></i> Clear All
@@ -1177,10 +1233,8 @@ try {
                 return;
             }
             
-            const displayLimit = 200;
-            const displayRecipients = recipients.slice(0, displayLimit);
-            
-            displayRecipients.forEach(recipient => {
+            // Show all recipients without limit - search functionality now handles large datasets
+            recipients.forEach(recipient => {
                 const div = document.createElement('div');
                 div.className = 'recipient-item';
                 if (recipient.send_status === 'failed') {
@@ -1213,13 +1267,6 @@ try {
                 </div>`;
                 recipientsList.appendChild(div);
             });
-            
-            if (recipients.length > displayLimit) {
-                const info = document.createElement('div');
-                info.className = 'alert alert-info mt-3';
-                info.innerHTML = `<i class="bi bi-info-circle"></i> Showing first ${displayLimit} of ${recipients.length} filtered contacts. Maximum batch size: ${document.getElementById('batchSize').value} emails.`;
-                recipientsList.appendChild(info);
-            }
         }
         
         // Update filtered count display
@@ -1243,26 +1290,116 @@ try {
             totalRecipientsCount.innerHTML = countText;
         }
         
-        // Select all filtered contacts
+        // Select all filtered contacts - now works with search
         function selectAllFiltered() {
-            const filter = document.getElementById('contactFilter').value;
+            const searchTerm = document.getElementById('recipientSearch').value.toLowerCase();
             const batchSize = parseInt(document.getElementById('batchSize').value);
-            const visibleCheckboxes = document.querySelectorAll('.recipient-item:not([style*="display: none"]) input[name="recipient_ids[]"]');
             
-            let count = 0;
-            visibleCheckboxes.forEach(checkbox => {
-                if (count < batchSize) {
-                    checkbox.checked = true;
-                    count++;
-                } else {
-                    checkbox.checked = false;
+            if (searchTerm) {
+                // If there's a search term, load all matching contacts and select them
+                loadSearchResults(searchTerm, batchSize, true); // true = select all results
+            } else {
+                // If no search, select visible contacts
+                const visibleCheckboxes = document.querySelectorAll('.recipient-item:not([style*="display: none"]) input[name="recipient_ids[]"]');
+                
+                let count = 0;
+                visibleCheckboxes.forEach(checkbox => {
+                    if (count < batchSize) {
+                        checkbox.checked = true;
+                        count++;
+                    } else {
+                        checkbox.checked = false;
+                    }
+                });
+                
+                updateSelectedCount();
+                
+                if (count === batchSize) {
+                    alert(`Selected first ${batchSize} contacts as per batch size limit.`);
                 }
+            }
+        }
+        
+        // Load search results with AJAX
+        function loadSearchResults(searchTerm, limit = 200, selectAll = false) {
+            const recipientsList = document.getElementById('recipientsList');
+            
+            // Show loading
+            recipientsList.innerHTML = '<div class="text-center py-4"><div class="spinner-border"></div><p class="mt-2">Searching contacts...</p></div>';
+            
+            const params = new URLSearchParams({
+                action: 'search_recipients',
+                search: searchTerm,
+                limit: limit
             });
             
-            updateSelectedCount();
+            fetch(`campaigns.php?${params}`)
+                .then(response => response.json())
+                .then(data => {
+                    if (data.success) {
+                        displaySearchResults(data.recipients, data.total, selectAll);
+                        updateSearchResultInfo(data.total, data.showing, searchTerm);
+                    } else {
+                        recipientsList.innerHTML = `<div class="alert alert-danger">${data.message}</div>`;
+                    }
+                })
+                .catch(error => {
+                    console.error('Search error:', error);
+                    recipientsList.innerHTML = '<div class="alert alert-danger">Search failed. Please try again.</div>';
+                });
+        }
+        
+        // Display search results
+        function displaySearchResults(recipients, total, selectAll = false) {
+            const recipientsList = document.getElementById('recipientsList');
+            recipientsList.innerHTML = '';
             
-            if (count === batchSize) {
-                alert(`Selected first ${batchSize} contacts as per batch size limit.`);
+            if (recipients.length === 0) {
+                recipientsList.innerHTML = `
+                    <div class="text-center py-4">
+                        <i class="bi bi-search text-muted display-4"></i>
+                        <p class="mt-3 mb-0">No contacts found!</p>
+                        <small class="text-muted">Try a different search term.</small>
+                    </div>
+                `;
+                return;
+            }
+            
+            recipients.forEach(recipient => {
+                const div = document.createElement('div');
+                div.className = 'recipient-item';
+                div.setAttribute('data-search', (recipient.email + ' ' + (recipient.name || '') + ' ' + (recipient.company || '')).toLowerCase());
+                
+                const isChecked = selectAll ? 'checked' : '';
+                
+                div.innerHTML = `<div class="form-check">
+                    <input class="form-check-input" type="checkbox" name="recipient_ids[]" value="${recipient.id}" id="recipient_${recipient.id}" onchange="updateSelectedCount()" ${isChecked}>
+                    <label class="form-check-label" for="recipient_${recipient.id}">
+                        <strong>${escapeHtml(recipient.email)}</strong>
+                        ${recipient.name ? `<br><small class="text-muted">${escapeHtml(recipient.name)}</small>` : ''}
+                        ${recipient.company ? `<br><small class="text-muted">${escapeHtml(recipient.company)}</small>` : ''}
+                    </label>
+                </div>`;
+                recipientsList.appendChild(div);
+            });
+            
+            if (selectAll) {
+                updateSelectedCount();
+                const batchSize = parseInt(document.getElementById('batchSize').value);
+                if (recipients.length >= batchSize) {
+                    alert(`Selected ${Math.min(recipients.length, batchSize)} contacts as per batch size limit.`);
+                }
+            }
+        }
+        
+        // Update search result info
+        function updateSearchResultInfo(total, showing, searchTerm) {
+            const searchResultInfo = document.getElementById('searchResultInfo');
+            if (searchTerm) {
+                searchResultInfo.style.display = 'inline';
+                searchResultInfo.textContent = `Found ${total} contacts matching "${searchTerm}" (showing ${showing})`;
+            } else {
+                searchResultInfo.style.display = 'none';
             }
         }
         
@@ -1286,18 +1423,22 @@ try {
         document.addEventListener('DOMContentLoaded', function() {
             const searchInput = document.getElementById('recipientSearch');
             if (searchInput) {
+                let searchTimeout;
                 searchInput.addEventListener('input', function() {
                     const searchTerm = this.value.toLowerCase();
-                    const recipientItems = document.querySelectorAll('.recipient-item');
                     
-                    recipientItems.forEach(item => {
-                        const searchData = item.getAttribute('data-search');
-                        if (searchData && searchData.includes(searchTerm)) {
-                            item.style.display = 'block';
-                        } else {
-                            item.style.display = 'none';
+                    // Clear previous timeout
+                    clearTimeout(searchTimeout);
+                    
+                    // Debounce search for 300ms
+                    searchTimeout = setTimeout(() => {
+                        if (searchTerm.length >= 2) {
+                            loadSearchResults(searchTerm);
+                        } else if (searchTerm.length === 0) {
+                            // If search is cleared, reload all recipients
+                            applyContactFilter();
                         }
-                    });
+                    }, 300);
                 });
             }
         });
