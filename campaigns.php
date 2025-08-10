@@ -1566,12 +1566,6 @@ try {
                                         ${contentType === 'html' ? previewContent : '<pre>' + escapeHtml(previewContent) + '</pre>'}
                                     </div>
                                 </div>
-                                <div class="mt-3">
-                                    <small class="text-muted">
-                                        <strong>Sample merge tag values:</strong><br>
-                                        ${Object.entries(sampleData).map(([key, value]) => `{{${key}}} = ${value}`).join('<br>')}
-                                    </small>
-                                </div>
                             </div>
                             <div class="modal-footer">
                                 <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Close</button>
@@ -1681,12 +1675,6 @@ try {
                                     <div class="card-body">
                                         ${contentType === 'html' ? previewContent : '<pre>' + escapeHtml(previewContent) + '</pre>'}
                                     </div>
-                                </div>
-                                <div class="mt-3">
-                                    <small class="text-muted">
-                                        <strong>Sample merge tag values:</strong><br>
-                                        ${Object.entries(sampleData).map(([key, value]) => `{{${key}}} = ${value}`).join('<br>')}
-                                    </small>
                                 </div>
                             </div>
                             <div class="modal-footer">
