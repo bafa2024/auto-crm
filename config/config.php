@@ -45,7 +45,7 @@ if (!defined('EMAIL_RATE_LIMIT')) define('EMAIL_RATE_LIMIT', 100); // emails per
 if (!defined('EMAIL_BATCH_SIZE')) define('EMAIL_BATCH_SIZE', 50); // emails per batch
 
 // Timezone - Set your preferred timezone here
-if (!defined('APP_TIMEZONE')) define('APP_TIMEZONE', 'America/New_York'); // Change this to your timezone
+if (!defined('APP_TIMEZONE')) define('APP_TIMEZONE', 'America/Los_Angeles'); // Change this to your timezone
 if (!defined('DEFAULT_TIMEZONE')) define('DEFAULT_TIMEZONE', APP_TIMEZONE);
 date_default_timezone_set(APP_TIMEZONE);
 
