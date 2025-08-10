@@ -47,12 +47,12 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 'from_email' => $from_email
             ]);
             
-            if ($result['success']) {
+            if ($result === true) {
                 $message = 'Email sent successfully!';
                 // Clear form data after successful send
                 $_POST = [];
             } else {
-                $error = 'Failed to send email: ' . $result['message'];
+                $error = 'Failed to send email. Please check your email settings.';
             }
         }
     } catch (Exception $e) {
@@ -95,10 +95,9 @@ try {
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.2/font/bootstrap-icons.min.css">
     <link rel="stylesheet" href="css/styles.css">
     <link rel="stylesheet" href="css/sidebar-fix.css">
-<<<<<<< HEAD
+
     <link rel="stylesheet" href="css/sidebar-layout-fix.css">
-=======
->>>>>>> 074aaca5c4c3566b4bb6ea4fc3847d284023713e
+
     <style>
         .email-form {
             background: white;
