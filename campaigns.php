@@ -48,21 +48,29 @@ if (isset($_SERVER['REQUEST_METHOD']) && $_SERVER['REQUEST_METHOD'] === 'POST') 
                 if ($result['success']) {
                     $message = "Campaign created successfully! Campaign ID: " . $result['campaign_id'];
                     $messageType = 'success';
-                    // If immediate, send campaign now
+                    
+                    // Handle different schedule types
                     if ($_POST['schedule_type'] === 'immediate') {
+                        // If immediate, send campaign now
+                        $message .= "<br><strong>Sending emails immediately...</strong>";
                         // Get all unsent recipients for this campaign
                         $unsentRecipients = $campaignService->getAllCampaignRecipients($result['campaign_id']);
                         $recipientIds = array_column($unsentRecipients, 'id');
                         if (!empty($recipientIds)) {
                             $sendResult = $campaignService->sendCampaign($result['campaign_id'], $recipientIds);
                             if ($sendResult['success']) {
-                                $message .= "<br>Immediate campaign sent successfully!";
+                                $message .= "<br>Immediate campaign sent successfully to " . count($recipientIds) . " recipients!";
                             } else {
                                 $message .= "<br>Immediate campaign sending failed: " . $sendResult['message'];
                             }
                         } else {
                             $message .= "<br>No unsent recipients found for immediate sending.";
                         }
+                    } elseif ($_POST['schedule_type'] === 'send_later') {
+                        // For send_later, just create the campaign without sending
+                        $message .= "<br><strong>Campaign saved as draft.</strong> Use the 'Send' button when ready to send emails.";
+                    } elseif ($_POST['schedule_type'] === 'scheduled') {
+                        $message .= "<br>Campaign scheduled for: " . date('M d, Y g:i A', strtotime($_POST['schedule_date']));
                     }
                 } else {
                     $message = 'Campaign creation failed: ' . $result['message'];
@@ -577,6 +585,9 @@ try {
                 <form id="createCampaignForm">
                     <input type="hidden" name="action" value="create_campaign">
                     <div class="modal-body">
+                        <div class="alert alert-info">
+                            <i class="bi bi-info-circle"></i> <strong>Tip:</strong> Select "Send Later" to create your campaign without sending emails immediately. You can then review and send to specific recipients when ready.
+                        </div>
                         <div class="row">
                             <div class="col-md-6">
                                 <div class="mb-3">
@@ -588,6 +599,7 @@ try {
                                 <div class="mb-3">
                                     <label for="schedule_type" class="form-label">Schedule Type</label>
                                     <select class="form-select" id="schedule_type" name="schedule_type" required>
+                                        <option value="send_later" selected>Send Later (Manual)</option>
                                         <option value="immediate">Send Immediately</option>
                                         <option value="scheduled">Scheduled</option>
                                         <option value="recurring">Recurring</option>
@@ -806,6 +818,7 @@ try {
                                 <div class="mb-3">
                                     <label for="edit_schedule_type" class="form-label">Schedule Type</label>
                                     <select class="form-select" id="edit_schedule_type" name="schedule_type" required>
+                                        <option value="send_later">Send Later (Manual)</option>
                                         <option value="immediate">Send Immediately</option>
                                         <option value="scheduled">Scheduled</option>
                                         <option value="recurring">Recurring</option>
@@ -1611,20 +1624,54 @@ try {
         // Show/hide schedule options based on schedule type
         document.getElementById('schedule_type').addEventListener('change', function() {
             const scheduleOptions = document.getElementById('scheduleOptions');
+            const warningDiv = document.getElementById('immediateWarning');
+            
             if (this.value === 'scheduled' || this.value === 'recurring') {
                 scheduleOptions.style.display = 'block';
-            } else {
+                if (warningDiv) warningDiv.style.display = 'none';
+            } else if (this.value === 'immediate') {
                 scheduleOptions.style.display = 'none';
+                // Show warning for immediate send
+                if (!warningDiv) {
+                    const warning = document.createElement('div');
+                    warning.id = 'immediateWarning';
+                    warning.className = 'alert alert-warning mt-3';
+                    warning.innerHTML = '<i class="bi bi-exclamation-triangle"></i> <strong>Warning:</strong> This will send emails to ALL recipients immediately after creation!';
+                    this.parentElement.parentElement.parentElement.appendChild(warning);
+                } else {
+                    warningDiv.style.display = 'block';
+                }
+            } else {
+                // For send_later option
+                scheduleOptions.style.display = 'none';
+                if (warningDiv) warningDiv.style.display = 'none';
             }
         });
         
         // Show/hide edit schedule options based on schedule type
         document.getElementById('edit_schedule_type').addEventListener('change', function() {
             const editScheduleOptions = document.getElementById('editScheduleOptions');
+            const warningDiv = document.getElementById('editImmediateWarning');
+            
             if (this.value === 'scheduled' || this.value === 'recurring') {
                 editScheduleOptions.style.display = 'block';
-            } else {
+                if (warningDiv) warningDiv.style.display = 'none';
+            } else if (this.value === 'immediate') {
                 editScheduleOptions.style.display = 'none';
+                // Show warning for immediate send
+                if (!warningDiv) {
+                    const warning = document.createElement('div');
+                    warning.id = 'editImmediateWarning';
+                    warning.className = 'alert alert-warning mt-3';
+                    warning.innerHTML = '<i class="bi bi-exclamation-triangle"></i> <strong>Warning:</strong> Changing to immediate will send emails to ALL recipients when you save!';
+                    this.parentElement.parentElement.parentElement.appendChild(warning);
+                } else {
+                    warningDiv.style.display = 'block';
+                }
+            } else {
+                // For send_later option
+                editScheduleOptions.style.display = 'none';
+                if (warningDiv) warningDiv.style.display = 'none';
             }
         });
 
