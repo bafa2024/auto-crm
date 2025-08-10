@@ -421,34 +421,48 @@ class ContactController extends BaseController {
                 ];
             }
             
-            // Start transaction
-            $this->db->beginTransaction();
+            // Since the foreign key has ON DELETE CASCADE, we can delete directly
+            // The CASCADE will handle any related records automatically
+            $stmt = $this->db->prepare("DELETE FROM email_recipients WHERE id = ?");
+            $stmt->execute([$id]);
             
-            try {
-                // First, remove the contact from any campaign associations by setting campaign_id to NULL
-                // This allows the contact to be deleted even if it's part of a campaign
-                $stmt = $this->db->prepare("UPDATE email_recipients SET campaign_id = NULL WHERE id = ?");
-                $stmt->execute([$id]);
-                
-                // Now delete the contact
-                $stmt = $this->db->prepare("DELETE FROM email_recipients WHERE id = ?");
-                $stmt->execute([$id]);
-                
-                // Commit the transaction
-                $this->db->commit();
-                
-                return [
-                    'success' => true,
-                    'message' => 'Contact deleted successfully'
-                ];
-                
-            } catch (Exception $e) {
-                // Rollback on error
-                $this->db->rollBack();
-                throw $e;
-            }
+            return [
+                'success' => true,
+                'message' => 'Contact deleted successfully'
+            ];
             
         } catch (Exception $e) {
+            // If we still get a foreign key error, it might be from another table
+            // Let's try to delete any related records first
+            if (strpos($e->getMessage(), 'foreign key constraint fails') !== false) {
+                try {
+                    // Start transaction for cleanup
+                    $this->db->beginTransaction();
+                    
+                    // Delete any related campaign_sends records first
+                    $stmt = $this->db->prepare("DELETE FROM campaign_sends WHERE recipient_id = ?");
+                    $stmt->execute([$id]);
+                    
+                    // Now try to delete the contact again
+                    $stmt = $this->db->prepare("DELETE FROM email_recipients WHERE id = ?");
+                    $stmt->execute([$id]);
+                    
+                    $this->db->commit();
+                    
+                    return [
+                        'success' => true,
+                        'message' => 'Contact deleted successfully'
+                    ];
+                    
+                } catch (Exception $cleanupError) {
+                    $this->db->rollBack();
+                    return [
+                        'success' => false,
+                        'message' => 'Failed to delete contact: ' . $cleanupError->getMessage()
+                    ];
+                }
+            }
+            
             return [
                 'success' => false,
                 'message' => 'Failed to delete contact: ' . $e->getMessage()
@@ -474,17 +488,17 @@ class ContactController extends BaseController {
                 ];
             }
             
+            $placeholders = str_repeat('?,', count($valid_ids) - 1) . '?';
+            
             // Start transaction
             $this->db->beginTransaction();
             
             try {
-                // First, remove the contacts from any campaign associations by setting campaign_id to NULL
-                // This allows the contacts to be deleted even if they're part of campaigns
-                $placeholders = str_repeat('?,', count($valid_ids) - 1) . '?';
-                $stmt = $this->db->prepare("UPDATE email_recipients SET campaign_id = NULL WHERE id IN ($placeholders)");
+                // Delete any related campaign_sends records first
+                $stmt = $this->db->prepare("DELETE FROM campaign_sends WHERE recipient_id IN ($placeholders)");
                 $stmt->execute($valid_ids);
                 
-                // Now delete the contacts
+                // Now delete the contacts - CASCADE will handle campaign associations
                 $stmt = $this->db->prepare("DELETE FROM email_recipients WHERE id IN ($placeholders)");
                 $stmt->execute($valid_ids);
                 
@@ -502,7 +516,10 @@ class ContactController extends BaseController {
             } catch (Exception $e) {
                 // Rollback on error
                 $this->db->rollBack();
-                throw $e;
+                return [
+                    'success' => false,
+                    'message' => 'Failed to delete contacts: ' . $e->getMessage()
+                ];
             }
             
         } catch (Exception $e) {
