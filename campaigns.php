@@ -515,7 +515,7 @@ try {
                         
                         <div class="mb-3">
                             <label for="email_subject" class="form-label">Email Subject</label>
-                            <input type="text" class="form-control" id="email_subject" name="email_subject" required placeholder="Use {{variable_name}} for personalization">
+                            <input type="text" class="form-control" id="email_subject" name="email_subject" required>
                             <div id="subject-preview" class="mt-2 small text-muted" style="display: none;">
                                 <strong>Preview:</strong> <span id="subject-preview-text"></span>
                             </div>
@@ -524,7 +524,7 @@ try {
                         <div class="mb-3">
                             <label for="email_content" class="form-label">Email Content</label>
                             <input type="hidden" name="content_type" value="text">
-                            <textarea class="form-control" id="email_content" name="email_content" rows="10" required placeholder="Enter your email content here... Use {{variable_name}} for personalization"></textarea>
+                            <textarea class="form-control" id="email_content" name="email_content" rows="10" required></textarea>
                         </div>
                         
                         <div class="mb-3">
@@ -692,7 +692,7 @@ try {
                         
                         <div class="mb-3">
                             <label for="edit_email_subject" class="form-label">Email Subject</label>
-                            <input type="text" class="form-control" id="edit_email_subject" name="email_subject" required placeholder="Use {{variable_name}} for personalization">
+                            <input type="text" class="form-control" id="edit_email_subject" name="email_subject" required>
                             <div id="edit-subject-preview" class="mt-2 small text-muted" style="display: none;">
                                 <strong>Preview:</strong> <span id="edit-subject-preview-text"></span>
                             </div>
@@ -701,7 +701,7 @@ try {
                         <div class="mb-3">
                             <label for="edit_email_content" class="form-label">Email Content</label>
                             <input type="hidden" name="edit_content_type" value="text">
-                            <textarea class="form-control" id="edit_email_content" name="email_content" rows="10" required placeholder="Enter your email content here... Use {{variable_name}} for personalization"></textarea>
+                            <textarea class="form-control" id="edit_email_content" name="email_content" rows="10" required></textarea>
                         </div>
                         
                         <div class="mb-3">
