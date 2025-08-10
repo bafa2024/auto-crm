@@ -996,9 +996,55 @@ try {
             alert("Reports feature coming soon!");
         }
         
+        // Diagnostic function
+        function runDiagnostics() {
+            console.log('Running diagnostics...');
+            fetch('api/diagnose_edit.php', {
+                credentials: 'same-origin'
+            })
+            .then(response => response.json())
+            .then(data => {
+                console.log('Diagnostic Results:', data);
+                if (data.has_issues) {
+                    console.error('Issues found:', data.issues);
+                    alert('Diagnostic Issues Found:\n\n' + data.issues.join('\n'));
+                } else {
+                    console.log('No issues found');
+                    alert('Diagnostics: No issues found. Session is active.');
+                }
+            })
+            .catch(error => {
+                console.error('Diagnostic error:', error);
+                alert('Error running diagnostics: ' + error.message);
+            });
+        }
+        
         function editCampaign(campaignId) {
-            console.log('Editing campaign ID:', campaignId);
+            console.log('=== EDIT CAMPAIGN DEBUG ===');
+            console.log('Campaign ID:', campaignId);
+            console.log('Current URL:', window.location.href);
+            console.log('Session Storage:', sessionStorage);
+            console.log('Local Storage:', localStorage);
+            
+            // Check if form elements exist
+            const formElements = [
+                'edit_campaign_id',
+                'edit_campaign_name',
+                'edit_email_subject',
+                'edit_email_content',
+                'edit_sender_name',
+                'edit_sender_email'
+            ];
+            
+            const missingElements = formElements.filter(id => !document.getElementById(id));
+            if (missingElements.length > 0) {
+                console.error('Missing form elements:', missingElements);
+                alert('Error: Form elements not found. Please refresh the page.');
+                return;
+            }
+            
             // Load campaign data via AJAX
+            console.log('Fetching campaign data...');
             fetch('api/get_campaign.php?id=' + campaignId, {
                 credentials: 'same-origin' // Include cookies for session
             })
@@ -1015,16 +1061,37 @@ try {
                     console.log('Campaign data received:', data);
                     if (data.success) {
                         const campaign = data.campaign;
+                        console.log('Campaign object:', campaign);
                         
-                        // Populate the edit form
-                        document.getElementById('edit_campaign_id').value = campaign.id;
-                        document.getElementById('edit_campaign_name').value = campaign.name;
-                        document.getElementById('edit_email_subject').value = campaign.subject;
-                        document.getElementById('edit_email_content').value = campaign.email_content;
-                        document.getElementById('edit_sender_name').value = campaign.from_name;
-                        document.getElementById('edit_sender_email').value = campaign.from_email;
-                        document.getElementById('edit_schedule_type').value = campaign.schedule_type || 'immediate';
-                        document.getElementById('edit_status').value = campaign.status;
+                        // Populate the edit form with debugging
+                        try {
+                            console.log('Setting campaign ID:', campaign.id);
+                            document.getElementById('edit_campaign_id').value = campaign.id;
+                            
+                            console.log('Setting campaign name:', campaign.name);
+                            document.getElementById('edit_campaign_name').value = campaign.name || '';
+                            
+                            console.log('Setting email subject:', campaign.subject);
+                            document.getElementById('edit_email_subject').value = campaign.subject || '';
+                            
+                            console.log('Setting email content:', campaign.email_content);
+                            document.getElementById('edit_email_content').value = campaign.email_content || '';
+                            
+                            console.log('Setting sender name:', campaign.from_name);
+                            document.getElementById('edit_sender_name').value = campaign.from_name || '';
+                            
+                            console.log('Setting sender email:', campaign.from_email);
+                            document.getElementById('edit_sender_email').value = campaign.from_email || '';
+                            console.log('Setting schedule type:', campaign.schedule_type);
+                            document.getElementById('edit_schedule_type').value = campaign.schedule_type || 'immediate';
+                            
+                            console.log('Setting status:', campaign.status);
+                            document.getElementById('edit_status').value = campaign.status || 'draft';
+                        } catch (error) {
+                            console.error('Error setting form values:', error);
+                            alert('Error populating form: ' + error.message);
+                            return;
+                        }
                         
                         // Handle schedule date
                         if (campaign.schedule_date) {
@@ -1048,7 +1115,22 @@ try {
                         }
                         
                         // Show the modal
-                        new bootstrap.Modal(document.getElementById('editCampaignModal')).show();
+                        console.log('Attempting to show edit modal...');
+                        const editModal = document.getElementById('editCampaignModal');
+                        if (!editModal) {
+                            console.error('Edit modal not found in DOM');
+                            alert('Error: Edit modal not found. Please refresh the page.');
+                            return;
+                        }
+                        
+                        try {
+                            const bsModal = new bootstrap.Modal(editModal);
+                            bsModal.show();
+                            console.log('Edit modal shown successfully');
+                        } catch (error) {
+                            console.error('Error showing modal:', error);
+                            alert('Error showing edit form: ' + error.message);
+                        }
                     } else {
                         alert('Failed to load campaign data: ' + data.message);
                     }
