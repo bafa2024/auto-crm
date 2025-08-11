@@ -104,11 +104,16 @@ if (!function_exists('isExactPage')) {
 /* Navigation */
 .sidebar-nav {
     padding: 0 12px;
-    padding-bottom: 20px;
+    /* Add bottom padding to prevent overlap with profile section */
+    padding-bottom: 140px; /* Increased to ensure enough space above profile */
+    /* Make it scrollable if content is too long */
     flex: 1;
-    overflow-y: scroll;
+    overflow-y: auto; /* Changed to auto for better UX */
     overflow-x: hidden;
+    /* Add right padding for scrollbar */
     padding-right: 8px;
+    /* Ensure scrolling to bottom works */
+    height: calc(100vh - 100px); /* Calculate height accounting for logo */
 }
 
 /* Custom scrollbar for navigation */
@@ -143,7 +148,7 @@ if (!function_exists('isExactPage')) {
 }
 
 .nav-section:last-child {
-    margin-bottom: 30px;
+    margin-bottom: 50px; /* Increased to ensure last items are visible when scrolled */
 }
 
 .nav-section-title {
@@ -332,7 +337,7 @@ if (!function_exists('isExactPage')) {
             <span class="logo-icon">
                 <i class="bi bi-telephone-fill"></i>
             </span>
-            AutoDial Pro
+            ACRM
         </h5>
     </div>
     
@@ -359,17 +364,7 @@ if (!function_exists('isExactPage')) {
                     </a>
                 </li>
                 <?php endif; ?>
-                
-                <?php if (hasPermission($permissions, 'can_create_campaigns')): ?>
-                <li class="nav-item">
-                    <a class="sidebar-link <?php echo isCurrentPage('/employee/campaigns/create') ? 'active' : ''; ?>" 
-                       href="<?php echo base_path('employee/campaigns/create'); ?>">
-                        <i class="bi bi-plus-circle"></i>
-                        <span>Create Campaign</span>
-                    </a>
-                </li>
-                <?php endif; ?>
-                
+             
                 <?php if (hasPermission($permissions, 'can_send_instant_emails')): ?>
                 <li class="nav-item">
                     <a class="sidebar-link <?php echo isCurrentPage('/employee/instant-email') ? 'active' : ''; ?>" 
@@ -379,6 +374,7 @@ if (!function_exists('isExactPage')) {
                     </a>
                 </li>
                 <?php endif; ?>
+               
             </ul>
         </div>
         
@@ -458,7 +454,7 @@ if (!function_exists('isExactPage')) {
         
 
         
-        <a href="<?php echo base_path('employee/logout'); ?>" class="logout-btn" onclick="return confirm('Are you sure you want to logout?')">
+        <a href="<?php echo base_path('logout'); ?>" class="logout-btn" onclick="return confirm('Are you sure you want to logout?')">
             <i class="bi bi-box-arrow-right me-2"></i>
             Logout
         </a>
