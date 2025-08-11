@@ -93,14 +93,18 @@ class EmailService {
                 $body = $this->replaceMergeTags($body, $options['merge_data']);
             }
             
-            // Check if test mode is enabled
+            // Check if test mode is enabled (now disabled by default)
             if ($this->config['test_mode'] ?? false) {
                 return $this->sendViaTestMode($to, $subject, $body, $options);
             }
             
-            if ($this->config['driver'] === 'smtp' && class_exists('PHPMailer\PHPMailer\PHPMailer')) {
+            // Check if SMTP is configured and enabled in database
+            $smtpEnabled = !empty($this->config['smtp']['username']) && !empty($this->config['smtp']['password']);
+            
+            if ($this->config['driver'] === 'smtp' && $smtpEnabled && class_exists('PHPMailer\PHPMailer\PHPMailer')) {
                 return $this->sendViaSMTP($to, $subject, $body, $options);
             } else {
+                // Use PHP mail() function as fallback
                 return $this->sendViaMail($to, $subject, $body, $options);
             }
         } catch (Exception $e) {
@@ -243,10 +247,18 @@ class EmailService {
     private function sendViaMail($to, $subject, $body, $options = []) {
         $headers = [];
         $headers[] = 'MIME-Version: 1.0';
-        $headers[] = 'Content-type: text/html; charset=UTF-8';
         
-        $from_email = $options['from_email'] ?? $this->config['smtp']['from']['address'];
-        $from_name = $options['from_name'] ?? $this->config['smtp']['from']['name'];
+        // Detect if body contains HTML
+        $isHtml = (strip_tags($body) != $body);
+        
+        if ($isHtml) {
+            $headers[] = 'Content-type: text/html; charset=UTF-8';
+        } else {
+            $headers[] = 'Content-type: text/plain; charset=UTF-8';
+        }
+        
+        $from_email = $options['from_email'] ?? $this->config['smtp']['from']['address'] ?? 'noreply@localhost';
+        $from_name = $options['from_name'] ?? $this->config['smtp']['from']['name'] ?? 'ACRM System';
         $headers[] = "From: $from_name <$from_email>";
         
         if (!empty($options['reply_to'])) {
@@ -257,21 +269,28 @@ class EmailService {
             $headers[] = "List-Unsubscribe: <" . $options['unsubscribe_url'] . ">";
         }
         
-        // Add tracking if enabled
-        if ($this->config['track_opens'] && !empty($options['tracking_id'])) {
-            $body = $this->addTrackingPixel($body, $options['tracking_id']);
-        }
-        
-        if ($this->config['track_clicks'] && !empty($options['tracking_id'])) {
-            $body = $this->replaceLinksWithTracking($body, $options['tracking_id']);
+        // Add tracking if enabled and body is HTML
+        if ($isHtml) {
+            if ($this->config['track_opens'] && !empty($options['tracking_id'])) {
+                $body = $this->addTrackingPixel($body, $options['tracking_id']);
+            }
+            
+            if ($this->config['track_clicks'] && !empty($options['tracking_id'])) {
+                $body = $this->replaceLinksWithTracking($body, $options['tracking_id']);
+            }
         }
         
         $to_email = is_array($to) ? $to['email'] : $to;
         
+        // Log the email attempt
+        error_log("Attempting to send email via mail() to: $to_email, subject: $subject");
+        
         if (mail($to_email, $subject, $body, implode("\r\n", $headers))) {
+            error_log("Email sent successfully via mail() to: $to_email");
             return ['success' => true];
         } else {
-            return ['success' => false, 'error' => 'Failed to send email'];
+            error_log("Failed to send email via mail() to: $to_email");
+            return ['success' => false, 'error' => 'Failed to send email via mail() function'];
         }
     }
     
