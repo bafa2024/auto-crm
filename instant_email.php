@@ -19,6 +19,15 @@ if (!isset($_SESSION['user_id'])) {
     exit;
 }
 
+// Debug session information
+if (isset($_GET['debug'])) {
+    echo "<pre>Debug Session Info:\n";
+    echo "User ID: " . ($_SESSION['user_id'] ?? 'NOT SET') . "\n";
+    echo "User Role: " . ($_SESSION['user_role'] ?? 'NOT SET') . "\n";
+    echo "User Name: " . ($_SESSION['user_name'] ?? 'NOT SET') . "\n";
+    echo "</pre>";
+}
+
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     try {
         $to = trim($_POST['to']);
@@ -680,6 +689,7 @@ Best regards,
         }
 
         async function loadAllContacts() {
+            console.log('loadAllContacts() called');
             const contactList = document.getElementById('contactList');
             const searchQuery = document.getElementById('contactSearch').value;
             
@@ -693,18 +703,35 @@ Best regards,
                     </div>
                 `;
                 
-                const response = await fetch(`api/instant-email/all-contacts?search=${encodeURIComponent(searchQuery)}&limit=200`);
+                const apiUrl = `api/instant-email/all-contacts?search=${encodeURIComponent(searchQuery)}&limit=200`;
+                console.log('Making API call to:', apiUrl);
+                
+                const response = await fetch(apiUrl);
+                console.log('API Response status:', response.status);
+                console.log('API Response headers:', response.headers);
+                
                 const data = await response.json();
+                console.log('API Response data:', data);
                 
                 if (data.success) {
                     allContacts = data.data.data || [];
+                    console.log('Contacts loaded:', allContacts.length);
                     displayContactList(allContacts);
                 } else {
-                    contactList.innerHTML = '<div class="text-center py-3 text-muted"><i class="bi bi-exclamation-circle"></i><br>Failed to load contacts</div>';
+                    console.error('API returned error:', data);
+                    contactList.innerHTML = `<div class="text-center py-3 text-muted">
+                        <i class="bi bi-exclamation-circle"></i><br>
+                        Failed to load contacts<br>
+                        <small class="text-danger">${data.message || 'Unknown error'}</small>
+                    </div>`;
                 }
             } catch (error) {
                 console.error('Error loading contacts:', error);
-                contactList.innerHTML = '<div class="text-center py-3 text-danger"><i class="bi bi-x-circle"></i><br>Error loading contacts</div>';
+                contactList.innerHTML = `<div class="text-center py-3 text-danger">
+                    <i class="bi bi-x-circle"></i><br>
+                    Error loading contacts<br>
+                    <small>${error.message}</small>
+                </div>`;
             }
         }
 
