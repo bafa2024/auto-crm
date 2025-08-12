@@ -54,43 +54,67 @@ include __DIR__ . "/../components/employee-sidebar.php";
                             <div class="mb-3">
                                 <label for="emailTo" class="form-label">To *</label>
                                 <div class="position-relative">
-                                    <!-- Multi-select contact dropdown -->
-                                    <div class="dropdown w-100 mb-2">
-                                        <button class="btn btn-outline-secondary dropdown-toggle w-100 text-start" type="button" id="contactDropdownBtn" data-bs-toggle="dropdown" aria-expanded="false">
-                                            <span id="dropdownText">Select contacts from your contact list</span>
+                                    <!-- Searchable contact dropdown -->
+                                    <div class="dropdown w-100">
+                                        <button class="btn btn-outline-secondary dropdown-toggle w-100 text-start d-flex justify-content-between align-items-center" type="button" id="contactDropdownBtn" data-bs-toggle="dropdown" aria-expanded="false">
+                                            <span id="dropdownText">Search and select contacts...</span>
+                                            <i class="bi bi-chevron-down"></i>
                                         </button>
-                                        <div class="dropdown-menu w-100 p-3" aria-labelledby="contactDropdownBtn" style="max-height: 400px; overflow-y: auto; width: 100% !important;">
-                                            <div class="mb-2">
-                                                <input type="text" class="form-control form-control-sm" id="contactSearch" placeholder="Search contacts by name, email, or company...">
-                                            </div>
-                                            <div id="contactList" class="contact-list">
-                                                <div class="text-center py-3">
-                                                    <div class="spinner-border spinner-border-sm" role="status">
-                                                        <span class="visually-hidden">Loading...</span>
-                                                    </div>
-                                                    <div class="small mt-1">Loading contacts...</div>
+                                        <div class="dropdown-menu w-100 p-0" aria-labelledby="contactDropdownBtn" style="max-height: 450px; width: 100% !important;">
+                                            <!-- Search box -->
+                                            <div class="p-3 border-bottom">
+                                                <div class="input-group">
+                                                    <span class="input-group-text"><i class="bi bi-search"></i></span>
+                                                    <input type="text" class="form-control" id="contactSearch" placeholder="Search by name, email, or company...">
                                                 </div>
                                             </div>
-                                            <div class="border-top pt-2 mt-2">
-                                                <small class="text-muted">Or enter email addresses manually in the field below</small>
+                                            
+                                            <!-- Contact list -->
+                                            <div class="contact-list" style="max-height: 350px; overflow-y: auto;">
+                                                <div id="contactList">
+                                                    <div class="text-center py-4">
+                                                        <div class="spinner-border spinner-border-sm text-primary" role="status">
+                                                            <span class="visually-hidden">Loading...</span>
+                                                        </div>
+                                                        <div class="small mt-2">Loading contacts...</div>
+                                                    </div>
+                                                </div>
+                                            </div>
+                                            
+                                            <!-- Manual entry option -->
+                                            <div class="border-top p-3">
+                                                <div class="form-check">
+                                                    <input class="form-check-input" type="checkbox" id="manualEntryMode">
+                                                    <label class="form-check-label small text-muted" for="manualEntryMode">
+                                                        Enter email addresses manually
+                                                    </label>
+                                                </div>
                                             </div>
                                         </div>
                                     </div>
                                     
                                     <!-- Selected contacts display -->
-                                    <div id="selectedContacts" class="mb-2" style="display: none;">
-                                        <div class="small text-muted mb-1">Selected contacts:</div>
+                                    <div id="selectedContacts" class="mt-2" style="display: none;">
+                                        <div class="d-flex align-items-center justify-content-between mb-2">
+                                            <small class="text-muted">Selected recipients:</small>
+                                            <button type="button" class="btn btn-sm btn-outline-secondary" id="clearAllContacts" style="display: none;">
+                                                <i class="bi bi-x-circle"></i> Clear All
+                                            </button>
+                                        </div>
                                         <div id="selectedContactsList" class="d-flex flex-wrap gap-1"></div>
                                     </div>
                                     
-                                    <!-- Manual email input -->
-                                    <textarea class="form-control" id="emailTo" name="to" rows="2" 
-                                        placeholder="Enter email addresses separated by commas, semicolons, or new lines"
-                                        required></textarea>
-                                    <div id="contactSuggestions" class="position-absolute w-100 bg-white border rounded shadow-sm" 
-                                         style="display: none; z-index: 1000; max-height: 200px; overflow-y: auto; top: 100%;"></div>
+                                    <!-- Manual email input (hidden by default) -->
+                                    <div id="manualEmailInput" style="display: none;" class="mt-2">
+                                        <textarea class="form-control" id="emailTo" name="to" rows="2" 
+                                            placeholder="Enter email addresses separated by commas, semicolons, or new lines"></textarea>
+                                        <div class="form-text small">Separate multiple email addresses with commas, semicolons, or new lines</div>
+                                    </div>
+                                    
+                                    <!-- Hidden input to store selected emails for form submission -->
+                                    <input type="hidden" id="selectedEmails" name="to" required>
                                 </div>
-                                <div class="form-text">Select contacts from the dropdown above or type email addresses directly. You can also search for contacts by name or company.</div>
+                                <div class="form-text">Search and select contacts from your contact list, or check "Enter manually" to type email addresses directly.</div>
                             </div>
 
                             <!-- CC and BCC -->
@@ -290,121 +314,9 @@ let currentContactQuery = '';
 document.addEventListener('DOMContentLoaded', function() {
     loadEmailTemplates();
     loadRecentEmails();
-    setupContactAutocomplete();
     setupContactDropdown();
     setupFormSubmission();
 });
-
-// Setup contact autocomplete
-function setupContactAutocomplete() {
-    const emailToField = document.getElementById('emailTo');
-    const suggestionsDiv = document.getElementById('contactSuggestions');
-    
-    emailToField.addEventListener('input', function(e) {
-        clearTimeout(contactSuggestionsTimeout);
-        const query = getLastEmailQuery(e.target.value);
-        
-        if (query && query.length >= 2 && query !== currentContactQuery) {
-            currentContactQuery = query;
-            contactSuggestionsTimeout = setTimeout(() => {
-                searchContacts(query);
-            }, 300);
-        } else if (!query || query.length < 2) {
-            hideSuggestions();
-        }
-        
-        // Sync with selected contacts
-        syncSelectedContactsFromTextarea();
-    });
-    
-    emailToField.addEventListener('blur', function() {
-        setTimeout(hideSuggestions, 200); // Delay to allow clicking suggestions
-        syncSelectedContactsFromTextarea();
-    });
-    
-    // Hide suggestions when clicking elsewhere
-    document.addEventListener('click', function(e) {
-        if (!emailToField.contains(e.target) && !suggestionsDiv.contains(e.target)) {
-            hideSuggestions();
-        }
-    });
-}
-
-function getLastEmailQuery(text) {
-    const cursor = document.getElementById('emailTo').selectionStart;
-    const beforeCursor = text.substring(0, cursor);
-    const match = beforeCursor.match(/[^,;\n\r]*$/);
-    return match ? match[0].trim() : '';
-}
-
-async function searchContacts(query) {
-    if (!query || query.length < 2) {
-        hideSuggestions();
-        return;
-    }
-    
-    try {
-        const response = await fetch(`${basePath}/api/instant-email/contacts?q=${encodeURIComponent(query)}&limit=8`);
-        const data = await response.json();
-        
-        if (data.success && data.data.length > 0) {
-            showContactSuggestions(data.data);
-        } else {
-            hideSuggestions();
-        }
-    } catch (error) {
-        console.error('Error searching contacts:', error);
-        hideSuggestions();
-    }
-}
-
-function showContactSuggestions(contacts) {
-    const suggestionsDiv = document.getElementById('contactSuggestions');
-    
-    suggestionsDiv.innerHTML = contacts.map(contact => `
-        <div class="suggestion-item p-2 border-bottom" style="cursor: pointer;" 
-             onclick="selectContact('${contact.email}', '${contact.name}', '${contact.company || ''}')">
-            <div class="d-flex align-items-center">
-                <div class="me-2">
-                    <i class="bi bi-person-circle text-primary"></i>
-                </div>
-                <div class="flex-grow-1">
-                    <div class="fw-medium">${contact.name}</div>
-                    <div class="small text-muted">${contact.email}</div>
-                    ${contact.company ? `<div class="small text-muted">${contact.company}</div>` : ''}
-                </div>
-            </div>
-        </div>
-    `).join('');
-    
-    suggestionsDiv.style.display = 'block';
-}
-
-function selectContact(email, name, company) {
-    const emailToField = document.getElementById('emailTo');
-    const currentValue = emailToField.value;
-    const cursor = emailToField.selectionStart;
-    
-    // Replace the current query with the selected email
-    const beforeCursor = currentValue.substring(0, cursor);
-    const afterCursor = currentValue.substring(cursor);
-    const lastCommaIndex = Math.max(beforeCursor.lastIndexOf(','), beforeCursor.lastIndexOf(';'), beforeCursor.lastIndexOf('\n'));
-    
-    let newValue;
-    if (lastCommaIndex >= 0) {
-        newValue = beforeCursor.substring(0, lastCommaIndex + 1) + ' ' + email + afterCursor;
-    } else {
-        newValue = email + afterCursor;
-    }
-    
-    emailToField.value = newValue;
-    hideSuggestions();
-    emailToField.focus();
-}
-
-function hideSuggestions() {
-    document.getElementById('contactSuggestions').style.display = 'none';
-}
 
 // Multi-select contact dropdown functionality
 let allContacts = [];
@@ -414,6 +326,9 @@ let contactSearchTimeout;
 function setupContactDropdown() {
     const contactSearch = document.getElementById('contactSearch');
     const contactDropdownBtn = document.getElementById('contactDropdownBtn');
+    const manualEntryMode = document.getElementById('manualEntryMode');
+    const manualEmailInput = document.getElementById('manualEmailInput');
+    const clearAllBtn = document.getElementById('clearAllContacts');
     
     // Load all contacts when dropdown is opened
     contactDropdownBtn.addEventListener('shown.bs.dropdown', loadAllContacts);
@@ -424,6 +339,30 @@ function setupContactDropdown() {
         contactSearchTimeout = setTimeout(() => {
             filterContactList(e.target.value);
         }, 300);
+    });
+    
+    // Manual entry mode toggle
+    manualEntryMode.addEventListener('change', function() {
+        if (this.checked) {
+            manualEmailInput.style.display = 'block';
+            document.getElementById('selectedEmails').removeAttribute('required');
+            document.getElementById('emailTo').setAttribute('required', 'required');
+        } else {
+            manualEmailInput.style.display = 'none';
+            document.getElementById('emailTo').removeAttribute('required');
+            document.getElementById('selectedEmails').setAttribute('required', 'required');
+        }
+    });
+    
+    // Clear all contacts
+    clearAllBtn.addEventListener('click', function() {
+        selectedContactsSet.clear();
+        updateSelectedContactsDisplay();
+        updateDropdownButtonText();
+        updateHiddenInput();
+        
+        // Uncheck all checkboxes
+        document.querySelectorAll('.contact-checkbox').forEach(cb => cb.checked = false);
     });
     
     // Prevent dropdown from closing when clicking inside
@@ -441,11 +380,11 @@ async function loadAllContacts() {
     
     try {
         contactList.innerHTML = `
-            <div class="text-center py-3">
-                <div class="spinner-border spinner-border-sm" role="status">
+            <div class="text-center py-4">
+                <div class="spinner-border spinner-border-sm text-primary" role="status">
                     <span class="visually-hidden">Loading...</span>
                 </div>
-                <div class="small mt-1">Loading contacts...</div>
+                <div class="small mt-2">Loading contacts...</div>
             </div>
         `;
         
@@ -456,17 +395,17 @@ async function loadAllContacts() {
             allContacts = data.data.data || [];
             displayContactList(allContacts);
         } else {
-            contactList.innerHTML = '<div class="text-center py-2 text-muted">Failed to load contacts</div>';
+            contactList.innerHTML = '<div class="text-center py-3 text-muted"><i class="bi bi-exclamation-circle"></i><br>Failed to load contacts</div>';
         }
     } catch (error) {
         console.error('Error loading contacts:', error);
-        contactList.innerHTML = '<div class="text-center py-2 text-danger">Error loading contacts</div>';
+        contactList.innerHTML = '<div class="text-center py-3 text-danger"><i class="bi bi-x-circle"></i><br>Error loading contacts</div>';
     }
 }
 
 function filterContactList(searchQuery) {
     if (!searchQuery) {
-        loadAllContacts();
+        displayContactList(allContacts);
         return;
     }
     
@@ -483,23 +422,35 @@ function displayContactList(contacts) {
     const contactList = document.getElementById('contactList');
     
     if (contacts.length === 0) {
-        contactList.innerHTML = '<div class="text-center py-2 text-muted">No contacts found</div>';
+        contactList.innerHTML = `
+            <div class="text-center py-3 text-muted">
+                <i class="bi bi-person-x fs-4"></i>
+                <div class="mt-2">No contacts found</div>
+                <div class="small">Try a different search term</div>
+            </div>
+        `;
         return;
     }
     
     contactList.innerHTML = contacts.map(contact => `
-        <div class="contact-item border-bottom py-2" style="cursor: pointer;" 
+        <div class="contact-item px-3 py-2 border-bottom" style="cursor: pointer;" 
              onclick="toggleContactSelection('${contact.id}', '${contact.email}', '${contact.display_name.replace(/'/g, "\\'")}')">
             <div class="d-flex align-items-center">
-                <div class="me-2">
+                <div class="me-3">
                     <input type="checkbox" class="form-check-input contact-checkbox" 
                            id="contact_${contact.id}" 
                            ${selectedContactsSet.has(contact.email) ? 'checked' : ''}>
                 </div>
+                <div class="me-3">
+                    <div class="rounded-circle bg-primary text-white d-flex align-items-center justify-content-center" 
+                         style="width: 35px; height: 35px; font-size: 0.9rem;">
+                        ${contact.name.charAt(0).toUpperCase()}
+                    </div>
+                </div>
                 <div class="flex-grow-1">
                     <div class="fw-medium">${contact.name}</div>
                     <div class="small text-muted">${contact.email}</div>
-                    ${contact.company ? `<div class="small text-muted">${contact.company}</div>` : ''}
+                    ${contact.company ? `<div class="small text-muted"><i class="bi bi-building"></i> ${contact.company}</div>` : ''}
                 </div>
             </div>
         </div>
@@ -508,63 +459,49 @@ function displayContactList(contacts) {
 
 function toggleContactSelection(contactId, email, displayName) {
     const checkbox = document.getElementById(`contact_${contactId}`);
-    const emailToField = document.getElementById('emailTo');
     
     if (selectedContactsSet.has(email)) {
         // Remove from selection
         selectedContactsSet.delete(email);
         checkbox.checked = false;
-        
-        // Remove from textarea
-        const currentEmails = emailToField.value.split(/[,;\n]/).map(e => e.trim()).filter(e => e);
-        const updatedEmails = currentEmails.filter(e => e !== email);
-        emailToField.value = updatedEmails.join(', ');
     } else {
         // Add to selection
         selectedContactsSet.add(email);
         checkbox.checked = true;
-        
-        // Add to textarea
-        const currentValue = emailToField.value.trim();
-        if (currentValue) {
-            emailToField.value = currentValue + ', ' + email;
-        } else {
-            emailToField.value = email;
-        }
     }
     
     updateSelectedContactsDisplay();
     updateDropdownButtonText();
+    updateHiddenInput();
 }
 
 function updateSelectedContactsDisplay() {
     const selectedContactsDiv = document.getElementById('selectedContacts');
     const selectedContactsList = document.getElementById('selectedContactsList');
+    const clearAllBtn = document.getElementById('clearAllContacts');
     
     if (selectedContactsSet.size === 0) {
         selectedContactsDiv.style.display = 'none';
+        clearAllBtn.style.display = 'none';
         return;
     }
     
     selectedContactsDiv.style.display = 'block';
+    clearAllBtn.style.display = 'inline-block';
+    
     selectedContactsList.innerHTML = Array.from(selectedContactsSet).map(email => `
-        <span class="badge bg-primary me-1 mb-1">
+        <span class="badge bg-primary d-inline-flex align-items-center me-1 mb-1" style="font-size: 0.8rem;">
+            <i class="bi bi-person-fill me-1"></i>
             ${email}
-            <button type="button" class="btn-close btn-close-white ms-1" 
+            <button type="button" class="btn-close btn-close-white ms-2" 
                     onclick="removeSelectedContact('${email}')" 
-                    style="font-size: 0.65em;"></button>
+                    style="font-size: 0.6em;"></button>
         </span>
     `).join('');
 }
 
 function removeSelectedContact(email) {
     selectedContactsSet.delete(email);
-    
-    // Update textarea
-    const emailToField = document.getElementById('emailTo');
-    const currentEmails = emailToField.value.split(/[,;\n]/).map(e => e.trim()).filter(e => e);
-    const updatedEmails = currentEmails.filter(e => e !== email);
-    emailToField.value = updatedEmails.join(', ');
     
     // Update checkbox if visible
     const contact = allContacts.find(c => c.email === email);
@@ -574,6 +511,27 @@ function removeSelectedContact(email) {
     }
     
     updateSelectedContactsDisplay();
+    updateDropdownButtonText();
+    updateHiddenInput();
+}
+
+function updateDropdownButtonText() {
+    const dropdownText = document.getElementById('dropdownText');
+    const count = selectedContactsSet.size;
+    
+    if (count === 0) {
+        dropdownText.innerHTML = '<i class="bi bi-search me-2"></i>Search and select contacts...';
+    } else if (count === 1) {
+        dropdownText.innerHTML = `<i class="bi bi-person-check me-2"></i>1 contact selected`;
+    } else {
+        dropdownText.innerHTML = `<i class="bi bi-people-fill me-2"></i>${count} contacts selected`;
+    }
+}
+
+function updateHiddenInput() {
+    const hiddenInput = document.getElementById('selectedEmails');
+    hiddenInput.value = Array.from(selectedContactsSet).join(',');
+}
     updateDropdownButtonText();
 }
 
@@ -588,33 +546,6 @@ function updateDropdownButtonText() {
     } else {
         dropdownText.textContent = `${count} contacts selected`;
     }
-}
-
-function syncSelectedContactsFromTextarea() {
-    const emailToField = document.getElementById('emailTo');
-    const currentEmails = emailToField.value.split(/[,;\n]/).map(e => e.trim()).filter(e => e && e.includes('@'));
-    
-    // Clear current selection
-    selectedContactsSet.clear();
-    
-    // Add emails from textarea to selection
-    currentEmails.forEach(email => {
-        selectedContactsSet.add(email);
-    });
-    
-    // Update UI
-    updateSelectedContactsDisplay();
-    updateDropdownButtonText();
-    
-    // Update checkboxes if visible
-    const checkboxes = document.querySelectorAll('.contact-checkbox');
-    checkboxes.forEach(checkbox => {
-        const contactId = checkbox.id.replace('contact_', '');
-        const contact = allContacts.find(c => c.id == contactId);
-        if (contact) {
-            checkbox.checked = selectedContactsSet.has(contact.email);
-        }
-    });
 }
 
 // Load email templates
@@ -705,6 +636,7 @@ async function sendInstantEmail() {
     const form = document.getElementById('instantEmailForm');
     const sendBtn = document.getElementById('sendEmailBtn');
     const progressDiv = document.getElementById('sendingProgress');
+    const manualEntryMode = document.getElementById('manualEntryMode');
     
     // Validate form
     if (!form.checkValidity()) {
@@ -712,9 +644,26 @@ async function sendInstantEmail() {
         return;
     }
     
+    // Get recipients based on mode
+    let recipients = '';
+    if (manualEntryMode.checked) {
+        recipients = document.getElementById('emailTo').value.trim();
+    } else {
+        recipients = document.getElementById('selectedEmails').value.trim();
+        if (!recipients && selectedContactsSet.size === 0) {
+            alert('Please select at least one contact or enable manual entry mode.');
+            return;
+        }
+    }
+    
+    if (!recipients) {
+        alert('Please enter at least one recipient email address.');
+        return;
+    }
+    
     // Get form data
     const formData = {
-        to: document.getElementById('emailTo').value.trim(),
+        to: recipients,
         cc: document.getElementById('emailCc').value.trim(),
         bcc: document.getElementById('emailBcc').value.trim(),
         subject: document.getElementById('emailSubject').value.trim(),
