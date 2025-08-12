@@ -588,6 +588,17 @@ function handleEmployeeProfileRoutes($controller, $action, $subAction) {
 }
 
 function handleInstantEmailRoutes($controller, $id, $action) {
+    // Handle special endpoints as $id (like contact routes)
+    if ($id === 'all-contacts') {
+        if ($_SERVER['REQUEST_METHOD'] === 'GET') {
+            $controller->getAllContacts();
+        } else {
+            http_response_code(405);
+            echo json_encode(['error' => 'Method not allowed']);
+        }
+        return;
+    }
+    
     switch ($action) {
         case 'send':
             if ($_SERVER['REQUEST_METHOD'] === 'POST') {
@@ -608,14 +619,6 @@ function handleInstantEmailRoutes($controller, $id, $action) {
         case 'contacts':
             if ($_SERVER['REQUEST_METHOD'] === 'GET') {
                 $controller->getContactSuggestions();
-            } else {
-                http_response_code(405);
-                echo json_encode(['error' => 'Method not allowed']);
-            }
-            break;
-        case 'all-contacts':
-            if ($_SERVER['REQUEST_METHOD'] === 'GET') {
-                $controller->getAllContacts();
             } else {
                 http_response_code(405);
                 echo json_encode(['error' => 'Method not allowed']);
