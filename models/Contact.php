@@ -172,4 +172,58 @@ class Contact extends BaseModel {
         
         return $stmt->fetchAll(PDO::FETCH_ASSOC);
     }
+    
+    /**
+     * Get all contacts for dropdown selection with optional search
+     */
+    public function getAllForDropdown($search = '', $page = 1, $limit = 100) {
+        if (!$this->db) return ['data' => [], 'total' => 0, 'has_more' => false];
+        
+        $offset = ($page - 1) * $limit;
+        $whereClause = "WHERE email IS NOT NULL AND email != ''";
+        $params = [];
+        
+        if (!empty($search)) {
+            $whereClause .= " AND (first_name LIKE ? OR last_name LIKE ? OR email LIKE ? OR company LIKE ?)";
+            $searchLike = "%{$search}%";
+            $params = [$searchLike, $searchLike, $searchLike, $searchLike];
+        }
+        
+        // Get total count
+        $countSql = "SELECT COUNT(*) as total FROM {$this->table} {$whereClause}";
+        $countStmt = $this->db->prepare($countSql);
+        $countStmt->execute($params);
+        $total = $countStmt->fetch(PDO::FETCH_ASSOC)['total'];
+        
+        // Get contacts
+        $sql = "SELECT id, 
+                       CONCAT(first_name, ' ', last_name) as name, 
+                       email, 
+                       company,
+                       CONCAT(COALESCE(first_name, ''), ' ', COALESCE(last_name, ''), 
+                              CASE WHEN company IS NOT NULL AND company != '' 
+                                   THEN CONCAT(' (', company, ')') 
+                                   ELSE '' 
+                              END) as display_name
+                FROM {$this->table} 
+                {$whereClause}
+                ORDER BY first_name ASC, last_name ASC
+                LIMIT ? OFFSET ?";
+        
+        $params[] = $limit;
+        $params[] = $offset;
+        
+        $stmt = $this->db->prepare($sql);
+        $stmt->execute($params);
+        
+        $contacts = $stmt->fetchAll(PDO::FETCH_ASSOC);
+        
+        return [
+            'data' => $contacts,
+            'total' => $total,
+            'has_more' => ($offset + $limit) < $total,
+            'page' => $page,
+            'per_page' => $limit
+        ];
+    }
 }

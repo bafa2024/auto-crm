@@ -613,6 +613,14 @@ function handleInstantEmailRoutes($controller, $id, $action) {
                 echo json_encode(['error' => 'Method not allowed']);
             }
             break;
+        case 'all-contacts':
+            if ($_SERVER['REQUEST_METHOD'] === 'GET') {
+                $controller->getAllContacts();
+            } else {
+                http_response_code(405);
+                echo json_encode(['error' => 'Method not allowed']);
+            }
+            break;
         case 'history':
             if ($_SERVER['REQUEST_METHOD'] === 'GET') {
                 $controller->getSentHistory();

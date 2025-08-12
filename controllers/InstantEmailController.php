@@ -184,6 +184,29 @@ class InstantEmailController extends BaseController {
     }
     
     /**
+     * Get all contacts for dropdown selection
+     */
+    public function getAllContacts() {
+        if (!$this->checkPermission()) {
+            return $this->sendError("You don't have permission to access contacts", 403);
+        }
+        
+        try {
+            $search = $_GET['search'] ?? '';
+            $page = max(1, intval($_GET['page'] ?? 1));
+            $limit = min(intval($_GET['limit'] ?? 100), 500);
+            
+            $contacts = $this->contactModel->getAllForDropdown($search, $page, $limit);
+            
+            return $this->sendSuccess($contacts);
+            
+        } catch (Exception $e) {
+            error_log("Get all contacts error: " . $e->getMessage());
+            return $this->sendError("Failed to load contacts", 500);
+        }
+    }
+    
+    /**
      * Get sent email history
      */
     public function getSentHistory() {
