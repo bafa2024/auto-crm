@@ -730,9 +730,19 @@ class EmailService {
             $mail->isHTML(true);
             $mail->Subject = $subject;
             
-            // Format message content properly
-            $formattedMessage = $this->formatEmailContent($message);
-            $mail->Body = $formattedMessage;
+            // TEMPORARY: Simple formatting for testing
+            $testFormatted = "
+            <html>
+            <body style='font-family: Arial, sans-serif; line-height: 1.6;'>
+                <div style='max-width: 600px; margin: 0 auto; padding: 20px;'>
+                    " . nl2br(htmlspecialchars($message)) . "
+                </div>
+            </body>
+            </html>";
+            
+            error_log("DEBUG PHPMailer - Test formatted message: " . $testFormatted);
+            
+            $mail->Body = $testFormatted;
             $mail->AltBody = strip_tags($message);
             
             $mail->send();
@@ -771,11 +781,20 @@ class EmailService {
                 $headers[] = 'Bcc: ' . implode(', ', $bcc);
             }
             
-            // Format message content properly
-            $formattedMessage = $this->formatEmailContent($message);
+            // TEMPORARY: Simple formatting for testing
+            $testFormatted = "
+            <html>
+            <body style='font-family: Arial, sans-serif; line-height: 1.6;'>
+                <div style='max-width: 600px; margin: 0 auto; padding: 20px;'>
+                    " . nl2br(htmlspecialchars($message)) . "
+                </div>
+            </body>
+            </html>";
+            
+            error_log("DEBUG mail() - Test formatted message: " . $testFormatted);
             
             // Send formatted message
-            $result = mail($to, $subject, $formattedMessage, implode("\r\n", $headers));
+            $result = mail($to, $subject, $testFormatted, implode("\r\n", $headers));
             
             if ($result) {
                 // Log the instant email
