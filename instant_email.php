@@ -241,6 +241,16 @@ try {
             border-color: #86b7fe;
             box-shadow: 0 0 0 0.125rem rgba(13, 110, 253, 0.25);
         }
+
+        /* Contact item hover effect */
+        .contact-item:hover {
+            background-color: #f8f9fa;
+        }
+
+        /* Fix dropdown width */
+        .dropdown-menu {
+            min-width: 100%;
+        }
     </style>
 </head>
 <body>
@@ -674,10 +684,14 @@ Best regards,
             }
             
             // Load all contacts when dropdown is opened
-            contactDropdownBtn.addEventListener('shown.bs.dropdown', function() {
-                console.log('Dropdown shown event fired');
-                loadAllContacts();
-            });
+            if (contactDropdownBtn) {
+                contactDropdownBtn.addEventListener('shown.bs.dropdown', function() {
+                    console.log('Dropdown shown event fired');
+                    loadAllContacts();
+                });
+            } else {
+                console.error('Contact dropdown button not found!');
+            }
             
             // Setup search functionality
             if (contactSearch) {
@@ -738,18 +752,26 @@ Best regards,
                     </div>
                 `;
                 
-                const apiUrl = `api/instant-email/all-contacts?search=${encodeURIComponent(searchQuery)}&limit=200`;
+                // Use the existing contacts API instead
+                const apiUrl = `api/contacts_api.php?action=list_all&search=${encodeURIComponent(searchQuery)}&per_page=200`;
                 console.log('Making API call to:', apiUrl);
                 
                 const response = await fetch(apiUrl);
                 console.log('API Response status:', response.status);
                 console.log('API Response headers:', response.headers);
                 
+                if (!response.ok) {
+                    console.error('API request failed with status:', response.status);
+                    const errorText = await response.text();
+                    console.error('Error response:', errorText);
+                    throw new Error(`API request failed: ${response.status}`);
+                }
+                
                 const data = await response.json();
                 console.log('API Response data:', data);
                 
                 if (data.success) {
-                    allContacts = data.data.data || [];
+                    allContacts = data.data || [];
                     console.log('Contacts loaded:', allContacts.length);
                     displayContactList(allContacts);
                 } else {
@@ -776,10 +798,14 @@ Best regards,
                 return;
             }
             
-            const filtered = allContacts.filter(contact => 
-                contact.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-                contact.email.toLowerCase().includes(searchQuery.toLowerCase()) ||
-                (contact.company && contact.company.toLowerCase().includes(searchQuery.toLowerCase()))
+            const filtered = allContacts.filter(contact => {
+                const name = contact.name || contact.first_name + ' ' + contact.last_name || '';
+                const email = contact.email || '';
+                const company = contact.company || '';
+                
+                return name.toLowerCase().includes(searchQuery.toLowerCase()) ||
+                       email.toLowerCase().includes(searchQuery.toLowerCase()) ||
+                       company.toLowerCase().includes(searchQuery.toLowerCase());
             );
             
             displayContactList(filtered);
@@ -799,29 +825,34 @@ Best regards,
                 return;
             }
             
-            contactList.innerHTML = contacts.map(contact => `
-                <div class="contact-item px-3 py-2 border-bottom" style="cursor: pointer;" 
-                     onclick="toggleContactSelection('${contact.id}', '${contact.email}', '${contact.display_name.replace(/'/g, "\\'")}')">
-                    <div class="d-flex align-items-center">
-                        <div class="me-3">
-                            <input type="checkbox" class="form-check-input contact-checkbox" 
-                                   id="contact_${contact.id}" 
-                                   ${selectedContactsSet.has(contact.email) ? 'checked' : ''}>
-                        </div>
-                        <div class="me-3">
-                            <div class="rounded-circle bg-primary text-white d-flex align-items-center justify-content-center" 
-                                 style="width: 35px; height: 35px; font-size: 0.9rem;">
-                                ${contact.name.charAt(0).toUpperCase()}
+            contactList.innerHTML = contacts.map(contact => {
+                const displayName = contact.name || `${contact.first_name || ''} ${contact.last_name || ''}`.trim() || contact.email;
+                const initial = displayName.charAt(0).toUpperCase() || 'U';
+                
+                return `
+                    <div class="contact-item px-3 py-2 border-bottom" style="cursor: pointer;" 
+                         onclick="toggleContactSelection('${contact.id}', '${contact.email}', '${displayName.replace(/'/g, "\\'")}')">
+                        <div class="d-flex align-items-center">
+                            <div class="me-3">
+                                <input type="checkbox" class="form-check-input contact-checkbox" 
+                                       id="contact_${contact.id}" 
+                                       ${selectedContactsSet.has(contact.email) ? 'checked' : ''}>
+                            </div>
+                            <div class="me-3">
+                                <div class="rounded-circle bg-primary text-white d-flex align-items-center justify-content-center" 
+                                     style="width: 35px; height: 35px; font-size: 0.9rem;">
+                                    ${initial}
+                                </div>
+                            </div>
+                            <div class="flex-grow-1">
+                                <div class="fw-medium">${displayName}</div>
+                                <div class="small text-muted">${contact.email}</div>
+                                ${contact.company ? `<div class="small text-muted"><i class="bi bi-building"></i> ${contact.company}</div>` : ''}
                             </div>
                         </div>
-                        <div class="flex-grow-1">
-                            <div class="fw-medium">${contact.name}</div>
-                            <div class="small text-muted">${contact.email}</div>
-                            ${contact.company ? `<div class="small text-muted"><i class="bi bi-building"></i> ${contact.company}</div>` : ''}
-                        </div>
                     </div>
-                </div>
-            `).join('');
+                `;
+            }).join('');
         }
 
         function toggleContactSelection(contactId, email, displayName) {
