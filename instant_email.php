@@ -680,18 +680,38 @@ Best regards,
             if (contactDropdownBtn) {
                 contactDropdownBtn.addEventListener('click', function() {
                     console.log('Dropdown button clicked!');
+                    
+                    // Ensure contacts are loaded when clicked
+                    setTimeout(() => {
+                        if (allContacts.length === 0) {
+                            console.log('No contacts loaded, loading now...');
+                            loadAllContacts();
+                        }
+                    }, 100);
                 });
             }
             
-            // Load all contacts when dropdown is opened
+            // Load all contacts when dropdown is opened (Bootstrap event)
             if (contactDropdownBtn) {
                 contactDropdownBtn.addEventListener('shown.bs.dropdown', function() {
                     console.log('Dropdown shown event fired');
                     loadAllContacts();
                 });
+                
+                // Also try alternative Bootstrap 5 events
+                contactDropdownBtn.addEventListener('show.bs.dropdown', function() {
+                    console.log('Dropdown show event fired');
+                    if (allContacts.length === 0) {
+                        loadAllContacts();
+                    }
+                });
             } else {
                 console.error('Contact dropdown button not found!');
             }
+            
+            // Load contacts immediately on page load
+            console.log('Loading contacts immediately...');
+            loadAllContacts();
             
             // Setup search functionality
             if (contactSearch) {
@@ -752,36 +772,49 @@ Best regards,
                     </div>
                 `;
                 
-                // Use the existing contacts API instead
-                const apiUrl = `api/contacts_api.php?action=list_all&search=${encodeURIComponent(searchQuery)}&per_page=200`;
+                // Try multiple API endpoints for robustness
+                let apiUrl = `api/instant-email/all-contacts?search=${encodeURIComponent(searchQuery)}&limit=200`;
                 console.log('Making API call to:', apiUrl);
                 
-                const response = await fetch(apiUrl);
+                let response = await fetch(apiUrl);
                 console.log('API Response status:', response.status);
-                console.log('API Response headers:', response.headers);
+                
+                // If instant-email API fails, try fallback
+                if (!response.ok) {
+                    console.log('Primary API failed, trying fallback...');
+                    apiUrl = `api/contacts?search=${encodeURIComponent(searchQuery)}&per_page=200`;
+                    console.log('Trying fallback API:', apiUrl);
+                    response = await fetch(apiUrl);
+                }
                 
                 if (!response.ok) {
-                    console.error('API request failed with status:', response.status);
+                    console.error('All API requests failed with status:', response.status);
                     const errorText = await response.text();
                     console.error('Error response:', errorText);
-                    throw new Error(`API request failed: ${response.status}`);
+                    throw new Error(`API request failed: ${response.status} - ${errorText}`);
                 }
                 
                 const data = await response.json();
                 console.log('API Response data:', data);
                 
+                // Handle different API response formats
+                let contacts = [];
                 if (data.success) {
-                    allContacts = data.data || [];
-                    console.log('Contacts loaded:', allContacts.length);
-                    displayContactList(allContacts);
+                    // Handle instant-email API format
+                    contacts = data.data?.data || data.data || [];
+                } else if (data.data) {
+                    // Handle contacts API format
+                    contacts = Array.isArray(data.data) ? data.data : data.data.data || [];
+                } else if (Array.isArray(data)) {
+                    // Handle direct array response
+                    contacts = data;
                 } else {
-                    console.error('API returned error:', data);
-                    contactList.innerHTML = `<div class="text-center py-3 text-muted">
-                        <i class="bi bi-exclamation-circle"></i><br>
-                        Failed to load contacts<br>
-                        <small class="text-danger">${data.message || 'Unknown error'}</small>
-                    </div>`;
+                    throw new Error(data.message || 'No contacts data received');
                 }
+                
+                allContacts = contacts;
+                console.log('Contacts loaded:', allContacts.length, allContacts);
+                displayContactList(allContacts);
             } catch (error) {
                 console.error('Error loading contacts:', error);
                 contactList.innerHTML = `<div class="text-center py-3 text-danger">
