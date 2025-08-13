@@ -69,6 +69,10 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 
                 // Send emails to each recipient
                 foreach ($validRecipients as $recipient) {
+                    // Debug: Log the message content before sending
+                    error_log("DEBUG instant_email - Message content before sending: " . var_export($message_content, true));
+                    error_log("DEBUG instant_email - Line breaks count: " . substr_count($message_content, "\n"));
+                    
                     $result = $emailService->sendInstantEmail([
                         'to' => $recipient,
                         'subject' => $subject,

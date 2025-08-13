@@ -794,24 +794,34 @@ class EmailService {
      * Format email content for better display
      */
     private function formatEmailContent($content) {
+        // Debug logging
+        error_log("DEBUG formatEmailContent - Input content: " . var_export($content, true));
+        error_log("DEBUG formatEmailContent - Line breaks in input: " . substr_count($content, "\n"));
+        
         // Check if content is already HTML
         if (strip_tags($content) != $content) {
             // Content already contains HTML tags, just ensure proper structure
+            error_log("DEBUG formatEmailContent - Content has HTML tags, wrapping only");
             return $this->wrapInHtmlTemplate($content);
         }
         
         // For plain text content, preserve line breaks while ensuring security
         // First escape the content for security
         $formatted = htmlspecialchars($content, ENT_QUOTES, 'UTF-8');
+        error_log("DEBUG formatEmailContent - After htmlspecialchars: " . var_export($formatted, true));
         
         // Then convert line breaks to HTML breaks
         $formatted = nl2br($formatted, false);  // false = use <br> instead of <br />
+        error_log("DEBUG formatEmailContent - After nl2br: " . var_export($formatted, true));
         
         // Convert URLs to clickable links (after escaping, so we need to handle escaped URLs)
         $formatted = $this->convertUrlsToLinks($formatted);
         
         // Wrap in HTML template for better presentation
-        return $this->wrapInHtmlTemplate($formatted);
+        $finalResult = $this->wrapInHtmlTemplate($formatted);
+        error_log("DEBUG formatEmailContent - Final result length: " . strlen($finalResult));
+        
+        return $finalResult;
     }
     
     /**
