@@ -248,13 +248,13 @@ class EmailService {
         $headers = [];
         $headers[] = 'MIME-Version: 1.0';
         
-        // Detect if body contains HTML
-        $isHtml = (strip_tags($body) != $body);
+        // Always treat as HTML since we're using the rich text editor
+        $headers[] = 'Content-type: text/html; charset=UTF-8';
         
-        if ($isHtml) {
-            $headers[] = 'Content-type: text/html; charset=UTF-8';
-        } else {
-            $headers[] = 'Content-type: text/plain; charset=UTF-8';
+        // Convert plain text to HTML if needed
+        if (strip_tags($body) == $body) {
+            // Plain text - convert newlines to <br>
+            $body = nl2br(htmlspecialchars($body));
         }
         
         $from_email = $options['from_email'] ?? $this->config['smtp']['from']['address'] ?? 'noreply@localhost';
@@ -729,7 +729,10 @@ class EmailService {
             // Content
             $mail->isHTML(true);
             $mail->Subject = $subject;
-            $mail->Body = $message; // Send raw message without modification
+            
+            // Format message content properly
+            $formattedMessage = $this->formatEmailContent($message);
+            $mail->Body = $formattedMessage;
             $mail->AltBody = strip_tags($message);
             
             $mail->send();
@@ -768,8 +771,11 @@ class EmailService {
                 $headers[] = 'Bcc: ' . implode(', ', $bcc);
             }
             
-            // Send raw message without modification
-            $result = mail($to, $subject, $message, implode("\r\n", $headers));
+            // Format message content properly
+            $formattedMessage = $this->formatEmailContent($message);
+            
+            // Send formatted message
+            $result = mail($to, $subject, $formattedMessage, implode("\r\n", $headers));
             
             if ($result) {
                 // Log the instant email
@@ -784,6 +790,100 @@ class EmailService {
         }
     }
     
+    /**
+     * Format email content for better display
+     */
+    private function formatEmailContent($content) {
+        // Check if content is already HTML
+        if (strip_tags($content) != $content) {
+            // Content already contains HTML tags, just ensure proper structure
+            return $this->wrapInHtmlTemplate($content);
+        }
+        
+        // Convert plain text to HTML with proper formatting
+        $formatted = htmlspecialchars($content, ENT_QUOTES, 'UTF-8');
+        
+        // Convert line breaks to HTML breaks
+        $formatted = nl2br($formatted);
+        
+        // Convert URLs to clickable links
+        $formatted = $this->convertUrlsToLinks($formatted);
+        
+        // Wrap in HTML template for better presentation
+        return $this->wrapInHtmlTemplate($formatted);
+    }
+    
+    /**
+     * Convert URLs in text to clickable links
+     */
+    private function convertUrlsToLinks($text) {
+        // Pattern to match URLs
+        $pattern = '/(https?:\/\/[^\s<>"]+)/i';
+        return preg_replace($pattern, '<a href="$1" target="_blank" style="color: #007bff; text-decoration: none;">$1</a>', $text);
+    }
+    
+    /**
+     * Wrap content in HTML template for better presentation
+     */
+    private function wrapInHtmlTemplate($content) {
+        return '
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <style>
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+            line-height: 1.6;
+            color: #333;
+            max-width: 600px;
+            margin: 0 auto;
+            padding: 20px;
+            background-color: #f8f9fa;
+        }
+        .email-container {
+            background-color: #ffffff;
+            padding: 30px;
+            border-radius: 8px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+            margin: 20px 0;
+        }
+        .email-content {
+            font-size: 16px;
+            line-height: 1.8;
+            margin-bottom: 20px;
+        }
+        a {
+            color: #007bff;
+            text-decoration: none;
+        }
+        a:hover {
+            text-decoration: underline;
+        }
+        .email-footer {
+            margin-top: 30px;
+            padding-top: 20px;
+            border-top: 1px solid #e9ecef;
+            font-size: 14px;
+            color: #6c757d;
+            text-align: center;
+        }
+    </style>
+</head>
+<body>
+    <div class="email-container">
+        <div class="email-content">
+            ' . $content . '
+        </div>
+        <div class="email-footer">
+            <p>This email was sent via AutoDial Pro CRM</p>
+        </div>
+    </div>
+</body>
+</html>';
+    }
+
     private function logInstantEmail($to, $subject, $from_name, $from_email) {
         try {
             // First, check if recipient exists in contacts table
