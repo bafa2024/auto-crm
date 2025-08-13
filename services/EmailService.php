@@ -693,6 +693,22 @@ class EmailService {
     }
     
     /**
+     * Sanitize HTML content for emails - allows basic formatting tags
+     */
+    private function sanitizeEmailContent($content) {
+        // Allow basic HTML formatting tags
+        $allowedTags = '<b><strong><i><em><u><br><p><div><span><h1><h2><h3><h4><h5><h6><ul><ol><li><a>';
+        
+        // Strip unwanted tags but keep allowed ones
+        $sanitized = strip_tags($content, $allowedTags);
+        
+        // Convert line breaks to <br> tags for plain text portions
+        $sanitized = nl2br($sanitized);
+        
+        return $sanitized;
+    }
+
+    /**
      * Send via PHPMailer for instant emails
      */
     private function sendViaPHPMailer($to, $subject, $message, $cc = [], $bcc = [], $senderName = '', $senderEmail = null) {
@@ -789,7 +805,7 @@ class EmailService {
             <h2 style='margin: 0; font-size: 24px;'>AutoDial Pro</h2>
         </div>
         <div class='email-content'>
-            <div class='message-text'>" . htmlspecialchars($message, ENT_QUOTES, 'UTF-8') . "</div>
+            <div class='message-text'>" . $this->sanitizeEmailContent($message) . "</div>
         </div>
         <div class='email-footer'>
             <p style='margin: 0;'>This email was sent via AutoDial Pro CRM System</p>
@@ -899,7 +915,7 @@ class EmailService {
             <h2 style='margin: 0; font-size: 24px;'>AutoDial Pro</h2>
         </div>
         <div class='email-content'>
-            <div class='message-text'>" . htmlspecialchars($message, ENT_QUOTES, 'UTF-8') . "</div>
+            <div class='message-text'>" . $this->sanitizeEmailContent($message) . "</div>
         </div>
         <div class='email-footer'>
             <p style='margin: 0;'>This email was sent via AutoDial Pro CRM System</p>
