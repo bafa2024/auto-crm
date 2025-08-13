@@ -32,12 +32,21 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     try {
         $to = trim($_POST['to']);
         $subject = trim($_POST['subject']);
-        $message_content = trim($_POST['message']);
+        $message_content = $_POST['message']; // Don't trim the message content to preserve line breaks
         $from_name = trim($_POST['from_name'] ?? 'AutoDial Pro');
         $from_email = trim($_POST['from_email'] ?? 'noreply@acrm.regrowup.ca');
         
-        // Validate inputs
-        if (empty($to) || empty($subject) || empty($message_content)) {
+        // Debug: Check message content format (remove in production)
+        if (isset($_GET['debug'])) {
+            echo "<pre>Raw message content:\n";
+            echo htmlspecialchars($message_content);
+            echo "\n\nLength: " . strlen($message_content);
+            echo "\n\nLine breaks count: " . substr_count($message_content, "\n");
+            echo "</pre>";
+        }
+        
+        // Validate inputs (only trim for empty check)
+        if (empty($to) || empty($subject) || empty(trim($message_content))) {
             $error = 'Please fill in all required fields.';
         } else {
             // Handle multiple email addresses (comma-separated)

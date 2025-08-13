@@ -800,13 +800,14 @@ class EmailService {
             return $this->wrapInHtmlTemplate($content);
         }
         
-        // Convert plain text to HTML with proper formatting
+        // For plain text content, preserve line breaks while ensuring security
+        // First escape the content for security
         $formatted = htmlspecialchars($content, ENT_QUOTES, 'UTF-8');
         
-        // Convert line breaks to HTML breaks
-        $formatted = nl2br($formatted);
+        // Then convert line breaks to HTML breaks
+        $formatted = nl2br($formatted, false);  // false = use <br> instead of <br />
         
-        // Convert URLs to clickable links
+        // Convert URLs to clickable links (after escaping, so we need to handle escaped URLs)
         $formatted = $this->convertUrlsToLinks($formatted);
         
         // Wrap in HTML template for better presentation
@@ -817,7 +818,7 @@ class EmailService {
      * Convert URLs in text to clickable links
      */
     private function convertUrlsToLinks($text) {
-        // Pattern to match URLs
+        // Pattern to match URLs (including escaped ones)
         $pattern = '/(https?:\/\/[^\s<>"]+)/i';
         return preg_replace($pattern, '<a href="$1" target="_blank" style="color: #007bff; text-decoration: none;">$1</a>', $text);
     }
