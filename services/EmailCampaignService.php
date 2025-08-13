@@ -186,11 +186,8 @@ class EmailCampaignService {
             // Update campaign status to sending
             $this->updateCampaignStatus($campaignId, 'sending');
             
-            // Process first batch immediately
-            $firstBatch = $batchService->getNextPendingBatch($campaignId);
-            if ($firstBatch) {
-                $this->processBatch($firstBatch['id'], $campaign, $batchService);
-            }
+            // Process all batches
+            $this->processAllBatches($campaignId, $campaign, $batchService);
             
             return [
                 'success' => true,
@@ -205,6 +202,37 @@ class EmailCampaignService {
                 'success' => false,
                 'message' => 'Failed to send campaign: ' . $e->getMessage()
             ];
+        }
+    }
+    
+    /**
+     * Process all batches for a campaign
+     */
+    private function processAllBatches($campaignId, $campaign, $batchService) {
+        try {
+            error_log("Starting to process all batches for campaign $campaignId");
+            
+            while ($batch = $batchService->getNextPendingBatch($campaignId)) {
+                error_log("Processing batch {$batch['id']} (batch number {$batch['batch_number']})");
+                
+                $result = $this->processBatch($batch['id'], $campaign, $batchService);
+                
+                if (!$result['success']) {
+                    error_log("Batch {$batch['id']} failed: " . ($result['message'] ?? 'Unknown error'));
+                    // Continue with next batch even if one fails
+                }
+                
+                // Add delay between batches to avoid overwhelming the server
+                sleep(2);
+            }
+            
+            // Update campaign status to completed
+            $this->updateCampaignStatus($campaignId, 'completed');
+            error_log("All batches completed for campaign $campaignId");
+            
+        } catch (Exception $e) {
+            error_log("Error processing batches for campaign $campaignId: " . $e->getMessage());
+            $this->updateCampaignStatus($campaignId, 'failed');
         }
     }
     
@@ -311,18 +339,6 @@ class EmailCampaignService {
             ]);
             
             error_log("Batch $batchId completed: $sentCount sent, $failedCount failed");
-            
-            // Check for next batch and process it
-            $nextBatch = $batchService->getNextPendingBatch($campaign['id']);
-            if ($nextBatch) {
-                // Add delay between batches
-                sleep(2); // 2 second delay between batches
-                $this->processBatch($nextBatch['id'], $campaign, $batchService);
-            } else {
-                // All batches completed, update campaign status
-                $this->updateCampaignStatus($campaign['id'], 'completed');
-                error_log("All batches completed for campaign {$campaign['id']}");
-            }
             
             return [
                 'success' => true,

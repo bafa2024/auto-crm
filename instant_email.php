@@ -634,26 +634,59 @@ Best regards,
 
         // Initialize contact dropdown
         document.addEventListener('DOMContentLoaded', function() {
+            console.log('DOM loaded, initializing dropdown...');
+            console.log('Bootstrap version:', window.bootstrap ? 'Loaded' : 'Not loaded');
             setupContactDropdown();
+            
+            // Test manual API call
+            window.testAPICall = async function() {
+                console.log('Manual API test...');
+                try {
+                    const response = await fetch('api/instant-email/all-contacts?limit=5');
+                    const data = await response.json();
+                    console.log('Manual API result:', data);
+                    alert('Check console for API result');
+                } catch (error) {
+                    console.error('Manual API error:', error);
+                    alert('API Error: ' + error.message);
+                }
+            };
         });
 
         function setupContactDropdown() {
+            console.log('setupContactDropdown() called');
             const contactSearch = document.getElementById('contactSearch');
             const contactDropdownBtn = document.getElementById('contactDropdownBtn');
             const manualEntryMode = document.getElementById('manualEntryMode');
             const manualEmailInput = document.getElementById('manualEmailInput');
             const clearAllBtn = document.getElementById('clearAllContacts');
             
+            console.log('contactDropdownBtn found:', !!contactDropdownBtn);
+            console.log('contactSearch found:', !!contactSearch);
+            
+            // Debug: Add click listener to see if button is clickable
+            if (contactDropdownBtn) {
+                contactDropdownBtn.addEventListener('click', function() {
+                    console.log('Dropdown button clicked!');
+                });
+            }
+            
             // Load all contacts when dropdown is opened
-            contactDropdownBtn.addEventListener('shown.bs.dropdown', loadAllContacts);
+            contactDropdownBtn.addEventListener('shown.bs.dropdown', function() {
+                console.log('Dropdown shown event fired');
+                loadAllContacts();
+            });
             
             // Setup search functionality
-            contactSearch.addEventListener('input', function(e) {
-                clearTimeout(contactSearchTimeout);
-                contactSearchTimeout = setTimeout(() => {
-                    filterContactList(e.target.value);
-                }, 300);
-            });
+            if (contactSearch) {
+                contactSearch.addEventListener('input', function(e) {
+                    console.log('Search input changed:', e.target.value);
+                    clearTimeout(contactSearchTimeout);
+                    contactSearchTimeout = setTimeout(() => {
+                        filterContactList(e.target.value);
+                    }, 300);
+                });
+            }
             
             // Manual entry mode toggle
             manualEntryMode.addEventListener('change', function() {

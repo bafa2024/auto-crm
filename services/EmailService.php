@@ -231,11 +231,11 @@ class EmailService {
         }
         
         // Write to log file
-        $logLine = date('Y-m-d H:i:s') . " - TO: $to_email - SUBJECT: $subject - FROM: $from_name <$from_email>\n";
+        $logLine = date('Y-m-d H:i:s') . " - TO: $to_email - SUBJECT: $subject - FROM: $from_name <$from_email> - CAMPAIGN SEND\n";
         file_put_contents($this->config['test_mode_log_path'], $logLine, FILE_APPEND | LOCK_EX);
         
         // Log to error log as well
-        error_log("TEST MODE: Email would be sent to: $to_email with subject: $subject");
+        error_log("TEST MODE CAMPAIGN: Email would be sent to: $to_email with subject: $subject");
         
         // Simulate successful sending
         return ['success' => true, 'test_mode' => true];

@@ -62,9 +62,13 @@ class BatchService {
             $batches = array_chunk($recipientIds, $this->batchSize);
             $batchCount = 0;
             
+            error_log("Creating " . count($batches) . " batches from " . count($recipientIds) . " recipients (batch size: " . $this->batchSize . ")");
+            
             foreach ($batches as $batchIndex => $batchRecipients) {
                 $batchNumber = $batchIndex + 1;
                 $currentTime = date('Y-m-d H:i:s');
+                
+                error_log("Creating batch $batchNumber with " . count($batchRecipients) . " recipients");
                 
                 // Create batch record
                 $sql = "INSERT INTO email_batches (campaign_id, batch_number, total_recipients, status, created_at) 
@@ -73,12 +77,16 @@ class BatchService {
                 $stmt->execute([$campaignId, $batchNumber, count($batchRecipients), $currentTime]);
                 $batchId = $this->db->lastInsertId();
                 
+                error_log("Created batch with ID: $batchId");
+                
                 // Link recipients to batch
                 foreach ($batchRecipients as $recipientId) {
                     $sql = "INSERT INTO batch_recipients (batch_id, recipient_id) VALUES (?, ?)";
                     $stmt = $this->db->prepare($sql);
                     $stmt->execute([$batchId, $recipientId]);
                 }
+                
+                error_log("Added " . count($batchRecipients) . " recipients to batch $batchId");
                 
                 $batchCount++;
             }

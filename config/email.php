@@ -30,6 +30,6 @@ return [
     'tracking_domain' => $_ENV['APP_URL'] ?? 'http://localhost/acrm',
     
     // Test mode - simulates email sending without actual SMTP
-    'test_mode' => $_ENV['MAIL_TEST_MODE'] ?? false,
+    'test_mode' => $_ENV['MAIL_TEST_MODE'] ?? true,
     'test_mode_log_path' => __DIR__ . '/../logs/test_emails.log'
 ];
