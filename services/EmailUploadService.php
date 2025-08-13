@@ -380,7 +380,8 @@ class EmailUploadService {
                 
                 // Insert into email_recipients table with normalized email
                 $currentTime = date('Y-m-d H:i:s');
-                $sql = "INSERT INTO email_recipients (campaign_id, email, name, company, dot, created_at) 
+                // Use INSERT IGNORE to skip duplicates
+                $sql = "INSERT IGNORE INTO email_recipients (campaign_id, email, name, company, dot, created_at) 
                         VALUES (:campaign_id, :email, :name, :company, :dot, :created_at)";
                 
                 $stmt = $this->db->prepare($sql);
@@ -393,8 +394,13 @@ class EmailUploadService {
                     ':created_at' => $currentTime
                 ]);
                 
-                $insertedIds[] = $this->db->lastInsertId();
-                $imported++;
+                if ($stmt->rowCount() > 0) {
+                    $insertedIds[] = $this->db->lastInsertId();
+                    $imported++;
+                } else {
+                    // Row was not inserted (duplicate based on unique constraint)
+                    $skipped++;
+                }
                 
             } catch (Exception $e) {
                 $errors[] = "Failed to import {$contact['email']}: " . $e->getMessage();

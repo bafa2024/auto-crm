@@ -236,17 +236,8 @@ class SimpleEmailUploadService {
         
         foreach ($contacts as $contact) {
             try {
-                // Check if email exists
-                $stmt = $this->db->prepare("SELECT id FROM email_recipients WHERE LOWER(email) = ?");
-                $stmt->execute([strtolower($contact['email'])]);
-                
-                if ($stmt->fetch()) {
-                    $skipped++;
-                    continue;
-                }
-                
-                // Insert new contact (using only fields that exist in the table)
-                $sql = "INSERT INTO email_recipients (email, name, company, dot, campaign_id, created_at) 
+                // Use INSERT IGNORE to skip duplicates (requires unique index on email)
+                $sql = "INSERT IGNORE INTO email_recipients (email, name, company, dot, campaign_id, created_at) 
                         VALUES (?, ?, ?, ?, ?, NOW())";
                 
                 $stmt = $this->db->prepare($sql);
@@ -258,11 +249,21 @@ class SimpleEmailUploadService {
                     null // Always null for general contact imports
                 ]);
                 
-                $imported++;
+                if ($stmt->rowCount() > 0) {
+                    $imported++;
+                } else {
+                    // Row was not inserted (duplicate)
+                    $skipped++;
+                }
                 
             } catch (Exception $e) {
-                $errors[] = "Failed to import {$contact['email']}: " . $e->getMessage();
-                $failed++;
+                // Check if it's a duplicate key error
+                if (strpos($e->getMessage(), 'Duplicate entry') !== false) {
+                    $skipped++;
+                } else {
+                    $errors[] = "Failed to import {$contact['email']}: " . $e->getMessage();
+                    $failed++;
+                }
             }
         }
         

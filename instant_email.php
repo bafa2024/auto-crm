@@ -129,6 +129,7 @@ try {
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet">
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.2/font/bootstrap-icons.min.css">
     <link rel="stylesheet" href="css/styles.css">
+    <link rel="stylesheet" href="css/email-editor.css">
     <link rel="stylesheet" href="css/sidebar-fix.css">
 
     <link rel="stylesheet" href="css/sidebar-layout-fix.css">
@@ -496,6 +497,7 @@ try {
     </div>
 
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/js/bootstrap.bundle.min.js"></script>
+    <script src="js/email-editor.js"></script>
     <script>
         // Email templates
         const templates = {

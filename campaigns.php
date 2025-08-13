@@ -307,6 +307,7 @@ try {
     <title>Email Campaigns - ACRM</title>
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/css/bootstrap.min.css" rel="stylesheet">
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.8.1/font/bootstrap-icons.css">
+    <link rel="stylesheet" href="css/email-editor.css">
     <style>
         .sidebar {
             position: fixed;
@@ -832,6 +833,7 @@ try {
     </div>
     
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/js/bootstrap.bundle.min.js"></script>
+    <script src="js/email-editor.js"></script>
     <script>
         function showSection(section) {
             alert("Section: " + section + " - Coming soon!");
