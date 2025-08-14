@@ -111,22 +111,33 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 // Get all contacts for the dropdown
 $allContactsData = [];
 try {
+    
     $database = new Database();
     $db = $database->getConnection();
     
-    // Get all active contacts
-    $query = "SELECT id, name, email, phone, company, status 
-              FROM contacts 
-              WHERE status = 'active' OR status IS NULL
-              ORDER BY name ASC";
+    // Get all active contacts - simplified query
+    $query = "SELECT id, name, email FROM contacts ORDER BY name ASC";
     
     $stmt = $db->prepare($query);
     $stmt->execute();
     
     $allContactsData = $stmt->fetchAll(PDO::FETCH_ASSOC);
+    
+    // Debug output
+    error_log("Loaded " . count($allContactsData) . " contacts from database");
+    if (count($allContactsData) == 0) {
+        // Try to check if table exists
+        $checkTable = $db->query("SHOW TABLES LIKE 'contacts'");
+        if ($checkTable->rowCount() > 0) {
+            error_log("Contacts table exists but is empty");
+        } else {
+            error_log("Contacts table does not exist!");
+        }
+    }
 } catch (Exception $e) {
-    // Ignore errors for contacts loading
+    // Log errors for debugging
     error_log("Error loading contacts: " . $e->getMessage());
+    $allContactsData = [];
 }
 
 // Get recent sent emails for display
@@ -309,6 +320,17 @@ try {
             </div>
         </div>
 
+                <!-- Debug Contact Info -->
+                <?php if (isset($_GET['debug'])): ?>
+                <div class="alert alert-info">
+                    <strong>Debug Info:</strong><br>
+                    Contacts loaded: <?php echo count($allContactsData); ?><br>
+                    <?php if (count($allContactsData) > 0): ?>
+                        First contact: <?php echo htmlspecialchars(json_encode($allContactsData[0])); ?>
+                    <?php endif; ?>
+                </div>
+                <?php endif; ?>
+                
                 <!-- Messages -->
                 <?php if ($message): ?>
                     <div class="alert alert-success alert-dismissible fade show" role="alert">
