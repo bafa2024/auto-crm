@@ -495,16 +495,30 @@ try {
         // Function to load contacts from API
         async function loadContacts() {
             try {
-                const response = await fetch('/api/contacts_api.php?action=list');
-                if (response.ok) {
-                    const data = await response.json();
-                    if (data.success && data.contacts) {
-                        allContacts = data.contacts;
-                        renderContactsList();
-                    }
+                console.log('Loading contacts from API...');
+                // Use the simpler endpoint
+                const response = await fetch('/api/get_all_contacts.php');
+                console.log('Response status:', response.status);
+                
+                if (!response.ok) {
+                    throw new Error(`HTTP error! status: ${response.status}`);
+                }
+                
+                const data = await response.json();
+                console.log('API response:', data);
+                
+                if (data.success && data.contacts) {
+                    allContacts = data.contacts;
+                    console.log(`Loaded ${data.count} contacts:`, allContacts);
+                    renderContactsList();
+                    updateSelectedCount(); // Initialize count display
+                } else {
+                    console.error('No contacts found in response');
+                    document.getElementById('contactsList').innerHTML = '<div class="text-center text-muted p-3"><i class="bi bi-inbox fs-3"></i><br>No contacts available</div>';
                 }
             } catch (error) {
                 console.error('Error loading contacts:', error);
+                document.getElementById('contactsList').innerHTML = '<div class="text-center text-danger p-3"><i class="bi bi-exclamation-triangle fs-3"></i><br>Error loading contacts. Please refresh the page.</div>';
             }
         }
         
