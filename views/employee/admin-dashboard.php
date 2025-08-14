@@ -469,6 +469,12 @@ include __DIR__ . "/../components/header.php";
                     <span>Send Instant Email</span>
                 </a>
             </div>
+            <div class="nav-item">
+                <a class="sidebar-link" href="<?php echo base_path('employee/bulk-email'); ?>">
+                    <i class="bi bi-envelope-at-fill"></i>
+                    <span>Send Bulk Email</span>
+                </a>
+            </div>
         </div>
         <?php endif; ?>
 
@@ -497,6 +503,12 @@ include __DIR__ . "/../components/header.php";
                 <a class="sidebar-link" href="<?php echo base_path('employee/instant-email'); ?>">
                     <i class="bi bi-send"></i>
                     <span>Instant Email</span>
+                </a>
+            </div>
+            <div class="nav-item">
+                <a class="sidebar-link" href="<?php echo base_path('employee/bulk-email'); ?>">
+                    <i class="bi bi-envelope-at"></i>
+                    <span>Bulk Email</span>
                 </a>
             </div>
             <?php endif; ?>
