@@ -329,13 +329,13 @@ try {
                                                 <div class="col-md-8">
                                                     <small class="text-muted fw-bold">Quick Tools:</small>
                                                     <div class="btn-group btn-group-sm me-2" role="group">
-                                                        <button type="button" class="btn btn-outline-secondary" onclick="insertText('**', '**')" title="Bold">
+                                                        <button type="button" class="btn btn-outline-secondary" onclick="formatText('bold')" title="Bold Text">
                                                             <i class="bi bi-type-bold"></i>
                                                         </button>
-                                                        <button type="button" class="btn btn-outline-secondary" onclick="insertText('*', '*')" title="Italic">
+                                                        <button type="button" class="btn btn-outline-secondary" onclick="formatText('italic')" title="Italic Text">
                                                             <i class="bi bi-type-italic"></i>
                                                         </button>
-                                                        <button type="button" class="btn btn-outline-secondary" onclick="insertText('_', '_')" title="Underline">
+                                                        <button type="button" class="btn btn-outline-secondary" onclick="formatText('underline')" title="Underline Text">
                                                             <i class="bi bi-type-underline"></i>
                                                         </button>
                                                     </div>
@@ -346,15 +346,20 @@ try {
                                                         <button type="button" class="btn btn-outline-secondary" onclick="insertText('1. ', '')" title="Numbered List">
                                                             <i class="bi bi-list-ol"></i>
                                                         </button>
-                                                        <button type="button" class="btn btn-outline-secondary" onclick="insertText('[Your Name]', '')" title="Name Placeholder">
+                                                        <button type="button" class="btn btn-outline-secondary" onclick="insertText('[Customer Name]', '')" title="Customer Name Placeholder">
                                                             <i class="bi bi-person"></i>
                                                         </button>
                                                     </div>
                                                 </div>
                                                 <div class="col-md-4 text-end">
-                                                    <button type="button" class="btn btn-sm btn-outline-info" onclick="insertSignature()">
-                                                        <i class="bi bi-file-earmark-text me-1"></i>Add Signature
-                                                    </button>
+                                                    <div class="btn-group btn-group-sm" role="group">
+                                                        <button type="button" class="btn btn-outline-success btn-sm" onclick="insertDivider()" title="Add Section Divider">
+                                                            <i class="bi bi-hr"></i>
+                                                        </button>
+                                                        <button type="button" class="btn btn-outline-info btn-sm" onclick="insertSignature()" title="Add Signature">
+                                                            <i class="bi bi-file-earmark-text"></i>
+                                                        </button>
+                                                    </div>
                                                 </div>
                                             </div>
                                         </div>
@@ -848,14 +853,80 @@ The AutoDial Pro Technical Team`
             }
         }
 
-        // Text formatting functions
-        function insertText(startText, endText) {
+        // Text formatting functions for email composition
+        function formatText(type) {
             const textarea = document.getElementById('message');
             const start = textarea.selectionStart;
             const end = textarea.selectionEnd;
             const selectedText = textarea.value.substring(start, end);
             
-            const newText = startText + selectedText + endText;
+            let formattedText = '';
+            
+            if (selectedText) {
+                // If text is selected, format it
+                switch(type) {
+                    case 'bold':
+                        formattedText = selectedText.toUpperCase();
+                        break;
+                    case 'italic':
+                        formattedText = '/' + selectedText + '/';
+                        break;
+                    case 'underline':
+                        formattedText = '_' + selectedText + '_';
+                        break;
+                }
+            } else {
+                // If no text selected, insert placeholder
+                switch(type) {
+                    case 'bold':
+                        formattedText = 'IMPORTANT TEXT HERE';
+                        break;
+                    case 'italic':
+                        formattedText = '/emphasized text/';
+                        break;
+                    case 'underline':
+                        formattedText = '_underlined text_';
+                        break;
+                }
+            }
+            
+            textarea.value = textarea.value.substring(0, start) + formattedText + textarea.value.substring(end);
+            
+            // Move cursor to end of inserted text
+            const newCursorPos = start + formattedText.length;
+            textarea.setSelectionRange(newCursorPos, newCursorPos);
+            textarea.focus();
+            
+            // Trigger character counter update
+            textarea.dispatchEvent(new Event('input'));
+        }
+
+        function insertText(startText, endText = '') {
+            const textarea = document.getElementById('message');
+            const start = textarea.selectionStart;
+            const end = textarea.selectionEnd;
+            const selectedText = textarea.value.substring(start, end);
+            
+            let newText;
+            if (startText === '• ' || startText === '1. ') {
+                // For lists, insert at beginning of line
+                const beforeCursor = textarea.value.substring(0, start);
+                const afterCursor = textarea.value.substring(end);
+                const lastNewline = beforeCursor.lastIndexOf('\n');
+                const currentLine = beforeCursor.substring(lastNewline + 1);
+                
+                if (currentLine.trim() === '') {
+                    // At beginning of empty line
+                    newText = startText;
+                } else {
+                    // Add new line first
+                    newText = '\n' + startText;
+                }
+            } else {
+                // Regular text insertion
+                newText = startText + selectedText + endText;
+            }
+            
             textarea.value = textarea.value.substring(0, start) + newText + textarea.value.substring(end);
             
             // Move cursor to end of inserted text
@@ -869,13 +940,30 @@ The AutoDial Pro Technical Team`
 
         function insertSignature() {
             const textarea = document.getElementById('message');
-            const signature = `\n\nBest regards,\n${document.getElementById('from_name').value || 'Your Name'}`;
+            const fromName = document.getElementById('from_name').value || 'Your Name';
+            const signature = `\n\nBest regards,\n${fromName}\nAutoDial Pro CRM`;
             
             const cursorPos = textarea.selectionStart;
             textarea.value = textarea.value.substring(0, cursorPos) + signature + textarea.value.substring(cursorPos);
             
             // Move cursor to end
             textarea.setSelectionRange(textarea.value.length, textarea.value.length);
+            textarea.focus();
+            
+            // Trigger character counter update
+            textarea.dispatchEvent(new Event('input'));
+        }
+
+        function insertDivider() {
+            const textarea = document.getElementById('message');
+            const divider = '\n\n━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n\n';
+            
+            const cursorPos = textarea.selectionStart;
+            textarea.value = textarea.value.substring(0, cursorPos) + divider + textarea.value.substring(cursorPos);
+            
+            // Move cursor to end of divider
+            const newCursorPos = cursorPos + divider.length;
+            textarea.setSelectionRange(newCursorPos, newCursorPos);
             textarea.focus();
             
             // Trigger character counter update
