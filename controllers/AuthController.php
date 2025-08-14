@@ -57,74 +57,101 @@ class AuthController extends BaseController {
             $input = json_decode(file_get_contents("php://input"), true);
         }
         
-        if (!$input) {
-            $this->sendError("Invalid JSON data", 400);
-        }
-        
-        $email = $this->sanitizeInput($input["email"] ?? "");
-        $password = $input["password"] ?? "";
-        
-        if (empty($email) || empty($password)) {
-            $this->sendError("Email and password are required");
-        }
-        
-        
-        // Check if database is connected
-        if (!$this->db) {
-            $this->sendError("Database connection error", 500);
-        }
-        
-        $user = $this->userModel->authenticate($email, $password);
-        
-        if (!$user) {
-            // Add debug info in development mode
-            if (($_ENV['APP_DEBUG'] ?? 'true') === 'true') {
-                // Check if user exists
-                $stmt = $this->db->prepare("SELECT email, status, role FROM users WHERE email = ?");
-                $stmt->execute([$email]);
-                $existingUser = $stmt->fetch();
-                
-                if (!$existingUser) {
-                    $this->sendError("Invalid credentials - User not found", 401);
-                } elseif ($existingUser['status'] !== 'active') {
-                    $this->sendError("Invalid credentials - User inactive", 401);
-                } else {
-                    $this->sendError("Invalid credentials - Password incorrect", 401);
-                }
-            } else {
-                $this->sendError("Invalid credentials", 401);
+        try {
+            // Debug logging
+            error_log("AuthController::login called - Method: " . ($_SERVER["REQUEST_METHOD"] ?? 'N/A'));
+            error_log("AuthController::login - Request URI: " . ($_SERVER["REQUEST_URI"] ?? 'N/A'));
+
+            // Set CORS headers
+            header("Access-Control-Allow-Origin: *");
+            header("Access-Control-Allow-Methods: POST, OPTIONS");
+            header("Access-Control-Allow-Headers: Content-Type, Authorization");
+
+            if ($_SERVER["REQUEST_METHOD"] === "OPTIONS") {
+                http_response_code(200);
+                exit;
             }
+
+            if ($_SERVER["REQUEST_METHOD"] !== "POST") {
+                $this->sendError("Method not allowed", 405);
+                return;
+            }
+
+            // Get input data
+            if ($request && isset($request->body)) {
+                $input = $request->body;
+            } else {
+                $input = json_decode(file_get_contents("php://input"), true);
+            }
+
+            if (!$input) {
+                $this->sendError("Invalid JSON data", 400);
+                return;
+            }
+
+            $email = $this->sanitizeInput($input["email"] ?? "");
+            $password = $input["password"] ?? "";
+
+            if (empty($email) || empty($password)) {
+                $this->sendError("Email and password are required");
+                return;
+            }
+
+            // Check if database is connected
+            if (!isset($this->db) || !$this->db) {
+                error_log("AuthController: Database connection missing or invalid");
+                $this->sendError("Database connection error", 500);
+                return;
+            }
+            // Check if userModel is set
+            if (!isset($this->userModel) || !$this->userModel) {
+                error_log("AuthController: userModel missing or invalid");
+                $this->sendError("Internal error: user model missing", 500);
+                return;
+            }
+
+            $user = $this->userModel->authenticate($email, $password);
+
+            if (!$user) {
+                // Add debug info in development mode
+                error_log("AuthController: User authentication failed for email: $email");
+                $this->sendError("Invalid credentials", 401);
+                return;
+            }
+            
+            // Start session only if not already started
+            if (session_status() === PHP_SESSION_NONE) {
+                session_start();
+            }
+            
+            $_SESSION["user_id"] = $user["id"];
+            $_SESSION["user_email"] = $user["email"];
+            $_SESSION["user_name"] = $user["first_name"] . " " . $user["last_name"];
+            $_SESSION["user_role"] = $user["role"] ?? "user";
+            $_SESSION["login_time"] = time();
+            
+            // Fix for live server redirect
+            $host = $_SERVER['HTTP_HOST'] ?? '';
+            $protocol = isset($_SERVER['HTTPS']) && $_SERVER['HTTPS'] === 'on' ? 'https' : 'http';
+            
+            if ($host === 'acrm.regrowup.ca' || $host === 'www.acrm.regrowup.ca') {
+                // Live server - use absolute URL
+                $redirectUrl = $protocol . "://" . $host . "/dashboard";
+            } else {
+                // Local development - use base path
+                $basePath = $this->getBasePath();
+                $redirectUrl = $basePath . "/dashboard";
+            }
+            
+            $this->sendSuccess([
+                "user" => $user,
+                "session_id" => session_id(),
+                "redirect" => $redirectUrl
+            ], "Login successful");
+        } catch (Exception $e) {
+            error_log("AuthController::login error: " . $e->getMessage());
+            $this->sendError("Internal server error", 500);
         }
-        
-        // Start session only if not already started
-        if (session_status() === PHP_SESSION_NONE) {
-            session_start();
-        }
-        
-        $_SESSION["user_id"] = $user["id"];
-        $_SESSION["user_email"] = $user["email"];
-        $_SESSION["user_name"] = $user["first_name"] . " " . $user["last_name"];
-        $_SESSION["user_role"] = $user["role"] ?? "user";
-        $_SESSION["login_time"] = time();
-        
-        // Fix for live server redirect
-        $host = $_SERVER['HTTP_HOST'] ?? '';
-        $protocol = isset($_SERVER['HTTPS']) && $_SERVER['HTTPS'] === 'on' ? 'https' : 'http';
-        
-        if ($host === 'acrm.regrowup.ca' || $host === 'www.acrm.regrowup.ca') {
-            // Live server - use absolute URL
-            $redirectUrl = $protocol . "://" . $host . "/dashboard";
-        } else {
-            // Local development - use base path
-            $basePath = $this->getBasePath();
-            $redirectUrl = $basePath . "/dashboard";
-        }
-        
-        $this->sendSuccess([
-            "user" => $user,
-            "session_id" => session_id(),
-            "redirect" => $redirectUrl
-        ], "Login successful");
     }
     
     public function employeeLogin($request = null) {
