@@ -112,17 +112,25 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 $allContactsData = [];
 try {
     
+
     $database = new Database();
     $db = $database->getConnection();
     
     // Get all active contacts - simplified query
-    $query = "SELECT id, name, email FROM contacts ORDER BY name ASC";
+    $query = "SELECT * FROM contacts ORDER BY name ASC";
     
     $stmt = $db->prepare($query);
     $stmt->execute();
     
     $allContactsData = $stmt->fetchAll(PDO::FETCH_ASSOC);
-    
+    //get only the id and email
+    $allContactsData = array_map(function($contact) {
+        return [
+            'id' => $contact['id'],
+            'email' => $contact['email']
+        ];
+    }, $allContactsData);
+
     // Debug output
     error_log("Loaded " . count($allContactsData) . " contacts from database");
     if (count($allContactsData) == 0) {
@@ -395,9 +403,7 @@ try {
                                                 </div>
                                             </div>
                                             
-                                            <textarea class="form-control" id="to" name="to" rows="3"
-                                                   placeholder="recipient1@example.com, recipient2@example.com, recipient3@example.com..." required><?php echo htmlspecialchars($_POST['to'] ?? ''); ?></textarea>
-                                            <div class="form-text">Enter email addresses separated by commas or select from contacts above.</div>
+                                           
                                         </div>
                                     </div>
                                     <div class="row mb-3">
