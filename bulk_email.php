@@ -866,23 +866,23 @@ The AutoDial Pro Technical Team`
                 // If text is selected, format it
                 switch(type) {
                     case 'bold':
-                        formattedText = selectedText.toUpperCase();
+                        formattedText = '**' + selectedText + '**';
                         break;
                     case 'italic':
-                        formattedText = '/' + selectedText + '/';
+                        formattedText = '*' + selectedText + '*';
                         break;
                     case 'underline':
                         formattedText = '_' + selectedText + '_';
                         break;
                 }
             } else {
-                // If no text selected, insert placeholder
+                // If no text selected, insert placeholder with proper formatting
                 switch(type) {
                     case 'bold':
-                        formattedText = 'IMPORTANT TEXT HERE';
+                        formattedText = '**bold text**';
                         break;
                     case 'italic':
-                        formattedText = '/emphasized text/';
+                        formattedText = '*italic text*';
                         break;
                     case 'underline':
                         formattedText = '_underlined text_';
