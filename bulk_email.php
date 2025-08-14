@@ -278,6 +278,18 @@ try {
                                     </div>
                                     <div class="row mb-3">
                                         <div class="col-12">
+                                            <label for="to" class="form-label">
+                                                <i class="bi bi-envelope-at me-1"></i>Recipients *
+                                            </label>
+                                            <textarea class="form-control" id="to" name="to" rows="3" 
+                                                      placeholder="Enter email addresses (comma-separated) or select from contacts below"
+                                                      required><?php echo htmlspecialchars($_POST['to'] ?? ''); ?></textarea>
+                                            <small class="text-muted">You can type email addresses here or select from the contacts list below.</small>
+                                        </div>
+                                    </div>
+
+                                    <div class="row mb-3">
+                                        <div class="col-12">
                                             <label for="subject" class="form-label">
                                                 <i class="bi bi-tag me-1"></i>Subject *
                                             </label>
