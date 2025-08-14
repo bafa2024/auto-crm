@@ -338,9 +338,9 @@ $currentUri = $_SERVER['REQUEST_URI'] ?? '';
                     </a>
                 </li>
                 <li class="nav-item">
-                    <a class="sidebar-link <?php echo strpos($currentUri, '/employee/bulk-email') !== false || strpos($currentUri, '/bulk_email.php') !== false ? 'active' : ''; ?>" href="<?php echo base_path('employee/bulk-email'); ?>">
+                    <a class="sidebar-link"  href="/bulk_email.php">
                         <i class="bi bi-send-fill"></i>
-                        <span>Bulk Email</span>
+                        <span>Bulk Emails</span>
                     </a>
                 </li>
             </ul>

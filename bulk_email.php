@@ -187,6 +187,76 @@ try {
             color: #721c24;
         }
         
+        /* Contact Dropdown Styles */
+        #contactsDropdown {
+            background: linear-gradient(to bottom, #ffffff, #f8f9fa);
+            border: 2px solid #0d6efd;
+            box-shadow: inset 0 1px 3px rgba(0,0,0,0.1);
+        }
+        
+        #contactsList {
+            max-height: 200px;
+            overflow-y: auto;
+        }
+        
+        #contactsList::-webkit-scrollbar {
+            width: 8px;
+        }
+        
+        #contactsList::-webkit-scrollbar-track {
+            background: #f1f1f1;
+            border-radius: 4px;
+        }
+        
+        #contactsList::-webkit-scrollbar-thumb {
+            background: #0d6efd;
+            border-radius: 4px;
+        }
+        
+        #contactsList::-webkit-scrollbar-thumb:hover {
+            background: #0b5ed7;
+        }
+        
+        #contactsList .list-group-item {
+            border: 1px solid #e9ecef;
+            margin-bottom: 3px;
+            cursor: pointer;
+            transition: all 0.2s ease;
+            border-radius: 5px !important;
+        }
+        
+        #contactsList .list-group-item:hover {
+            background-color: #e7f3ff;
+            border-color: #0d6efd;
+            transform: translateX(3px);
+        }
+        
+        #contactsList .list-group-item.bg-light {
+            background-color: #d1ecf1 !important;
+            border-left: 4px solid #0d6efd;
+        }
+        
+        #contactSearch {
+            border: 2px solid #dee2e6;
+            border-radius: 20px;
+            padding-left: 35px;
+        }
+        
+        #contactSearch:focus {
+            border-color: #0d6efd;
+            box-shadow: 0 0 0 0.2rem rgba(13, 110, 253, 0.25);
+        }
+        
+        .form-check-input {
+            width: 1.2em;
+            height: 1.2em;
+        }
+        
+        .form-check-input:checked {
+            background-color: #0d6efd;
+            border-color: #0d6efd;
+        }
+        
     </style>
 </head>
 <body>
@@ -250,9 +320,41 @@ try {
                                             <label for="to" class="form-label">
                                                 <i class="bi bi-people me-1"></i>To (Multiple Recipients) *
                                             </label>
+                                            
+                                            <!-- Contact Selection Section -->
+                                            <div class="mb-2">
+                                                <div class="d-flex justify-content-between align-items-center mb-2">
+                                                    <div>
+                                                        <span class="fw-semibold"><i class="bi bi-person-lines-fill me-1"></i>Select Recipients from Contacts</span>
+                                                        <span id="selectedCount" class="ms-2 badge bg-primary">0 selected</span>
+                                                    </div>
+                                                    <div>
+                                                        <button type="button" class="btn btn-success btn-sm" onclick="selectAllContacts()">
+                                                            <i class="bi bi-check-all"></i> Select All
+                                                        </button>
+                                                        <button type="button" class="btn btn-outline-danger btn-sm ms-1" onclick="clearAllContacts()">
+                                                            <i class="bi bi-x-circle"></i> Clear
+                                                        </button>
+                                                    </div>
+                                                </div>
+                                                
+                                                <!-- Always Visible Contacts List -->
+                                                <div id="contactsDropdown" class="border rounded p-2" style="max-height: 250px; overflow-y: auto; background-color: #f8f9fa;">
+                                                    <input type="text" class="form-control form-control-sm mb-2" id="contactSearch" placeholder="🔍 Search contacts by name or email..." onkeyup="filterContacts()">
+                                                    <div id="contactsList" class="list-group list-group-flush">
+                                                        <div class="text-center p-3">
+                                                            <div class="spinner-border spinner-border-sm text-primary" role="status">
+                                                                <span class="visually-hidden">Loading contacts...</span>
+                                                            </div>
+                                                            <div class="mt-2 text-muted">Loading contacts...</div>
+                                                        </div>
+                                                    </div>
+                                                </div>
+                                            </div>
+                                            
                                             <textarea class="form-control" id="to" name="to" rows="3"
                                                    placeholder="recipient1@example.com, recipient2@example.com, recipient3@example.com..." required><?php echo htmlspecialchars($_POST['to'] ?? ''); ?></textarea>
-                                            <div class="form-text">Enter email addresses separated by commas for bulk sending. One address per line or comma-separated.</div>
+                                            <div class="form-text">Enter email addresses separated by commas or select from contacts above.</div>
                                         </div>
                                     </div>
                                     <div class="row mb-3">
@@ -384,6 +486,140 @@ try {
 
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/js/bootstrap.bundle.min.js"></script>
     <script>
+        // Global variable to store contacts
+        let allContacts = [];
+        let selectedEmails = [];
+        
+        // Load contacts when page loads - merged with existing DOMContentLoaded below
+        
+        // Function to load contacts from API
+        async function loadContacts() {
+            try {
+                const response = await fetch('/api/contacts_api.php?action=list');
+                if (response.ok) {
+                    const data = await response.json();
+                    if (data.success && data.contacts) {
+                        allContacts = data.contacts;
+                        renderContactsList();
+                    }
+                }
+            } catch (error) {
+                console.error('Error loading contacts:', error);
+            }
+        }
+        
+        // Function to render contacts in the dropdown
+        function renderContactsList(filteredContacts = null) {
+            const contactsList = document.getElementById('contactsList');
+            const contacts = filteredContacts || allContacts;
+            
+            if (contacts.length === 0) {
+                contactsList.innerHTML = '<div class="text-center text-muted p-3"><i class="bi bi-inbox fs-3"></i><br>No contacts found</div>';
+                return;
+            }
+            
+            let html = '';
+            contacts.forEach((contact, index) => {
+                const isChecked = selectedEmails.includes(contact.email);
+                const bgColor = isChecked ? 'bg-light' : '';
+                html += `
+                    <label class="list-group-item list-group-item-action d-flex align-items-center py-2 ${bgColor}" style="cursor: pointer;">
+                        <input class="form-check-input me-3" type="checkbox" 
+                               value="${contact.email}" 
+                               data-name="${contact.name || ''}"
+                               onchange="toggleContact(this)"
+                               ${isChecked ? 'checked' : ''}>
+                        <div class="flex-grow-1">
+                            <div class="d-flex justify-content-between align-items-start">
+                                <div>
+                                    <div class="fw-semibold">${contact.name || 'No Name'}</div>
+                                    <small class="text-primary">${contact.email}</small>
+                                </div>
+                                <small class="text-muted">#${index + 1}</small>
+                            </div>
+                        </div>
+                    </label>
+                `;
+            });
+            contactsList.innerHTML = html;
+        }
+        
+        // Function to toggle individual contact selection
+        function toggleContact(checkbox) {
+            const email = checkbox.value;
+            if (checkbox.checked) {
+                if (!selectedEmails.includes(email)) {
+                    selectedEmails.push(email);
+                }
+            } else {
+                const index = selectedEmails.indexOf(email);
+                if (index > -1) {
+                    selectedEmails.splice(index, 1);
+                }
+            }
+            updateEmailField();
+            updateSelectedCount();
+        }
+        
+        // Function to select all contacts
+        function selectAllContacts() {
+            selectedEmails = allContacts.map(contact => contact.email);
+            renderContactsList();
+            updateEmailField();
+            updateSelectedCount();
+        }
+        
+        // Function to clear all selections
+        function clearAllContacts() {
+            selectedEmails = [];
+            renderContactsList();
+            updateEmailField();
+            updateSelectedCount();
+        }
+        
+        // Function to filter contacts based on search
+        function filterContacts() {
+            const searchTerm = document.getElementById('contactSearch').value.toLowerCase();
+            const filtered = allContacts.filter(contact => {
+                const name = (contact.name || '').toLowerCase();
+                const email = (contact.email || '').toLowerCase();
+                return name.includes(searchTerm) || email.includes(searchTerm);
+            });
+            renderContactsList(filtered);
+        }
+        
+        // Function to update the email textarea field
+        function updateEmailField() {
+            const emailField = document.getElementById('to');
+            const currentEmails = emailField.value.split(/[,\n]/).map(e => e.trim()).filter(e => e);
+            
+            // Get manually entered emails (not in selectedEmails)
+            const manualEmails = currentEmails.filter(email => !allContacts.some(c => c.email === email));
+            
+            // Combine selected and manual emails
+            const allEmails = [...new Set([...selectedEmails, ...manualEmails])];
+            emailField.value = allEmails.join(', ');
+        }
+        
+        // Function to update selected count display
+        function updateSelectedCount() {
+            const countElement = document.getElementById('selectedCount');
+            const count = selectedEmails.length;
+            countElement.textContent = `${count} selected`;
+            
+            // Update badge color based on selection
+            if (count === 0) {
+                countElement.className = 'ms-2 badge bg-secondary';
+            } else if (count === allContacts.length) {
+                countElement.className = 'ms-2 badge bg-success';
+            } else {
+                countElement.className = 'ms-2 badge bg-primary';
+            }
+            
+            // Update visual feedback in the list
+            renderContactsList();
+        }
+        
         // Email templates for bulk emails
         const templates = {
             announcement: {
@@ -555,6 +791,9 @@ The AutoDial Pro Technical Team`
         // Email validation with bulk support
         document.addEventListener('DOMContentLoaded', function() {
             console.log('Bulk email form loaded');
+            
+            // Load contacts
+            loadContacts();
             
             // Add email validation
             const emailInput = document.getElementById('to');

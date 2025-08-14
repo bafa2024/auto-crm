@@ -470,7 +470,7 @@ include __DIR__ . "/../components/header.php";
                 </a>
             </div>
             <div class="nav-item">
-                <a class="sidebar-link" href="<?php echo base_path('employee/bulk-email'); ?>">
+                <a class="sidebar-link" href="/bulk_email.php">
                     <i class="bi bi-envelope-at-fill"></i>
                     <span>Send Bulk Email</span>
                 </a>
@@ -506,7 +506,7 @@ include __DIR__ . "/../components/header.php";
                 </a>
             </div>
             <div class="nav-item">
-                <a class="sidebar-link" href="<?php echo base_path('employee/bulk-email'); ?>">
+                <a class="sidebar-link" href="/bulk_email.php">
                     <i class="bi bi-envelope-at"></i>
                     <span>Bulk Email</span>
                 </a>
@@ -773,7 +773,7 @@ include __DIR__ . "/../components/header.php";
                     <h5 class="mb-0"><i class="bi bi-envelope-at-fill"></i> 📧 Bulk Email</h5>
                     <div class="d-flex gap-2">
                         <span class="badge bg-light text-primary">Mass Send</span>
-                        <a href="<?php echo base_path('employee/bulk-email'); ?>" class="btn btn-sm btn-light">
+                        <a href="/bulk_email.php" class="btn btn-sm btn-light">
                             <i class="bi bi-arrow-up-right"></i> Full View
                         </a>
                     </div>
@@ -787,7 +787,7 @@ include __DIR__ . "/../components/header.php";
                                     <p class="text-muted mb-0">Send emails to multiple recipients efficiently</p>
                                 </div>
                                 <div class="text-end">
-                                    <a href="<?php echo base_path('employee/bulk-email'); ?>" class="btn btn-primary">
+                                    <a href="/bulk_email.php" class="btn btn-primary">
                                         <i class="bi bi-envelope-at me-2"></i>Start Bulk Email
                                     </a>
                                 </div>
@@ -1109,7 +1109,7 @@ function sendInstantEmail() {
 }
 
 function sendBulkEmail() {
-    window.location.href = basePath + '/employee/bulk-email';
+    window.location.href = '/bulk_email.php';
 }
 
 function createCampaign() {
