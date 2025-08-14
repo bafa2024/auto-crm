@@ -1,0 +1,58 @@
+/* Sidebar Fix CSS - Updates main content area to match new sidebar width */
+
+/* Update main content margin for new sidebar width (260px) */
+.main-content {
+    margin-left: 260px !important;
+}
+
+/* Responsive adjustments */
+@media (max-width: 768px) {
+    .main-content {
+        margin-left: 0 !important;
+        padding: 15px;
+    }
+    
+    /* Add padding-top for mobile to account for toggle button */
+    .main-content {
+        padding-top: 70px;
+    }
+}
+
+/* Fix for any elements that might have hardcoded 250px */
+.content-wrapper,
+.dashboard-content,
+.page-content {
+    margin-left: 0 !important;
+}
+
+/* Ensure proper z-index hierarchy */
+.modern-sidebar {
+    z-index: 1040;
+}
+
+.sidebar-toggle {
+    z-index: 1050;
+}
+
+/* Animation for sidebar on mobile */
+.modern-sidebar {
+    transition: transform 0.3s ease-in-out;
+}
+
+/* Overlay for mobile sidebar */
+@media (max-width: 768px) {
+    .sidebar-overlay {
+        display: none;
+        position: fixed;
+        top: 0;
+        left: 0;
+        width: 100%;
+        height: 100%;
+        background: rgba(0, 0, 0, 0.5);
+        z-index: 1035;
+    }
+    
+    .sidebar-overlay.show {
+        display: block;
+    }
+}

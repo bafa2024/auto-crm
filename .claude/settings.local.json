@@ -18,8 +18,16 @@
       "Bash(start http://localhost/acrm/contacts.php)",
       "Bash(C:/xampp/mysql/bin/mysqld.exe:*)",
       "Bash(start http://localhost/acrm/campaigns.php)",
-      "Bash(C:/xampp/mysql/bin/mysql.exe:*)"
+      "Bash(C:/xampp/mysql/bin/mysql.exe:*)",
+      "Bash(mkdir:*)",
+      "Bash(find:*)",
+      "Bash(C:\\xampp\\php\\php.exe:*)",
+      "Bash(start http://localhost/acrm/test_contacts_count.php)",
+      "Bash(start http://localhost/acrm/test_api_contacts.html)",
+      "Bash(start http://localhost/acrm/bulk_email.php)",
+      "Bash(start http://localhost/acrm/add_test_contacts.php)"
     ],
-    "deny": []
+    "deny": [],
+    "defaultMode": "acceptEdits"
   }
 }
