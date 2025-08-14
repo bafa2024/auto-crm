@@ -108,6 +108,27 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     }
 }
 
+// Get all contacts for the dropdown
+$allContactsData = [];
+try {
+    $database = new Database();
+    $db = $database->getConnection();
+    
+    // Get all active contacts
+    $query = "SELECT id, name, email, phone, company, status 
+              FROM contacts 
+              WHERE status = 'active' OR status IS NULL
+              ORDER BY name ASC";
+    
+    $stmt = $db->prepare($query);
+    $stmt->execute();
+    
+    $allContactsData = $stmt->fetchAll(PDO::FETCH_ASSOC);
+} catch (Exception $e) {
+    // Ignore errors for contacts loading
+    error_log("Error loading contacts: " . $e->getMessage());
+}
+
 // Get recent sent emails for display
 $recentEmails = [];
 try {
@@ -486,39 +507,20 @@ try {
 
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/js/bootstrap.bundle.min.js"></script>
     <script>
-        // Global variable to store contacts
-        let allContacts = [];
+        // Global variable to store contacts - loaded from PHP
+        let allContacts = <?php echo json_encode($allContactsData); ?>;
         let selectedEmails = [];
         
-        // Load contacts when page loads - merged with existing DOMContentLoaded below
-        
-        // Function to load contacts from API
-        async function loadContacts() {
-            try {
-                console.log('Loading contacts from API...');
-                // Use the simpler endpoint
-                const response = await fetch('/api/get_all_contacts.php');
-                console.log('Response status:', response.status);
-                
-                if (!response.ok) {
-                    throw new Error(`HTTP error! status: ${response.status}`);
-                }
-                
-                const data = await response.json();
-                console.log('API response:', data);
-                
-                if (data.success && data.contacts) {
-                    allContacts = data.contacts;
-                    console.log(`Loaded ${data.count} contacts:`, allContacts);
-                    renderContactsList();
-                    updateSelectedCount(); // Initialize count display
-                } else {
-                    console.error('No contacts found in response');
-                    document.getElementById('contactsList').innerHTML = '<div class="text-center text-muted p-3"><i class="bi bi-inbox fs-3"></i><br>No contacts available</div>';
-                }
-            } catch (error) {
-                console.error('Error loading contacts:', error);
-                document.getElementById('contactsList').innerHTML = '<div class="text-center text-danger p-3"><i class="bi bi-exclamation-triangle fs-3"></i><br>Error loading contacts. Please refresh the page.</div>';
+        // Load contacts when page loads
+        function loadContacts() {
+            console.log('Loading contacts from PHP data...');
+            console.log(`Loaded ${allContacts.length} contacts:`, allContacts);
+            
+            if (allContacts.length > 0) {
+                renderContactsList();
+                updateSelectedCount(); // Initialize count display
+            } else {
+                document.getElementById('contactsList').innerHTML = '<div class="text-center text-muted p-3"><i class="bi bi-inbox fs-3"></i><br>No contacts available</div>';
             }
         }
         
