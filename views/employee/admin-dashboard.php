@@ -764,6 +764,82 @@ include __DIR__ . "/../components/header.php";
     </div>
     <?php endif; ?>
 
+    <!-- Bulk Email Section -->
+    <?php if (hasPermission($permissions, 'send_instant_emails')): ?>
+    <div class="row g-4 mb-4">
+        <div class="col-12">
+            <div class="card quick-email-card activity-card">
+                <div class="card-header bg-primary text-white d-flex justify-content-between align-items-center">
+                    <h5 class="mb-0"><i class="bi bi-envelope-at-fill"></i> 📧 Bulk Email</h5>
+                    <div class="d-flex gap-2">
+                        <span class="badge bg-light text-primary">Mass Send</span>
+                        <a href="<?php echo base_path('employee/bulk-email'); ?>" class="btn btn-sm btn-light">
+                            <i class="bi bi-arrow-up-right"></i> Full View
+                        </a>
+                    </div>
+                </div>
+                <div class="card-body">
+                    <div class="row g-3">
+                        <div class="col-md-12">
+                            <div class="d-flex justify-content-between align-items-center">
+                                <div>
+                                    <h6 class="mb-1">📋 Bulk Email Features</h6>
+                                    <p class="text-muted mb-0">Send emails to multiple recipients efficiently</p>
+                                </div>
+                                <div class="text-end">
+                                    <a href="<?php echo base_path('employee/bulk-email'); ?>" class="btn btn-primary">
+                                        <i class="bi bi-envelope-at me-2"></i>Start Bulk Email
+                                    </a>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="col-md-12">
+                            <div class="row g-2">
+                                <div class="col-md-3">
+                                    <div class="text-center p-2 bg-light rounded">
+                                        <i class="bi bi-people-fill text-primary fs-4"></i>
+                                        <div class="mt-1">
+                                            <small class="text-muted">Multi-Select</small><br>
+                                            <strong class="text-primary">Recipients</strong>
+                                        </div>
+                                    </div>
+                                </div>
+                                <div class="col-md-3">
+                                    <div class="text-center p-2 bg-light rounded">
+                                        <i class="bi bi-speedometer2 text-success fs-4"></i>
+                                        <div class="mt-1">
+                                            <small class="text-muted">Fast</small><br>
+                                            <strong class="text-success">Batch Send</strong>
+                                        </div>
+                                    </div>
+                                </div>
+                                <div class="col-md-3">
+                                    <div class="text-center p-2 bg-light rounded">
+                                        <i class="bi bi-bar-chart-fill text-info fs-4"></i>
+                                        <div class="mt-1">
+                                            <small class="text-muted">Progress</small><br>
+                                            <strong class="text-info">Tracking</strong>
+                                        </div>
+                                    </div>
+                                </div>
+                                <div class="col-md-3">
+                                    <div class="text-center p-2 bg-light rounded">
+                                        <i class="bi bi-template text-warning fs-4"></i>
+                                        <div class="mt-1">
+                                            <small class="text-muted">Email</small><br>
+                                            <strong class="text-warning">Templates</strong>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+    <?php endif; ?>
+
     <!-- Main Dashboard Content Row -->
     <div class="row g-4">
         <!-- Quick Actions -->
@@ -779,6 +855,9 @@ include __DIR__ . "/../components/header.php";
                     <?php if (hasPermission($permissions, 'send_instant_emails')): ?>
                     <button class="quick-action-btn btn btn-outline-success" onclick="sendInstantEmail()">
                         <i class="bi bi-send me-2"></i>Send Instant Email
+                    </button>
+                    <button class="quick-action-btn btn btn-outline-success" onclick="sendBulkEmail()">
+                        <i class="bi bi-envelope-at me-2"></i>Send Bulk Email
                     </button>
                     <?php endif; ?>
                     <button class="quick-action-btn btn btn-outline-info" onclick="createCampaign()">
@@ -1027,6 +1106,10 @@ function addContact() {
 
 function sendInstantEmail() {
     window.location.href = basePath + '/employee/instant-email';
+}
+
+function sendBulkEmail() {
+    window.location.href = basePath + '/employee/bulk-email';
 }
 
 function createCampaign() {
