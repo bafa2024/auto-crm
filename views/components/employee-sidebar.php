@@ -373,6 +373,13 @@ if (!function_exists('isExactPage')) {
                         <span>Instant Email</span>
                     </a>
                 </li>
+                <li class="nav-item">
+                    <a class="sidebar-link <?php echo isCurrentPage('/employee/bulk-email') ? 'active' : ''; ?>" 
+                       href="<?php echo base_path('employee/bulk-email'); ?>">
+                        <i class="bi bi-envelope-at"></i>
+                        <span>Bulk Email</span>
+                    </a>
+                </li>
                 <?php endif; ?>
                
             </ul>

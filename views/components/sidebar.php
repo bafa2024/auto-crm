@@ -314,27 +314,33 @@ $currentUri = $_SERVER['REQUEST_URI'] ?? '';
             <div class="nav-section-title">Main Menu</div>
             <ul class="nav flex-column">
                 <li class="nav-item">
-                    <a class="sidebar-link <?php echo (strpos($currentUri, '/dashboard') !== false && strpos($currentUri, '/dashboard/') === false) ? 'active' : ''; ?>" href="<?php echo base_path('dashboard'); ?>">
+                    <a class="sidebar-link <?php echo strpos($currentUri, '/dashboard') !== false ? 'active' : ''; ?>" href="<?php echo base_path('dashboard'); ?>">
                         <i class="bi bi-speedometer2"></i>
                         <span>Dashboard</span>
                     </a>
                 </li>
                 <li class="nav-item">
-                    <a class="sidebar-link <?php echo strpos($currentUri, '/contacts.php') !== false ? 'active' : ''; ?>" href="<?php echo base_path('contacts.php'); ?>">
-                        <i class="bi bi-people"></i>
-                        <span>Contacts</span>
+                    <a class="sidebar-link <?php echo (strpos($currentUri, '/campaigns') !== false && strpos($currentUri, '/campaigns/create') === false && strpos($currentUri, '/campaigns/edit') === false) ? 'active' : ''; ?>" href="<?php echo base_path('campaigns.php'); ?>">
+                        <i class="bi bi-envelope"></i>
+                        <span>My Campaigns</span>
                     </a>
                 </li>
                 <li class="nav-item">
-                    <a class="sidebar-link <?php echo strpos($currentUri, '/campaigns.php') !== false ? 'active' : ''; ?>" href="<?php echo base_path('campaigns.php'); ?>">
-                        <i class="bi bi-megaphone"></i>
-                        <span>Campaigns</span>
+                    <a class="sidebar-link <?php echo strpos($currentUri, '/campaigns/create') !== false ? 'active' : ''; ?>" href="<?php echo base_path('campaigns.php'); ?>">
+                        <i class="bi bi-plus-circle"></i>
+                        <span>Create Campaign</span>
                     </a>
                 </li>
                 <li class="nav-item">
                     <a class="sidebar-link <?php echo strpos($currentUri, '/instant_email.php') !== false ? 'active' : ''; ?>" href="<?php echo base_path('instant_email.php'); ?>">
-                        <i class="bi bi-envelope-plus"></i>
+                        <i class="bi bi-send"></i>
                         <span>Instant Email</span>
+                    </a>
+                </li>
+                <li class="nav-item">
+                    <a class="sidebar-link <?php echo strpos($currentUri, '/employee/bulk-email') !== false || strpos($currentUri, '/bulk_email.php') !== false ? 'active' : ''; ?>" href="<?php echo base_path('employee/bulk-email'); ?>">
+                        <i class="bi bi-send-fill"></i>
+                        <span>Bulk Email</span>
                     </a>
                 </li>
             </ul>
@@ -345,42 +351,48 @@ $currentUri = $_SERVER['REQUEST_URI'] ?? '';
             <div class="nav-section-title">Management</div>
             <ul class="nav flex-column">
                 <li class="nav-item">
+                    <a class="sidebar-link <?php echo strpos($currentUri, '/campaigns/edit') !== false ? 'active' : ''; ?>" href="<?php echo base_path('campaigns.php'); ?>">
+                        <i class="bi bi-pencil-square"></i>
+                        <span>Edit Campaigns</span>
+                    </a>
+                </li>
+                <li class="nav-item">
+                    <a class="sidebar-link <?php echo strpos($currentUri, '/contacts.php') !== false ? 'active' : ''; ?>" href="<?php echo base_path('contacts.php'); ?>">
+                        <i class="bi bi-people"></i>
+                        <span>Contacts</span>
+                    </a>
+                </li>
+                <li class="nav-item">
+                    <a class="sidebar-link <?php echo strpos($currentUri, '/profile') !== false ? 'active' : ''; ?>" href="<?php echo base_path('profile'); ?>">
+                        <i class="bi bi-person"></i>
+                        <span>Profile</span>
+                    </a>
+                </li>
+                <li class="nav-item">
                     <a class="sidebar-link <?php echo strpos($currentUri, '/dashboard/employee_management.php') !== false ? 'active' : ''; ?>" href="<?php echo base_path('dashboard/employee_management.php'); ?>">
                         <i class="bi bi-person-badge"></i>
                         <span>Employees</span>
                     </a>
                 </li>
-           
-                <li class="nav-item">
-                    <a class="sidebar-link" href="#" onclick="showComingSoon('Analytics')">
-                        <i class="bi bi-graph-up-arrow"></i>
-                        <span>Analytics</span>
-                        <span class="nav-badge">Soon</span>
-                    </a>
-                </li>
             </ul>
         </div>
         
-        <!-- System -->
+        <!-- Analytics -->
         <div class="nav-section">
-            <div class="nav-section-title">System</div>
+            <div class="nav-section-title">Analytics</div>
             <ul class="nav flex-column">
                 <li class="nav-item">
-                    <a class="sidebar-link <?php echo strpos($currentUri, '/dashboard/settings') !== false ? 'active' : ''; ?>" href="<?php echo base_path('dashboard/settings'); ?>">
-                        <i class="bi bi-gear"></i>
-                        <span>Settings</span>
+                    <a class="sidebar-link" href="#" onclick="showComingSoon('Campaign Analytics')">
+                        <i class="bi bi-graph-up-arrow"></i>
+                        <span>Campaign Analytics</span>
+                        <span class="nav-badge">Soon</span>
                     </a>
                 </li>
                 <li class="nav-item">
-                    <a class="sidebar-link" href="#" onclick="showComingSoon('Help & Support')">
-                        <i class="bi bi-question-circle"></i>
-                        <span>Help & Support</span>
-                    </a>
-                </li>
-                <li class="nav-item">
-                    <a class="sidebar-link" href="#" onclick="showComingSoon('Documentation')">
-                        <i class="bi bi-book"></i>
-                        <span>Documentation</span>
+                    <a class="sidebar-link" href="#" onclick="showComingSoon('Performance Reports')">
+                        <i class="bi bi-bar-chart"></i>
+                        <span>Performance Reports</span>
+                        <span class="nav-badge">Soon</span>
                     </a>
                 </li>
             </ul>
