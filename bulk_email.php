@@ -853,6 +853,17 @@ The AutoDial Pro Technical Team`
             }
         }
 
+        // Helper function to clean existing formatting
+        function cleanFormatting(text) {
+            return text
+                .replace(/^\*\*\*(.*)\*\*\*$/g, '$1')  // Remove bold+italic
+                .replace(/^\*\*(.*)\*\*$/g, '$1')      // Remove bold
+                .replace(/^\*(.*)\*$/g, '$1')          // Remove italic
+                .replace(/^_(.*_)$/g, '$1')            // Remove underline
+                .replace(/^_(.*)_$/g, '$1')            // Remove underline properly
+                .replace(/[\*_]/g, '');                // Remove any remaining markers
+        }
+
         // Text formatting functions for email composition
         function formatText(type) {
             const textarea = document.getElementById('message');
@@ -863,16 +874,19 @@ The AutoDial Pro Technical Team`
             let formattedText = '';
             
             if (selectedText) {
-                // If text is selected, format it
+                // Clean any existing formatting from selected text
+                const cleanText = cleanFormatting(selectedText);
+                
+                // Apply new formatting to clean text
                 switch(type) {
                     case 'bold':
-                        formattedText = '**' + selectedText + '**';
+                        formattedText = '**' + cleanText + '**';
                         break;
                     case 'italic':
-                        formattedText = '*' + selectedText + '*';
+                        formattedText = '*' + cleanText + '*';
                         break;
                     case 'underline':
-                        formattedText = '_' + selectedText + '_';
+                        formattedText = '_' + cleanText + '_';
                         break;
                 }
             } else {
@@ -892,9 +906,11 @@ The AutoDial Pro Technical Team`
             
             textarea.value = textarea.value.substring(0, start) + formattedText + textarea.value.substring(end);
             
-            // Move cursor to end of inserted text
-            const newCursorPos = start + formattedText.length;
-            textarea.setSelectionRange(newCursorPos, newCursorPos);
+            // Select the text inside the formatting markers for easy re-editing
+            const markerLength = formattedText.startsWith('**') ? 2 : 1;
+            const innerStart = start + markerLength;
+            const innerEnd = start + formattedText.length - markerLength;
+            textarea.setSelectionRange(innerStart, innerEnd);
             textarea.focus();
             
             // Trigger character counter update
