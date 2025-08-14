@@ -418,20 +418,36 @@ try {
             
             // Make AJAX request to get contacts
             fetch('api/bulk_email_api.php?action=contacts')
-                .then(response => response.json())
-                .then(data => {
-                    if (data.success) {
-                        allContacts = data.data || [];
-                        console.log(`Loaded ${allContacts.length} contacts via AJAX:`, allContacts);
-                        
-                        if (allContacts.length > 0) {
-                            renderContactsList();
-                            updateSelectedCount(); // Initialize count display
+                .then(response => {
+                    console.log('Response status:', response.status);
+                    console.log('Response headers:', response.headers);
+                    
+                    if (!response.ok) {
+                        throw new Error(`HTTP error! status: ${response.status}`);
+                    }
+                    
+                    return response.text(); // Get as text first to debug
+                })
+                .then(text => {
+                    console.log('Raw response:', text);
+                    
+                    try {
+                        const data = JSON.parse(text);
+                        if (data.success) {
+                            allContacts = data.data || [];
+                            console.log(`Loaded ${allContacts.length} contacts via AJAX:`, allContacts);
+                            
+                            if (allContacts.length > 0) {
+                                renderContactsList();
+                                updateSelectedCount(); // Initialize count display
+                            } else {
+                                document.getElementById('contactsList').innerHTML = '<div class="text-center text-muted p-3"><i class="bi bi-inbox fs-3"></i><br>No contacts available</div>';
+                            }
                         } else {
-                            document.getElementById('contactsList').innerHTML = '<div class="text-center text-muted p-3"><i class="bi bi-inbox fs-3"></i><br>No contacts available</div>';
+                            throw new Error(data.error || 'Failed to load contacts');
                         }
-                    } else {
-                        throw new Error(data.error || 'Failed to load contacts');
+                    } catch (parseError) {
+                        throw new Error('Invalid JSON response: ' + parseError.message + '. Response was: ' + text.substring(0, 200));
                     }
                 })
                 .catch(error => {

@@ -26,7 +26,7 @@ class BulkEmailsController
     //get all the contacts from the database to list for selection
     public function getAllContacts()
     {
-        $query = "SELECT * FROM contacts";
+        $query = "SELECT id, name, email FROM email_recipients ORDER BY name ASC";
         $stmt = $this->db->prepare($query);
         $stmt->execute();
         return $stmt->fetchAll(PDO::FETCH_ASSOC);
@@ -35,7 +35,7 @@ class BulkEmailsController
     // Get a contact by ID
     public function getContactById($id)
     {
-        $query = "SELECT * FROM contacts WHERE id = :id";
+        $query = "SELECT id, name, email FROM email_recipients WHERE id = :id";
         $stmt = $this->db->prepare($query);
         $stmt->bindParam(':id', $id);
         $stmt->execute();
