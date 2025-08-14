@@ -322,6 +322,43 @@ try {
                                         <label for="message" class="form-label">
                                             <i class="bi bi-chat-text me-1"></i>Message *
                                         </label>
+                                        
+                                        <!-- Message Formatting Tools -->
+                                        <div class="border rounded p-2 mb-2 bg-light">
+                                            <div class="row">
+                                                <div class="col-md-8">
+                                                    <small class="text-muted fw-bold">Quick Tools:</small>
+                                                    <div class="btn-group btn-group-sm me-2" role="group">
+                                                        <button type="button" class="btn btn-outline-secondary" onclick="insertText('**', '**')" title="Bold">
+                                                            <i class="bi bi-type-bold"></i>
+                                                        </button>
+                                                        <button type="button" class="btn btn-outline-secondary" onclick="insertText('*', '*')" title="Italic">
+                                                            <i class="bi bi-type-italic"></i>
+                                                        </button>
+                                                        <button type="button" class="btn btn-outline-secondary" onclick="insertText('_', '_')" title="Underline">
+                                                            <i class="bi bi-type-underline"></i>
+                                                        </button>
+                                                    </div>
+                                                    <div class="btn-group btn-group-sm me-2" role="group">
+                                                        <button type="button" class="btn btn-outline-secondary" onclick="insertText('• ', '')" title="Bullet Point">
+                                                            <i class="bi bi-list-ul"></i>
+                                                        </button>
+                                                        <button type="button" class="btn btn-outline-secondary" onclick="insertText('1. ', '')" title="Numbered List">
+                                                            <i class="bi bi-list-ol"></i>
+                                                        </button>
+                                                        <button type="button" class="btn btn-outline-secondary" onclick="insertText('[Your Name]', '')" title="Name Placeholder">
+                                                            <i class="bi bi-person"></i>
+                                                        </button>
+                                                    </div>
+                                                </div>
+                                                <div class="col-md-4 text-end">
+                                                    <button type="button" class="btn btn-sm btn-outline-info" onclick="insertSignature()">
+                                                        <i class="bi bi-file-earmark-text me-1"></i>Add Signature
+                                                    </button>
+                                                </div>
+                                            </div>
+                                        </div>
+                                        
                                         <textarea class="form-control" id="message" name="message" rows="12" 
                                                   placeholder="Type your bulk email message here..." required><?php echo htmlspecialchars($_POST['message'] ?? ''); ?></textarea>
                                         <div class="form-text">This message will be sent to all recipients listed above.</div>
@@ -350,6 +387,38 @@ try {
 
                     <!-- Recent Emails -->
                     <div class="col-lg-4">
+                        <!-- Quick Actions / Templates -->
+                        <div class="card mb-3">
+                            <div class="card-header bg-info text-white">
+                                <h6 class="mb-0">
+                                    <i class="bi bi-lightning me-2"></i>
+                                    Quick Templates
+                                </h6>
+                            </div>
+                            <div class="card-body">
+                                <div class="d-grid gap-2">
+                                    <button type="button" class="btn btn-outline-primary btn-sm" onclick="loadTemplate('welcome')">
+                                        <i class="bi bi-star me-1"></i>Welcome Email
+                                    </button>
+                                    <button type="button" class="btn btn-outline-primary btn-sm" onclick="loadTemplate('followup')">
+                                        <i class="bi bi-arrow-repeat me-1"></i>Follow-up Email
+                                    </button>
+                                    <button type="button" class="btn btn-outline-primary btn-sm" onclick="loadTemplate('announcement')">
+                                        <i class="bi bi-megaphone me-1"></i>Announcement
+                                    </button>
+                                    <button type="button" class="btn btn-outline-primary btn-sm" onclick="loadTemplate('newsletter')">
+                                        <i class="bi bi-newspaper me-1"></i>Newsletter
+                                    </button>
+                                    <button type="button" class="btn btn-outline-primary btn-sm" onclick="loadTemplate('promotion')">
+                                        <i class="bi bi-tag me-1"></i>Promotion
+                                    </button>
+                                    <button type="button" class="btn btn-outline-primary btn-sm" onclick="loadTemplate('update')">
+                                        <i class="bi bi-arrow-up-circle me-1"></i>System Update
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
+                        
                         <div class="card">
                             <div class="card-header bg-secondary text-white">
                                 <h6 class="mb-0">
@@ -582,6 +651,63 @@ try {
         
         // Email templates for bulk emails
         const templates = {
+            welcome: {
+                subject: 'Welcome to AutoDial Pro CRM!',
+                message: `Dear [Customer Name],
+
+Welcome to AutoDial Pro CRM! We're thrilled to have you join our community of successful businesses.
+
+🌟 **WHAT'S NEXT?**
+• Complete your profile setup
+• Explore our powerful features
+• Connect with our support team if needed
+
+📚 **GETTING STARTED:**
+• Dashboard Overview: Navigate your new workspace
+• Contact Management: Import and organize your leads
+• Campaign Tools: Start your first email campaign
+
+🛠️ **HELPFUL RESOURCES:**
+• Quick Start Guide: [Link]
+• Video Tutorials: [Link]
+• Support Center: [Link]
+
+💬 **NEED HELP?**
+Our support team is here to help you succeed. Don't hesitate to reach out!
+
+Welcome aboard!
+
+Best regards,
+The AutoDial Pro Team`
+            },
+            followup: {
+                subject: 'Following up on your AutoDial Pro experience',
+                message: `Dear [Customer Name],
+
+I hope you're enjoying your AutoDial Pro CRM experience so far!
+
+🎯 **HOW ARE THINGS GOING?**
+• Have you had a chance to explore the dashboard?
+• Any questions about our features?
+• Need help with your first campaign?
+
+📋 **QUICK WINS:**
+• Import your contact list
+• Set up your first email sequence
+• Customize your account settings
+
+🚀 **ADVANCED FEATURES:**
+• Automated follow-up sequences
+• Advanced analytics and reporting
+• Integration capabilities
+
+📞 **LET'S CONNECT:**
+I'm here to help you get the most out of AutoDial Pro. Feel free to reach out with any questions!
+
+Best regards,
+[Your Name]
+AutoDial Pro Success Team`
+            },
             announcement: {
                 subject: 'Important Announcement - [Title]',
                 message: `Dear Valued Customers,
@@ -700,6 +826,9 @@ The AutoDial Pro Technical Team`
             if (template) {
                 document.getElementById('subject').value = template.subject;
                 document.getElementById('message').value = template.message;
+                
+                // Trigger character counter update
+                document.getElementById('message').dispatchEvent(new Event('input'));
             }
         }
 
@@ -711,7 +840,46 @@ The AutoDial Pro Technical Team`
                 document.getElementById('message').value = '';
                 document.getElementById('from_name').value = 'AutoDial Pro';
                 document.getElementById('from_email').value = 'noreply@acrm.regrowup.ca';
+                
+                // Clear contacts selection
+                selectedEmails = [];
+                updateSelectedCount();
+                renderContactsList();
             }
+        }
+
+        // Text formatting functions
+        function insertText(startText, endText) {
+            const textarea = document.getElementById('message');
+            const start = textarea.selectionStart;
+            const end = textarea.selectionEnd;
+            const selectedText = textarea.value.substring(start, end);
+            
+            const newText = startText + selectedText + endText;
+            textarea.value = textarea.value.substring(0, start) + newText + textarea.value.substring(end);
+            
+            // Move cursor to end of inserted text
+            const newCursorPos = start + newText.length;
+            textarea.setSelectionRange(newCursorPos, newCursorPos);
+            textarea.focus();
+            
+            // Trigger character counter update
+            textarea.dispatchEvent(new Event('input'));
+        }
+
+        function insertSignature() {
+            const textarea = document.getElementById('message');
+            const signature = `\n\nBest regards,\n${document.getElementById('from_name').value || 'Your Name'}`;
+            
+            const cursorPos = textarea.selectionStart;
+            textarea.value = textarea.value.substring(0, cursorPos) + signature + textarea.value.substring(cursorPos);
+            
+            // Move cursor to end
+            textarea.setSelectionRange(textarea.value.length, textarea.value.length);
+            textarea.focus();
+            
+            // Trigger character counter update
+            textarea.dispatchEvent(new Event('input'));
         }
 
         // Auto-save draft functionality
