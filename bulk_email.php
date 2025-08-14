@@ -28,125 +28,8 @@ if (isset($_GET['debug'])) {
     echo "</pre>";
 }
 
-if ($_SERVER['REQUEST_METHOD'] === 'POST') {
-    try {
-        $to = trim($_POST['to']);
-        $subject = trim($_POST['subject']);
-        $message_content = $_POST['message']; // Don't trim the message content to preserve line breaks
-        $from_name = trim($_POST['from_name'] ?? 'AutoDial Pro');
-        $from_email = trim($_POST['from_email'] ?? 'noreply@acrm.regrowup.ca');
-        
-        // Debug: Check message content format (remove in production)
-        if (isset($_GET['debug'])) {
-            echo "<pre>Raw message content:\n";
-            echo htmlspecialchars($message_content);
-            echo "\n\nLength: " . strlen($message_content);
-            echo "\n\nLine breaks count: " . substr_count($message_content, "\n");
-            echo "</pre>";
-        }
-        
-        // Validate inputs (only trim for empty check)
-        if (empty($to) || empty($subject) || empty(trim($message_content))) {
-            $error = 'Please fill in all required fields.';
-        } else {
-            // Handle multiple email addresses (comma-separated)
-            $recipients = array_map('trim', explode(',', $to));
-            $validRecipients = array_filter($recipients, function($email) {
-                return filter_var($email, FILTER_VALIDATE_EMAIL);
-            });
-            
-            if (empty($validRecipients)) {
-                $error = 'Please enter at least one valid email address.';
-            } else {
-                // Initialize database and email service
-                $database = new Database();
-                $db = $database->getConnection();
-                $emailService = new EmailService($db);
-                
-                $successCount = 0;
-                $failCount = 0;
-                $results = [];
-                
-                // Send emails to each recipient
-                foreach ($validRecipients as $recipient) {
-                    // Debug: Log the message content before sending
-                    error_log("DEBUG bulk_email - Message content before sending: " . var_export($message_content, true));
-                    error_log("DEBUG bulk_email - Line breaks count: " . substr_count($message_content, "\n"));
-                    
-                    $result = $emailService->sendInstantEmail([
-                        'to' => $recipient,
-                        'subject' => $subject,
-                        'message' => $message_content,
-                        'from_name' => $from_name,
-                        'from_email' => $from_email
-                    ]);
-                    
-                    if ($result === true) {
-                        $successCount++;
-                        $results[] = "✓ Sent to: $recipient";
-                    } else {
-                        $failCount++;
-                        $results[] = "✗ Failed to send to: $recipient";
-                    }
-                }
-                
-                // Prepare success/error messages
-                if ($successCount > 0 && $failCount == 0) {
-                    $message = "All bulk emails sent successfully! ($successCount sent)";
-                    // Clear form data after successful send
-                    $_POST = [];
-                } elseif ($successCount > 0 && $failCount > 0) {
-                    $message = "Partially successful: $successCount sent, $failCount failed";
-                    $error = implode('<br>', array_filter($results, function($r) { return strpos($r, '✗') === 0; }));
-                } else {
-                    $error = 'Failed to send any emails. Please check your email settings.';
-                }
-            }
-        }
-    } catch (Exception $e) {
-        $error = 'Error: ' . $e->getMessage();
-    }
-}
-
-// Get all contacts for the dropdown
+// Initialize empty contacts array - will be loaded via AJAX
 $allContactsData = [];
-try {
-    
-
-    $database = new Database();
-    $db = $database->getConnection();
-    
-    // Get all active contacts - simplified query
-    $query = "SELECT * FROM contacts ORDER BY name ASC";
-    
-    $stmt = $db->prepare($query);
-    $stmt->execute();
-    
-    $allContactsData = $stmt->fetchAll(PDO::FETCH_ASSOC);
-    //get only the id and email
-    $allContactsData = array_map(function($contact) {
-        return [
-            'id' => $contact['id'],
-            'email' => $contact['email']
-        ];
-    }, $allContactsData);
-
-    // Debug output
-    error_log("Loaded " . count($allContactsData) . " contacts from database");
-    if (count($allContactsData) == 0) {
-        // Try to check if table exists
-        $checkTable = $db->query("SHOW TABLES LIKE 'contacts'");
-        if ($checkTable->rowCount() > 0) {
-            error_log("Contacts table exists but is empty");
-        } else {
-            error_log("Contacts table does not exist!");
-        }
-    }
-} catch (Exception $e) {
-    // Log errors for debugging
-    error_log("Error loading contacts: " . $e->getMessage());
-    $allContactsData = [];
-}
 
 // Get recent sent emails for display
 $recentEmails = [];
@@ -339,20 +222,7 @@ try {
                 </div>
                 <?php endif; ?>
                 
-                <!-- Messages -->
-                <?php if ($message): ?>
-                    <div class="alert alert-success alert-dismissible fade show" role="alert">
-                        <i class="bi bi-check-circle me-2"></i><?php echo htmlspecialchars($message); ?>
-                        <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
-                    </div>
-                <?php endif; ?>
-
-                <?php if ($error): ?>
-                    <div class="alert alert-danger alert-dismissible fade show" role="alert">
-                        <i class="bi bi-exclamation-triangle me-2"></i><?php echo htmlspecialchars($error); ?>
-                        <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
-                    </div>
-                <?php endif; ?>
+                <!-- Messages will be displayed via JavaScript alerts -->
 
                 <div class="row">
                     <!-- Email Form -->
@@ -365,7 +235,7 @@ try {
                                 </h5>
                             </div>
                             <div class="card-body">
-                                <form method="POST" id="emailForm">
+                                <form method="POST" id="emailForm" onsubmit="return sendBulkEmailAjax(event)">
                                     <div class="row mb-3">
                                         <div class="col-12">
                                             <label for="to" class="form-label">
@@ -535,21 +405,39 @@ try {
 
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/js/bootstrap.bundle.min.js"></script>
     <script>
-        // Global variable to store contacts - loaded from PHP
-        let allContacts = <?php echo json_encode($allContactsData); ?>;
+        // Global variable to store contacts - loaded via AJAX
+        let allContacts = [];
         let selectedEmails = [];
         
-        // Load contacts when page loads
+        // Load contacts via AJAX when page loads
         function loadContacts() {
-            console.log('Loading contacts from PHP data...');
-            console.log(`Loaded ${allContacts.length} contacts:`, allContacts);
+            console.log('Loading contacts via AJAX...');
             
-            if (allContacts.length > 0) {
-                renderContactsList();
-                updateSelectedCount(); // Initialize count display
-            } else {
-                document.getElementById('contactsList').innerHTML = '<div class="text-center text-muted p-3"><i class="bi bi-inbox fs-3"></i><br>No contacts available</div>';
-            }
+            // Show loading state
+            document.getElementById('contactsList').innerHTML = '<div class="text-center p-3"><div class="spinner-border spinner-border-sm" role="status"></div> Loading contacts...</div>';
+            
+            // Make AJAX request to get contacts
+            fetch('api/bulk_email_api.php?action=contacts')
+                .then(response => response.json())
+                .then(data => {
+                    if (data.success) {
+                        allContacts = data.data || [];
+                        console.log(`Loaded ${allContacts.length} contacts via AJAX:`, allContacts);
+                        
+                        if (allContacts.length > 0) {
+                            renderContactsList();
+                            updateSelectedCount(); // Initialize count display
+                        } else {
+                            document.getElementById('contactsList').innerHTML = '<div class="text-center text-muted p-3"><i class="bi bi-inbox fs-3"></i><br>No contacts available</div>';
+                        }
+                    } else {
+                        throw new Error(data.error || 'Failed to load contacts');
+                    }
+                })
+                .catch(error => {
+                    console.error('Error loading contacts:', error);
+                    document.getElementById('contactsList').innerHTML = '<div class="text-center text-danger p-3"><i class="bi bi-exclamation-triangle fs-3"></i><br>Error loading contacts<br><small>' + error.message + '</small></div>';
+                });
         }
         
         // Function to render contacts in the dropdown
@@ -898,6 +786,117 @@ The AutoDial Pro Technical Team`
                 counter.className = 'text-muted mt-1';
             }
         });
+
+        // AJAX form submission function
+        function sendBulkEmailAjax(event) {
+            event.preventDefault(); // Prevent default form submission
+            
+            // Get form data
+            const form = document.getElementById('emailForm');
+            const formData = new FormData(form);
+            
+            // Get form values
+            const to = formData.get('to').trim();
+            const subject = formData.get('subject').trim();
+            const message = formData.get('message').trim();
+            const fromName = formData.get('from_name').trim() || 'AutoDial Pro';
+            const fromEmail = formData.get('from_email').trim() || 'noreply@acrm.regrowup.ca';
+            
+            // Validate required fields
+            if (!to || !subject || !message) {
+                showAlert('Please fill in all required fields.', 'danger');
+                return false;
+            }
+            
+            // Parse recipients
+            const recipients = to.split(/[,\n\r]/)
+                .map(email => email.trim())
+                .filter(email => email.length > 0);
+            
+            // Validate email addresses
+            const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+            const validRecipients = recipients.filter(email => emailRegex.test(email));
+            
+            if (validRecipients.length === 0) {
+                showAlert('Please enter at least one valid email address.', 'danger');
+                return false;
+            }
+            
+            // Show loading state
+            const submitBtn = form.querySelector('button[type="submit"]');
+            const originalText = submitBtn.innerHTML;
+            submitBtn.innerHTML = '<i class="bi bi-hourglass-split"></i> Sending...';
+            submitBtn.disabled = true;
+            
+            // Prepare API request data
+            const requestData = {
+                subject: subject,
+                body: message,
+                recipients: validRecipients,
+                from_name: fromName,
+                from_email: fromEmail
+            };
+            
+            // Send AJAX request
+            fetch('api/bulk_email_api.php?action=send', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify(requestData)
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.success) {
+                    showAlert(`Bulk emails sent successfully! ${data.data?.successCount || validRecipients.length} emails sent.`, 'success');
+                    
+                    // Clear form on success
+                    form.reset();
+                    selectedEmails = [];
+                    updateSelectedCount();
+                    renderContactsList();
+                } else {
+                    throw new Error(data.error || 'Failed to send emails');
+                }
+            })
+            .catch(error => {
+                console.error('Error sending emails:', error);
+                showAlert('Error sending emails: ' + error.message, 'danger');
+            })
+            .finally(() => {
+                // Restore button state
+                submitBtn.innerHTML = originalText;
+                submitBtn.disabled = false;
+            });
+            
+            return false; // Prevent default form submission
+        }
+        
+        // Helper function to show alerts
+        function showAlert(message, type) {
+            // Remove existing alerts
+            const existingAlerts = document.querySelectorAll('.alert');
+            existingAlerts.forEach(alert => alert.remove());
+            
+            // Create new alert
+            const alertDiv = document.createElement('div');
+            alertDiv.className = `alert alert-${type} alert-dismissible fade show`;
+            alertDiv.innerHTML = `
+                ${message}
+                <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+            `;
+            
+            // Insert alert at the top of the form
+            const form = document.getElementById('emailForm');
+            form.parentNode.insertBefore(alertDiv, form);
+            
+            // Auto-dismiss success alerts after 5 seconds
+            if (type === 'success') {
+                setTimeout(() => {
+                    alertDiv.remove();
+                }, 5000);
+            }
+        }
     </script>
 
     <!-- Bootstrap JS -->
