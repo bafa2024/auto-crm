@@ -742,83 +742,16 @@ class EmailService {
                 $mail->addBCC($bccEmail);
             }
             
-            // Content
-            $mail->isHTML(true);
+            // Content - Simple, plain text style
+            $mail->isHTML(false); // Send as plain text
             $mail->Subject = $subject;
             
-            // Clean, professional email formatting
-            $cleanFormatted = "
-<!DOCTYPE html>
-<html lang='en'>
-<head>
-    <meta charset='UTF-8'>
-    <meta name='viewport' content='width=device-width, initial-scale=1.0'>
-    <style>
-        body {
-            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
-            line-height: 1.6;
-            color: #333333;
-            margin: 0;
-            padding: 0;
-            background-color: #f8f9fa;
-        }
-        .email-container {
-            max-width: 600px;
-            margin: 20px auto;
-            background-color: #ffffff;
-            border-radius: 8px;
-            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
-            overflow: hidden;
-        }
-        .email-header {
-            background-color: #007bff;
-            color: #ffffff;
-            padding: 20px;
-            text-align: center;
-        }
-        .email-content {
-            padding: 30px;
-            text-align: left;
-        }
-        .email-content p {
-            margin: 0 0 15px 0;
-            font-size: 16px;
-            line-height: 1.6;
-        }
-        .email-footer {
-            background-color: #f8f9fa;
-            padding: 20px;
-            text-align: center;
-            font-size: 14px;
-            color: #6c757d;
-            border-top: 1px solid #dee2e6;
-        }
-        .message-text {
-            white-space: pre-line;
-            word-wrap: break-word;
-        }
-    </style>
-</head>
-<body>
-    <div class='email-container'>
-        <div class='email-header'>
-            <h2 style='margin: 0; font-size: 24px;'>AutoDial Pro</h2>
-        </div>
-        <div class='email-content'>
-            <div class='message-text'>" . $this->sanitizeEmailContent($message) . "</div>
-        </div>
-        <div class='email-footer'>
-            <p style='margin: 0;'>This email was sent via AutoDial Pro CRM System</p>
-            <p style='margin: 5px 0 0 0; font-size: 12px;'>© 2025 AutoDial Pro. All rights reserved.</p>
-        </div>
-    </div>
-</body>
-</html>";
+            // Simple, handwritten-style message without templates
+            $simpleMessage = $message; // Use the message as-is, without any formatting
             
-            error_log("DEBUG PHPMailer - Clean formatted message length: " . strlen($cleanFormatted));
+            error_log("DEBUG PHPMailer - Simple message length: " . strlen($simpleMessage));
             
-            $mail->Body = $cleanFormatted;
-            $mail->AltBody = strip_tags($message);
+            $mail->Body = $simpleMessage;
             
             $mail->send();
             
@@ -840,7 +773,7 @@ class EmailService {
         try {
             $headers = [];
             $headers[] = 'MIME-Version: 1.0';
-            $headers[] = 'Content-type: text/html; charset=UTF-8';
+            $headers[] = 'Content-type: text/plain; charset=UTF-8'; // Change to plain text
             
             // Use custom sender email if provided, otherwise use config
             $fromAddress = $senderEmail ?: ($this->config['from']['address'] ?? $this->config['smtp']['from']['address'] ?? 'noreply@autocrm.com');
@@ -856,79 +789,13 @@ class EmailService {
                 $headers[] = 'Bcc: ' . implode(', ', $bcc);
             }
             
-            // Clean, professional email formatting
-            $cleanFormatted = "
-<!DOCTYPE html>
-<html lang='en'>
-<head>
-    <meta charset='UTF-8'>
-    <meta name='viewport' content='width=device-width, initial-scale=1.0'>
-    <style>
-        body {
-            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
-            line-height: 1.6;
-            color: #333333;
-            margin: 0;
-            padding: 0;
-            background-color: #f8f9fa;
-        }
-        .email-container {
-            max-width: 600px;
-            margin: 20px auto;
-            background-color: #ffffff;
-            border-radius: 8px;
-            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
-            overflow: hidden;
-        }
-        .email-header {
-            background-color: #007bff;
-            color: #ffffff;
-            padding: 20px;
-            text-align: center;
-        }
-        .email-content {
-            padding: 30px;
-            text-align: left;
-        }
-        .email-content p {
-            margin: 0 0 15px 0;
-            font-size: 16px;
-            line-height: 1.6;
-        }
-        .email-footer {
-            background-color: #f8f9fa;
-            padding: 20px;
-            text-align: center;
-            font-size: 14px;
-            color: #6c757d;
-            border-top: 1px solid #dee2e6;
-        }
-        .message-text {
-            white-space: pre-line;
-            word-wrap: break-word;
-        }
-    </style>
-</head>
-<body>
-    <div class='email-container'>
-        <div class='email-header'>
-            <h2 style='margin: 0; font-size: 24px;'>AutoDial Pro</h2>
-        </div>
-        <div class='email-content'>
-            <div class='message-text'>" . $this->sanitizeEmailContent($message) . "</div>
-        </div>
-        <div class='email-footer'>
-            <p style='margin: 0;'>This email was sent via AutoDial Pro CRM System</p>
-            <p style='margin: 5px 0 0 0; font-size: 12px;'>© 2025 AutoDial Pro. All rights reserved.</p>
-        </div>
-    </div>
-</body>
-</html>";
+            // Simple plain text message without any formatting or templates
+            $simpleMessage = $message; // Use the message as-is
             
-            error_log("DEBUG mail() - Clean formatted message length: " . strlen($cleanFormatted));
+            error_log("DEBUG mail() - Simple message length: " . strlen($simpleMessage));
             
-            // Send formatted message
-            $result = mail($to, $subject, $cleanFormatted, implode("\r\n", $headers));
+            // Send simple message
+            $result = mail($to, $subject, $simpleMessage, implode("\r\n", $headers));
             
             if ($result) {
                 // Log the instant email
