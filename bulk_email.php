@@ -854,6 +854,8 @@ The AutoDial Pro Technical Team`
             };
             
             // Send AJAX request
+            console.log('Sending request to API with data:', requestData);
+            
             fetch('api/bulk_email_api.php?action=send', {
                 method: 'POST',
                 headers: {
@@ -861,18 +863,34 @@ The AutoDial Pro Technical Team`
                 },
                 body: JSON.stringify(requestData)
             })
-            .then(response => response.json())
-            .then(data => {
-                if (data.success) {
-                    showAlert(`Bulk emails sent successfully! ${data.data?.successCount || validRecipients.length} emails sent.`, 'success');
-                    
-                    // Clear form on success
-                    form.reset();
-                    selectedEmails = [];
-                    updateSelectedCount();
-                    renderContactsList();
-                } else {
-                    throw new Error(data.error || 'Failed to send emails');
+            .then(response => {
+                console.log('Response status:', response.status);
+                console.log('Response headers:', response.headers);
+                
+                if (!response.ok) {
+                    throw new Error(`HTTP error! status: ${response.status}`);
+                }
+                
+                return response.text(); // Get as text first to debug
+            })
+            .then(text => {
+                console.log('Raw response:', text);
+                
+                try {
+                    const data = JSON.parse(text);
+                    if (data.success) {
+                        showAlert(`Bulk emails sent successfully! ${data.data?.successCount || validRecipients.length} emails sent.`, 'success');
+                        
+                        // Clear form on success
+                        form.reset();
+                        selectedEmails = [];
+                        updateSelectedCount();
+                        renderContactsList();
+                    } else {
+                        throw new Error(data.error || 'Failed to send emails');
+                    }
+                } catch (parseError) {
+                    throw new Error('Invalid JSON response: ' + parseError.message + '. Response was: ' + text.substring(0, 200));
                 }
             })
             .catch(error => {

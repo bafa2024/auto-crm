@@ -15,6 +15,9 @@ class BulkEmailsController
 
     public function sendBulkEmail($subject, $body, $recipients, $fromName = 'AutoDial Pro', $fromEmail = 'noreply@acrm.regrowup.ca')
     {
+        error_log("BulkEmailsController: Starting bulk email send");
+        error_log("BulkEmailsController: Recipients count = " . count($recipients));
+        
         // Initialize email service
         $emailService = new EmailService($this->db);
         
@@ -24,6 +27,8 @@ class BulkEmailsController
         
         // Send emails to each recipient
         foreach ($recipients as $recipient) {
+            error_log("BulkEmailsController: Sending to $recipient");
+            
             $result = $emailService->sendInstantEmail([
                 'to' => $recipient,
                 'subject' => $subject,
@@ -31,6 +36,8 @@ class BulkEmailsController
                 'from_name' => $fromName,
                 'from_email' => $fromEmail
             ]);
+            
+            error_log("BulkEmailsController: Send result for $recipient = " . var_export($result, true));
             
             if ($result === true) {
                 $successCount++;
@@ -41,12 +48,16 @@ class BulkEmailsController
             }
         }
         
-        return [
+        $finalResult = [
             'successCount' => $successCount,
             'failCount' => $failCount,
             'results' => $results,
             'total' => count($recipients)
         ];
+        
+        error_log("BulkEmailsController: Final result = " . json_encode($finalResult));
+        
+        return $finalResult;
     }
 
     //get all the contacts from the database to list for selection

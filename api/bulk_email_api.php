@@ -4,6 +4,9 @@
  * Handles all API requests for bulk email functionality
  */
 
+// Start session for authentication
+session_start();
+
 header('Content-Type: application/json');
 header('Access-Control-Allow-Origin: *');
 header('Access-Control-Allow-Methods: GET, POST, PUT, DELETE');
@@ -12,6 +15,16 @@ header('Access-Control-Allow-Headers: Content-Type');
 // Handle preflight requests
 if ($_SERVER['REQUEST_METHOD'] === 'OPTIONS') {
     http_response_code(200);
+    exit();
+}
+
+// Check if user is logged in
+if (!isset($_SESSION['user_id'])) {
+    http_response_code(401);
+    echo json_encode([
+        'success' => false,
+        'error' => 'Authentication required. Please log in.'
+    ]);
     exit();
 }
 
@@ -115,11 +128,15 @@ try {
             switch ($action) {
                 case 'send':
                     // Send bulk email
+                    error_log("Bulk email API: Received send request");
+                    
                     $subject = $input['subject'] ?? '';
                     $body = $input['body'] ?? '';
                     $recipients = $input['recipients'] ?? [];
                     $fromName = $input['from_name'] ?? 'AutoDial Pro';
                     $fromEmail = $input['from_email'] ?? 'noreply@acrm.regrowup.ca';
+                    
+                    error_log("Bulk email API: Subject=$subject, Recipients=" . json_encode($recipients));
                     
                     // Validate required fields
                     if (empty($subject) || empty($body) || empty($recipients)) {
@@ -133,6 +150,8 @@ try {
                         $fromName,
                         $fromEmail
                     );
+                    
+                    error_log("Bulk email API: Send result=" . json_encode($result));
                     
                     echo json_encode([
                         'success' => true,
