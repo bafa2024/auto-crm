@@ -18,42 +18,78 @@ class BulkEmailsController
         error_log("BulkEmailsController: Starting bulk email send");
         error_log("BulkEmailsController: Recipients count = " . count($recipients));
         
-        // Initialize email service
-        $emailService = new EmailService($this->db);
+        // Check if we should use queue or direct sending
+        $useQueue = count($recipients) > 5; // Use queue for more than 5 recipients
         
-        $successCount = 0;
-        $failCount = 0;
-        $results = [];
-        
-        // Send emails to each recipient
-        foreach ($recipients as $recipient) {
-            error_log("BulkEmailsController: Sending to $recipient");
+        if ($useQueue) {
+            // Use email queue for better reliability
+            require_once __DIR__ . '/../services/EmailQueueService.php';
+            $queueService = new EmailQueueService($this->db);
             
-            $result = $emailService->sendInstantEmail([
-                'to' => $recipient,
-                'subject' => $subject,
-                'message' => $body,
-                'from_name' => $fromName,
-                'from_email' => $fromEmail
-            ]);
+            // Queue all emails
+            $queuedIds = $queueService->queueBulkEmails(
+                $recipients,
+                $subject,
+                $body,
+                [
+                    'from_name' => $fromName,
+                    'from_email' => $fromEmail,
+                    'priority' => 8 // Higher priority for bulk emails
+                ]
+            );
             
-            error_log("BulkEmailsController: Send result for $recipient = " . var_export($result, true));
+            // Process some emails immediately
+            $processResult = $queueService->processQueue(min(count($recipients), 20));
             
-            if ($result === true) {
-                $successCount++;
-                $results[] = "✓ Sent to: $recipient";
-            } else {
-                $failCount++;
-                $results[] = "✗ Failed to send to: $recipient";
+            $finalResult = [
+                'successCount' => $processResult['sent'],
+                'failCount' => $processResult['failed'],
+                'queued' => count($queuedIds),
+                'processed' => $processResult['processed'],
+                'results' => $processResult['details'],
+                'total' => count($recipients),
+                'method' => 'queue'
+            ];
+            
+        } else {
+            // Direct sending for small batches
+            $emailService = new EmailService($this->db);
+            
+            $successCount = 0;
+            $failCount = 0;
+            $results = [];
+            
+            foreach ($recipients as $recipient) {
+                error_log("BulkEmailsController: Sending to $recipient");
+                
+                $result = $emailService->sendInstantEmail([
+                    'to' => $recipient,
+                    'subject' => $subject,
+                    'message' => $body,
+                    'from_name' => $fromName,
+                    'from_email' => $fromEmail
+                ]);
+                
+                error_log("BulkEmailsController: Send result for $recipient = " . var_export($result, true));
+                
+                if ($result === true || (is_array($result) && $result['success'])) {
+                    $successCount++;
+                    $results[] = "✓ Sent to: $recipient";
+                } else {
+                    $failCount++;
+                    $errorMsg = is_array($result) ? ($result['error'] ?? 'Unknown error') : 'Send failed';
+                    $results[] = "✗ Failed to send to: $recipient - $errorMsg";
+                }
             }
+            
+            $finalResult = [
+                'successCount' => $successCount,
+                'failCount' => $failCount,
+                'results' => $results,
+                'total' => count($recipients),
+                'method' => 'direct'
+            ];
         }
-        
-        $finalResult = [
-            'successCount' => $successCount,
-            'failCount' => $failCount,
-            'results' => $results,
-            'total' => count($recipients)
-        ];
         
         error_log("BulkEmailsController: Final result = " . json_encode($finalResult));
         
