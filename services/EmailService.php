@@ -269,15 +269,13 @@ class EmailService {
             $headers[] = "List-Unsubscribe: <" . $options['unsubscribe_url'] . ">";
         }
         
-        // Add tracking if enabled and body is HTML
-        if ($isHtml) {
-            if ($this->config['track_opens'] && !empty($options['tracking_id'])) {
-                $body = $this->addTrackingPixel($body, $options['tracking_id']);
-            }
-            
-            if ($this->config['track_clicks'] && !empty($options['tracking_id'])) {
-                $body = $this->replaceLinksWithTracking($body, $options['tracking_id']);
-            }
+        // Add tracking if enabled (since we're always sending as HTML now)
+        if ($this->config['track_opens'] && !empty($options['tracking_id'])) {
+            $body = $this->addTrackingPixel($body, $options['tracking_id']);
+        }
+        
+        if ($this->config['track_clicks'] && !empty($options['tracking_id'])) {
+            $body = $this->replaceLinksWithTracking($body, $options['tracking_id']);
         }
         
         $to_email = is_array($to) ? $to['email'] : $to;
@@ -773,13 +771,20 @@ class EmailService {
         try {
             $headers = [];
             $headers[] = 'MIME-Version: 1.0';
-            $headers[] = 'Content-type: text/plain; charset=UTF-8'; // Change to plain text
+            $headers[] = 'Content-type: text/html; charset=UTF-8'; // Use HTML for better formatting
             
             // Use custom sender email if provided, otherwise use config
-            $fromAddress = $senderEmail ?: ($this->config['from']['address'] ?? $this->config['smtp']['from']['address'] ?? 'noreply@autocrm.com');
-            $fromName = $senderName ?: ($this->config['from']['name'] ?? $this->config['smtp']['from']['name'] ?? 'AutoCRM System');
+            $fromAddress = $senderEmail ?: ($this->config['from']['address'] ?? $this->config['smtp']['from']['address'] ?? 'noreply@localhost');
+            $fromName = $senderName ?: ($this->config['from']['name'] ?? $this->config['smtp']['from']['name'] ?? 'AutoDial Pro');
             
-            $headers[] = 'From: ' . $fromName . ' <' . $fromAddress . '>';
+            // Format from header properly for Windows
+            if (PHP_OS_FAMILY === 'Windows') {
+                $headers[] = 'From: ' . $fromAddress;
+                $headers[] = 'Reply-To: ' . $fromAddress;
+            } else {
+                $headers[] = 'From: ' . $fromName . ' <' . $fromAddress . '>';
+                $headers[] = 'Reply-To: ' . $fromAddress;
+            }
             
             if (!empty($cc)) {
                 $headers[] = 'Cc: ' . implode(', ', $cc);
@@ -789,17 +794,30 @@ class EmailService {
                 $headers[] = 'Bcc: ' . implode(', ', $bcc);
             }
             
-            // Simple plain text message without any formatting or templates
-            $simpleMessage = $message; // Use the message as-is
+            // Convert plain text to HTML if needed
+            if (strip_tags($message) == $message) {
+                // Plain text - convert to HTML
+                $htmlMessage = nl2br(htmlspecialchars($message));
+            } else {
+                $htmlMessage = $message;
+            }
             
-            error_log("DEBUG mail() - Simple message length: " . strlen($simpleMessage));
+            // Wrap in simple HTML template
+            $finalMessage = '<!DOCTYPE html><html><head><meta charset="UTF-8"></head><body style="font-family: Arial, sans-serif; line-height: 1.6; color: #333; padding: 20px;">' . $htmlMessage . '</body></html>';
             
-            // Send simple message
-            $result = mail($to, $subject, $simpleMessage, implode("\r\n", $headers));
+            error_log("DEBUG mail() - Sending email to: " . $to);
+            error_log("DEBUG mail() - Subject: " . $subject);
+            error_log("DEBUG mail() - From: " . $fromAddress);
+            
+            // Send email
+            $result = @mail($to, $subject, $finalMessage, implode("\r\n", $headers));
             
             if ($result) {
+                error_log("SUCCESS: Email sent to " . $to);
                 // Log the instant email
                 $this->logInstantEmail($to, $subject, $senderName, $fromAddress);
+            } else {
+                error_log("FAILED: Could not send email to " . $to . " - mail() function returned false");
             }
             
             return $result;

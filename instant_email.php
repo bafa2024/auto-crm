@@ -34,7 +34,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         $subject = trim($_POST['subject']);
         $message_content = $_POST['message']; // Don't trim the message content to preserve line breaks
         $from_name = trim($_POST['from_name'] ?? 'AutoDial Pro');
-        $from_email = trim($_POST['from_email'] ?? 'noreply@acrm.regrowup.ca');
+        $from_email = trim($_POST['from_email'] ?? 'noreply@localhost');
         
         // Debug: Check message content format (remove in production)
         if (isset($_GET['debug'])) {
@@ -61,32 +61,50 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 // Initialize database and email service
                 $database = new Database();
                 $db = $database->getConnection();
+                
+                // Check email configuration
+                $config = include __DIR__ . '/config/email.php';
+                error_log("Email driver: " . $config['driver']);
+                error_log("Test mode: " . ($config['test_mode'] ? 'enabled' : 'disabled'));
+                
                 $emailService = new EmailService($db);
                 
                 $successCount = 0;
                 $failCount = 0;
                 $results = [];
+                $detailedErrors = [];
                 
                 // Send emails to each recipient
                 foreach ($validRecipients as $recipient) {
                     // Debug: Log the message content before sending
-                    error_log("DEBUG instant_email - Message content before sending: " . var_export($message_content, true));
-                    error_log("DEBUG instant_email - Line breaks count: " . substr_count($message_content, "\n"));
+                    error_log("DEBUG instant_email - Sending to: " . $recipient);
+                    error_log("DEBUG instant_email - Subject: " . $subject);
+                    error_log("DEBUG instant_email - From: " . $from_name . " <" . $from_email . ">");
                     
-                    $result = $emailService->sendInstantEmail([
-                        'to' => $recipient,
-                        'subject' => $subject,
-                        'message' => $message_content,
-                        'from_name' => $from_name,
-                        'from_email' => $from_email
-                    ]);
-                    
-                    if ($result === true) {
-                        $successCount++;
-                        $results[] = "✓ Sent to: $recipient";
-                    } else {
+                    try {
+                        $result = $emailService->sendInstantEmail([
+                            'to' => $recipient,
+                            'subject' => $subject,
+                            'message' => $message_content,
+                            'from_name' => $from_name,
+                            'from_email' => $from_email
+                        ]);
+                        
+                        if ($result === true) {
+                            $successCount++;
+                            $results[] = "✓ Sent to: $recipient";
+                            error_log("SUCCESS: Email sent to " . $recipient);
+                        } else {
+                            $failCount++;
+                            $results[] = "✗ Failed to send to: $recipient";
+                            $detailedErrors[] = "Failed to send to $recipient - mail() function returned false";
+                            error_log("FAILED: Email not sent to " . $recipient);
+                        }
+                    } catch (Exception $sendEx) {
                         $failCount++;
                         $results[] = "✗ Failed to send to: $recipient";
+                        $detailedErrors[] = "Error sending to $recipient: " . $sendEx->getMessage();
+                        error_log("ERROR: " . $sendEx->getMessage());
                     }
                 }
                 
@@ -97,14 +115,22 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                     $_POST = [];
                 } elseif ($successCount > 0 && $failCount > 0) {
                     $message = "Partially successful: $successCount sent, $failCount failed";
-                    $error = implode('<br>', array_filter($results, function($r) { return strpos($r, '✗') === 0; }));
+                    $error = implode('<br>', $detailedErrors);
                 } else {
-                    $error = 'Failed to send any emails. Please check your email settings.';
+                    $error = 'Failed to send any emails.<br>' . implode('<br>', $detailedErrors);
+                    $error .= '<br><br><strong>Troubleshooting tips:</strong>';
+                    $error .= '<ul>';
+                    $error .= '<li>Check if SMTP server is configured in Windows</li>';
+                    $error .= '<li>Consider using a local mail server like <a href="https://github.com/mailhog/MailHog" target="_blank">MailHog</a></li>';
+                    $error .= '<li>Or configure SMTP settings with Gmail/SendGrid</li>';
+                    $error .= '<li><a href="test_email_send.php">Test email configuration</a></li>';
+                    $error .= '</ul>';
                 }
             }
         }
     } catch (Exception $e) {
         $error = 'Error: ' . $e->getMessage();
+        error_log("EXCEPTION in instant_email.php: " . $e->getMessage());
     }
 }
 
@@ -228,7 +254,7 @@ try {
 
                 <?php if ($error): ?>
                     <div class="alert alert-danger alert-dismissible fade show" role="alert">
-                        <i class="bi bi-exclamation-triangle me-2"></i><?php echo htmlspecialchars($error); ?>
+                        <i class="bi bi-exclamation-triangle me-2"></i><?php echo $error; ?>
                         <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
                     </div>
                 <?php endif; ?>
@@ -281,8 +307,8 @@ try {
                                                 <i class="bi bi-envelope me-1"></i>From Email
                                             </label>
                                             <input type="email" class="form-control" id="from_email" name="from_email" 
-                                                   value="<?php echo htmlspecialchars($_POST['from_email'] ?? 'noreply@acrm.regrowup.ca'); ?>" 
-                                                   placeholder="noreply@acrm.regrowup.ca">
+                                                   value="<?php echo htmlspecialchars($_POST['from_email'] ?? 'noreply@localhost'); ?>" 
+                                                   placeholder="noreply@localhost">
                                         </div>
                                     </div>
 

@@ -3,7 +3,8 @@
 
 return [
     // Default mail driver (smtp, mail, sendmail)
-    'driver' => $_ENV['MAIL_DRIVER'] ?? 'smtp',
+    // Using 'mail' as default since SMTP credentials may not be configured
+    'driver' => $_ENV['MAIL_DRIVER'] ?? 'mail',
     
     // SMTP Configuration
     'smtp' => [
@@ -31,5 +32,11 @@ return [
     
     // Test mode - simulates email sending without actual SMTP
     'test_mode' => $_ENV['MAIL_TEST_MODE'] ?? false,
+    
+    // Fallback from address for when SMTP is not configured
+    'from' => [
+        'address' => $_ENV['MAIL_FROM_ADDRESS'] ?? 'noreply@localhost',
+        'name' => $_ENV['MAIL_FROM_NAME'] ?? 'AutoDial Pro'
+    ],
     'test_mode_log_path' => __DIR__ . '/../logs/test_emails.log'
 ];
