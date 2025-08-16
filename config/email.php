@@ -31,12 +31,12 @@ return [
     'tracking_domain' => $_ENV['APP_URL'] ?? 'http://localhost/acrm',
     
     // Test mode - simulates email sending without actual SMTP
-    // Enable test mode by default for local development
-    'test_mode' => $_ENV['MAIL_TEST_MODE'] ?? true,
+    // Disable test mode for production, enable for local development
+    'test_mode' => $_ENV['MAIL_TEST_MODE'] ?? ($_SERVER['HTTP_HOST'] === 'localhost' || $_SERVER['HTTP_HOST'] === '127.0.0.1'),
     
     // Fallback from address for when SMTP is not configured
     'from' => [
-        'address' => $_ENV['MAIL_FROM_ADDRESS'] ?? 'noreply@localhost',
+        'address' => $_ENV['MAIL_FROM_ADDRESS'] ?? ($_SERVER['HTTP_HOST'] === 'localhost' ? 'noreply@localhost' : 'noreply@' . $_SERVER['HTTP_HOST']),
         'name' => $_ENV['MAIL_FROM_NAME'] ?? 'AutoDial Pro'
     ],
     'test_mode_log_path' => __DIR__ . '/../logs/test_emails.log'

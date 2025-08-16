@@ -257,9 +257,17 @@ class EmailService {
             $body = nl2br(htmlspecialchars($body));
         }
         
-        $from_email = $options['from_email'] ?? $this->config['smtp']['from']['address'] ?? 'noreply@localhost';
-        $from_name = $options['from_name'] ?? $this->config['smtp']['from']['name'] ?? 'ACRM System';
+        // Determine the best from address based on environment
+        $defaultFromAddress = 'noreply@localhost';
+        if (isset($_SERVER['HTTP_HOST']) && $_SERVER['HTTP_HOST'] !== 'localhost') {
+            $domain = str_replace('www.', '', $_SERVER['HTTP_HOST']);
+            $defaultFromAddress = 'noreply@' . $domain;
+        }
+        
+        $from_email = $options['from_email'] ?? $this->config['from']['address'] ?? $this->config['smtp']['from']['address'] ?? $defaultFromAddress;
+        $from_name = $options['from_name'] ?? $this->config['from']['name'] ?? $this->config['smtp']['from']['name'] ?? 'AutoDial Pro';
         $headers[] = "From: $from_name <$from_email>";
+        $headers[] = "X-Mailer: PHP/" . phpversion();
         
         if (!empty($options['reply_to'])) {
             $headers[] = "Reply-To: " . $options['reply_to'];
@@ -773,18 +781,22 @@ class EmailService {
             $headers[] = 'MIME-Version: 1.0';
             $headers[] = 'Content-type: text/html; charset=UTF-8'; // Use HTML for better formatting
             
+            // Determine the best from address based on environment
+            $defaultFromAddress = 'noreply@localhost';
+            if (isset($_SERVER['HTTP_HOST']) && $_SERVER['HTTP_HOST'] !== 'localhost') {
+                // On production, use the domain
+                $domain = str_replace('www.', '', $_SERVER['HTTP_HOST']);
+                $defaultFromAddress = 'noreply@' . $domain;
+            }
+            
             // Use custom sender email if provided, otherwise use config
-            $fromAddress = $senderEmail ?: ($this->config['from']['address'] ?? $this->config['smtp']['from']['address'] ?? 'noreply@localhost');
+            $fromAddress = $senderEmail ?: ($this->config['from']['address'] ?? $this->config['smtp']['from']['address'] ?? $defaultFromAddress);
             $fromName = $senderName ?: ($this->config['from']['name'] ?? $this->config['smtp']['from']['name'] ?? 'AutoDial Pro');
             
-            // Format from header properly for Windows
-            if (PHP_OS_FAMILY === 'Windows') {
-                $headers[] = 'From: ' . $fromAddress;
-                $headers[] = 'Reply-To: ' . $fromAddress;
-            } else {
-                $headers[] = 'From: ' . $fromName . ' <' . $fromAddress . '>';
-                $headers[] = 'Reply-To: ' . $fromAddress;
-            }
+            // Format from header - simplified for better compatibility
+            $headers[] = 'From: ' . $fromName . ' <' . $fromAddress . '>';
+            $headers[] = 'Reply-To: ' . $fromAddress;
+            $headers[] = 'X-Mailer: PHP/' . phpversion();
             
             if (!empty($cc)) {
                 $headers[] = 'Cc: ' . implode(', ', $cc);
