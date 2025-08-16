@@ -27,7 +27,8 @@
       "Bash(start http://localhost/acrm/bulk_email.php)",
       "Bash(start http://localhost/acrm/add_test_contacts.php)",
       "Bash(touch:*)",
-      "Bash(start http://localhost/acrm/test_email_send.php)"
+      "Bash(start http://localhost/acrm/test_email_send.php)",
+      "Bash(start http://localhost/acrm/inst_mail.php)"
     ],
     "deny": [],
     "defaultMode": "acceptEdits",

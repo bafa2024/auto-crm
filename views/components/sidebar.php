@@ -340,6 +340,12 @@ $currentUri = $_SERVER['REQUEST_URI'] ?? '';
                 <li class="nav-item">
                     <a class="sidebar-link"  href="/bulk_email.php">
                         <i class="bi bi-send-fill"></i>
+                        <span>NewEmails</span>
+                    </a>
+                </li>
+                <li class="nav-item">
+                    <a class="sidebar-link"  href="/bulk_email.php">
+                        <i class="bi bi-send-fill"></i>
                         <span>Bulk Emails</span>
                     </a>
                 </li>
