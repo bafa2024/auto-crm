@@ -338,7 +338,7 @@ $currentUri = $_SERVER['REQUEST_URI'] ?? '';
                     </a>
                 </li>
                 <li class="nav-item">
-                    <a class="sidebar-link"  href="/inst_email.php">
+                    <a class="sidebar-link"  href="/inst_mail.php">
                         <i class="bi bi-send-fill"></i>
                         <span>NewEmails</span>
                     </a>
