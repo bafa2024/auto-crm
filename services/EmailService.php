@@ -83,7 +83,7 @@ class EmailService {
     }
     
     /**
-     * Send a single email
+     * Send a single email using mail() function
      */
     public function send($to, $subject, $body, $options = []) {
         try {
@@ -93,20 +93,14 @@ class EmailService {
                 $body = $this->replaceMergeTags($body, $options['merge_data']);
             }
             
-            // Check if test mode is enabled (now disabled by default)
-            if ($this->config['test_mode'] ?? false) {
+            // Check if test mode is enabled (disabled by default for production)
+            if ($this->config['test_mode'] === true) {
                 return $this->sendViaTestMode($to, $subject, $body, $options);
             }
             
-            // Check if SMTP is configured and enabled in database
-            $smtpEnabled = !empty($this->config['smtp']['username']) && !empty($this->config['smtp']['password']);
+            // Always use PHP mail() function
+            return $this->sendViaMail($to, $subject, $body, $options);
             
-            if ($this->config['driver'] === 'smtp' && $smtpEnabled && class_exists('PHPMailer\PHPMailer\PHPMailer')) {
-                return $this->sendViaSMTP($to, $subject, $body, $options);
-            } else {
-                // Use PHP mail() function as fallback
-                return $this->sendViaMail($to, $subject, $body, $options);
-            }
         } catch (Exception $e) {
             error_log("Email send error: " . $e->getMessage());
             return ['success' => false, 'error' => $e->getMessage()];
@@ -245,29 +239,24 @@ class EmailService {
      * Send email via PHP mail() function
      */
     private function sendViaMail($to, $subject, $body, $options = []) {
-        $headers = [];
-        $headers[] = 'MIME-Version: 1.0';
-        
-        // Always treat as HTML since we're using the rich text editor
-        $headers[] = 'Content-type: text/html; charset=UTF-8';
-        
-        // Convert plain text to HTML if needed
-        if (strip_tags($body) == $body) {
-            // Plain text - convert newlines to <br>
-            $body = nl2br(htmlspecialchars($body));
-        }
-        
         // Determine the best from address based on environment
         $defaultFromAddress = 'noreply@localhost';
-        if (isset($_SERVER['HTTP_HOST']) && $_SERVER['HTTP_HOST'] !== 'localhost') {
+        if (isset($_SERVER['HTTP_HOST']) && $_SERVER['HTTP_HOST'] !== 'localhost' && $_SERVER['HTTP_HOST'] !== '127.0.0.1') {
             $domain = str_replace('www.', '', $_SERVER['HTTP_HOST']);
             $defaultFromAddress = 'noreply@' . $domain;
         }
         
-        $from_email = $options['from_email'] ?? $this->config['from']['address'] ?? $this->config['smtp']['from']['address'] ?? $defaultFromAddress;
-        $from_name = $options['from_name'] ?? $this->config['from']['name'] ?? $this->config['smtp']['from']['name'] ?? 'AutoDial Pro';
-        $headers[] = "From: $from_name <$from_email>";
-        $headers[] = "X-Mailer: PHP/" . phpversion();
+        $from_email = $options['from_email'] ?? $this->config['from']['address'] ?? $defaultFromAddress;
+        $from_name = $options['from_name'] ?? $this->config['from']['name'] ?? 'AutoDial Pro';
+        
+        // Build headers
+        $headers = [];
+        $headers[] = 'MIME-Version: 1.0';
+        $headers[] = 'Content-type: text/plain; charset=UTF-8'; // Use plain text for better deliverability
+        $headers[] = 'From: ' . $from_email; // Simple from header
+        $headers[] = 'Reply-To: ' . $from_email;
+        $headers[] = 'X-Mailer: PHP/' . phpversion();
+        $headers[] = 'Return-Path: ' . $from_email;
         
         if (!empty($options['reply_to'])) {
             $headers[] = "Reply-To: " . $options['reply_to'];
@@ -277,26 +266,31 @@ class EmailService {
             $headers[] = "List-Unsubscribe: <" . $options['unsubscribe_url'] . ">";
         }
         
-        // Add tracking if enabled (since we're always sending as HTML now)
-        if ($this->config['track_opens'] && !empty($options['tracking_id'])) {
-            $body = $this->addTrackingPixel($body, $options['tracking_id']);
-        }
-        
-        if ($this->config['track_clicks'] && !empty($options['tracking_id'])) {
-            $body = $this->replaceLinksWithTracking($body, $options['tracking_id']);
-        }
+        // Convert body to plain text
+        $plainBody = strip_tags($body);
         
         $to_email = is_array($to) ? $to['email'] : $to;
+        
+        // Additional parameters for mail() function (Linux/Unix only)
+        $additionalParams = '';
+        if (PHP_OS_FAMILY !== 'Windows') {
+            $additionalParams = '-f' . $from_email;
+        }
         
         // Log the email attempt
         error_log("Attempting to send email via mail() to: $to_email, subject: $subject");
         
-        if (mail($to_email, $subject, $body, implode("\r\n", $headers))) {
+        // Send the email
+        $result = @mail($to_email, $subject, $plainBody, implode("\r\n", $headers), $additionalParams);
+        
+        if ($result) {
             error_log("Email sent successfully via mail() to: $to_email");
             return ['success' => true];
         } else {
-            error_log("Failed to send email via mail() to: $to_email");
-            return ['success' => false, 'error' => 'Failed to send email via mail() function'];
+            $lastError = error_get_last();
+            $errorMsg = $lastError ? $lastError['message'] : 'Unknown error';
+            error_log("Failed to send email via mail() to: $to_email - Error: " . $errorMsg);
+            return ['success' => false, 'error' => 'Failed to send email: ' . $errorMsg];
         }
     }
     
@@ -674,7 +668,7 @@ class EmailService {
     }
     
     /**
-     * Send instant email
+     * Send instant email using mail() function
      */
     public function sendInstantEmail($data) {
         try {
@@ -686,11 +680,8 @@ class EmailService {
             $senderName = $data['from_name'] ?? $data['sender_name'] ?? 'AutoDial Pro';
             $senderEmail = $data['from_email'] ?? $data['sender_email'] ?? null;
             
-            if ($this->config['driver'] === 'smtp' && class_exists('PHPMailer\PHPMailer\PHPMailer')) {
-                return $this->sendViaPHPMailer($to, $subject, $message, $cc, $bcc, $senderName, $senderEmail);
-            } else {
-                return $this->sendViaMailInstant($to, $subject, $message, $cc, $bcc, $senderName, $senderEmail);
-            }
+            // Always use mail() function for instant emails
+            return $this->sendViaMailInstant($to, $subject, $message, $cc, $bcc, $senderName, $senderEmail);
             
         } catch (Exception $e) {
             error_log("Instant email send error: " . $e->getMessage());
@@ -777,26 +768,26 @@ class EmailService {
      */
     private function sendViaMailInstant($to, $subject, $message, $cc = [], $bcc = [], $senderName = '', $senderEmail = null) {
         try {
-            $headers = [];
-            $headers[] = 'MIME-Version: 1.0';
-            $headers[] = 'Content-type: text/html; charset=UTF-8'; // Use HTML for better formatting
-            
             // Determine the best from address based on environment
             $defaultFromAddress = 'noreply@localhost';
-            if (isset($_SERVER['HTTP_HOST']) && $_SERVER['HTTP_HOST'] !== 'localhost') {
+            if (isset($_SERVER['HTTP_HOST']) && $_SERVER['HTTP_HOST'] !== 'localhost' && $_SERVER['HTTP_HOST'] !== '127.0.0.1') {
                 // On production, use the domain
                 $domain = str_replace('www.', '', $_SERVER['HTTP_HOST']);
                 $defaultFromAddress = 'noreply@' . $domain;
             }
             
             // Use custom sender email if provided, otherwise use config
-            $fromAddress = $senderEmail ?: ($this->config['from']['address'] ?? $this->config['smtp']['from']['address'] ?? $defaultFromAddress);
-            $fromName = $senderName ?: ($this->config['from']['name'] ?? $this->config['smtp']['from']['name'] ?? 'AutoDial Pro');
+            $fromAddress = $senderEmail ?: ($this->config['from']['address'] ?? $defaultFromAddress);
+            $fromName = $senderName ?: ($this->config['from']['name'] ?? 'AutoDial Pro');
             
-            // Format from header - simplified for better compatibility
-            $headers[] = 'From: ' . $fromName . ' <' . $fromAddress . '>';
+            // Build headers array
+            $headers = [];
+            $headers[] = 'MIME-Version: 1.0';
+            $headers[] = 'Content-type: text/plain; charset=UTF-8'; // Use plain text for better deliverability
+            $headers[] = 'From: ' . $fromAddress; // Simple from header
             $headers[] = 'Reply-To: ' . $fromAddress;
             $headers[] = 'X-Mailer: PHP/' . phpversion();
+            $headers[] = 'Return-Path: ' . $fromAddress;
             
             if (!empty($cc)) {
                 $headers[] = 'Cc: ' . implode(', ', $cc);
@@ -806,30 +797,32 @@ class EmailService {
                 $headers[] = 'Bcc: ' . implode(', ', $bcc);
             }
             
-            // Convert plain text to HTML if needed
-            if (strip_tags($message) == $message) {
-                // Plain text - convert to HTML
-                $htmlMessage = nl2br(htmlspecialchars($message));
-            } else {
-                $htmlMessage = $message;
+            // Keep message as plain text for mail() function
+            $plainMessage = strip_tags($message);
+            
+            // Additional parameters for mail() function (Linux/Unix only)
+            $additionalParams = '';
+            if (PHP_OS_FAMILY !== 'Windows') {
+                $additionalParams = '-f' . $fromAddress;
             }
             
-            // Wrap in simple HTML template
-            $finalMessage = '<!DOCTYPE html><html><head><meta charset="UTF-8"></head><body style="font-family: Arial, sans-serif; line-height: 1.6; color: #333; padding: 20px;">' . $htmlMessage . '</body></html>';
+            error_log("Sending email via mail() to: " . $to);
+            error_log("From: " . $fromAddress);
+            error_log("Subject: " . $subject);
             
-            error_log("DEBUG mail() - Sending email to: " . $to);
-            error_log("DEBUG mail() - Subject: " . $subject);
-            error_log("DEBUG mail() - From: " . $fromAddress);
-            
-            // Send email
-            $result = @mail($to, $subject, $finalMessage, implode("\r\n", $headers));
+            // Send email with mail() function
+            $result = @mail($to, $subject, $plainMessage, implode("\r\n", $headers), $additionalParams);
             
             if ($result) {
                 error_log("SUCCESS: Email sent to " . $to);
                 // Log the instant email
                 $this->logInstantEmail($to, $subject, $senderName, $fromAddress);
             } else {
-                error_log("FAILED: Could not send email to " . $to . " - mail() function returned false");
+                $lastError = error_get_last();
+                error_log("FAILED: Could not send email to " . $to);
+                if ($lastError) {
+                    error_log("Error: " . $lastError['message']);
+                }
             }
             
             return $result;
