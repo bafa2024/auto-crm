@@ -31,7 +31,8 @@ return [
     'tracking_domain' => $_ENV['APP_URL'] ?? 'http://localhost/acrm',
     
     // Test mode - simulates email sending without actual SMTP
-    'test_mode' => $_ENV['MAIL_TEST_MODE'] ?? false,
+    // Enable test mode by default for local development
+    'test_mode' => $_ENV['MAIL_TEST_MODE'] ?? true,
     
     // Fallback from address for when SMTP is not configured
     'from' => [

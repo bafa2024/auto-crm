@@ -25,9 +25,14 @@
       "Bash(start http://localhost/acrm/test_contacts_count.php)",
       "Bash(start http://localhost/acrm/test_api_contacts.html)",
       "Bash(start http://localhost/acrm/bulk_email.php)",
-      "Bash(start http://localhost/acrm/add_test_contacts.php)"
+      "Bash(start http://localhost/acrm/add_test_contacts.php)",
+      "Bash(touch:*)",
+      "Bash(start http://localhost/acrm/test_email_send.php)"
     ],
     "deny": [],
-    "defaultMode": "acceptEdits"
+    "defaultMode": "acceptEdits",
+    "additionalDirectories": [
+      "C:\\xampp\\htdocs\\email_automation_python"
+    ]
   }
 }

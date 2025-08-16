@@ -110,7 +110,13 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 
                 // Prepare success/error messages
                 if ($successCount > 0 && $failCount == 0) {
-                    $message = "All emails sent successfully! ($successCount sent)";
+                    // Check if we're in test mode
+                    if ($config['test_mode']) {
+                        $message = "TEST MODE: Emails simulated successfully! ($successCount sent)<br>";
+                        $message .= '<small>Check <code>logs/test_emails.log</code> for details. To send real emails, disable test mode in config/email.php</small>';
+                    } else {
+                        $message = "All emails sent successfully! ($successCount sent)";
+                    }
                     // Clear form data after successful send
                     $_POST = [];
                 } elseif ($successCount > 0 && $failCount > 0) {
@@ -226,6 +232,19 @@ try {
 <!-- Main Content Area -->
 <div class="main-content" style="margin-left: 260px; padding: 20px;">
     <div class="container-fluid">
+        <?php 
+        // Check if test mode is enabled
+        $emailConfig = include __DIR__ . '/config/email.php';
+        if ($emailConfig['test_mode']): 
+        ?>
+        <div class="alert alert-info alert-dismissible fade show" role="alert">
+            <i class="bi bi-info-circle me-2"></i>
+            <strong>Test Mode Enabled:</strong> Emails will be simulated and logged to <code>logs/test_emails.log</code> instead of being sent. 
+            To send real emails, set <code>'test_mode' => false</code> in <code>config/email.php</code> and configure SMTP settings.
+            <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+        </div>
+        <?php endif; ?>
+        
         <!-- Page Header -->
         <div class="d-flex justify-content-between flex-wrap flex-md-nowrap align-items-center pt-3 pb-2 mb-3 border-bottom">
             <h1 class="h2">
@@ -247,7 +266,7 @@ try {
                 <!-- Messages -->
                 <?php if ($message): ?>
                     <div class="alert alert-success alert-dismissible fade show" role="alert">
-                        <i class="bi bi-check-circle me-2"></i><?php echo htmlspecialchars($message); ?>
+                        <i class="bi bi-check-circle me-2"></i><?php echo $message; ?>
                         <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
                     </div>
                 <?php endif; ?>
